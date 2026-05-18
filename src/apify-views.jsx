@@ -6,6 +6,16 @@ import {
 } from 'lucide-react';
 import { fetchInstagramStories, fetchInstagramProfile } from './lib/apify';
 
+/* ─── Helper: Proxy Instagram CDN images to bypass CORS ─────────────────── */
+const proxyImageUrl = (url) => {
+  if (!url) return null;
+  // Only proxy Instagram CDN URLs
+  if (url.includes('cdninstagram.com') || url.includes('fbcdn.net') || url.includes('scontent')) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
+
 /* ─── Shared inner components ───────────────────────────────────────────── */
 
 const ApifySearchBar = ({ value, onChange, placeholder, onSearch, loading }) => (
@@ -164,7 +174,7 @@ export const StoryViewerView = () => {
                     <div key={i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all">
                       {thumb ? (
                         <img
-                          src={thumb}
+                          src={proxyImageUrl(thumb)}
                           alt={`Story ${i + 1}`}
                           className="w-full aspect-[9/16] object-cover"
                           onError={(e) => { e.target.style.display = 'none'; }}
@@ -317,13 +327,13 @@ export const PostViewerView = () => {
                   {profile.profilePicUrl ? (
                     <div className="relative group shrink-0">
                       <img
-                        src={profile.profilePicUrlHD || profile.profilePicUrl}
+                        src={proxyImageUrl(profile.profilePicUrlHD || profile.profilePicUrl)}
                         alt={profile.username}
                         className="w-24 h-24 rounded-full border-4 border-emerald-100 object-cover"
                         onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/notionists/svg?seed=${profile.username}`; }}
                       />
                       <a
-                        href={profile.profilePicUrlHD || profile.profilePicUrl}
+                        href={proxyImageUrl(profile.profilePicUrlHD || profile.profilePicUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -384,7 +394,7 @@ export const PostViewerView = () => {
                       <div key={i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all aspect-square">
                         {post.displayUrl ? (
                           <img
-                            src={post.displayUrl}
+                            src={proxyImageUrl(post.displayUrl)}
                             alt={`Post ${i + 1}`}
                             className="w-full h-full object-cover"
                             onError={(e) => { e.target.style.display = 'none'; }}

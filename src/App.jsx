@@ -19,6 +19,16 @@ import {
 import { StoryViewerView, PostViewerView } from './apify-views';
 import { fetchInstagramProfile } from './lib/apify';
 
+/* ─── Helper: Proxy Instagram CDN images to bypass CORS ─────────────────── */
+const proxyImageUrl = (url) => {
+  if (!url) return null;
+  // Only proxy Instagram CDN URLs
+  if (url.includes('cdninstagram.com') || url.includes('fbcdn.net') || url.includes('scontent')) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
+
 /* ─── Static data ───────────────────────────────────────────────────────── */
 
 const PRICING_FAQS = [
@@ -477,7 +487,7 @@ const DemoResultCard = ({ result, onSignUp, onDismiss }) => {
       <div className="p-6">
         <div className="flex items-center gap-4 mb-6">
           {result.profilePicUrl ? (
-            <img src={result.profilePicUrl} alt={result.username} className="w-16 h-16 rounded-full border-2 border-emerald-200 shrink-0 object-cover" />
+            <img src={proxyImageUrl(result.profilePicUrl)} alt={result.username} className="w-16 h-16 rounded-full border-2 border-emerald-200 shrink-0 object-cover" />
           ) : (
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold shrink-0">
               {result.username.charAt(0).toUpperCase()}

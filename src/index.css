@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer utilities {
+  .animate-bounce-slow { animation: bounce 3s infinite; }
+  .perspective-1000 { perspective: 1000px; }
+  .rotate-y-\[-5deg\] { transform: rotateY(-5deg); }
+  .rotate-x-\[5deg\] { transform: rotateX(5deg); }
+}

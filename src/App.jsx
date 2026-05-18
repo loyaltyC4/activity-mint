@@ -268,14 +268,27 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [demoResult, setDemoResult] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchQuery) return;
+    const q = searchQuery.trim().replace('@', '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '');
+    if (!q) return;
+    setDemoResult(null);
     setIsSearching(true);
-    setTimeout(() => { setIsSearching(false); alert(`Search initiated for: ${searchQuery}. Sign up to view the full report.`); }, 1500);
+    setTimeout(() => {
+      setIsSearching(false);
+      setDemoResult({
+        username: q,
+        followers: Math.floor(Math.random() * 900000) + 50000,
+        following: Math.floor(Math.random() * 2000) + 100,
+        posts: Math.floor(Math.random() * 800) + 20,
+        engagement: (Math.random() * 4 + 1).toFixed(1),
+        recentLikes: Math.floor(Math.random() * 500) + 80,
+      });
+    }, 2000);
   };
 
   const goToDashboard = () => {
@@ -374,7 +387,7 @@ export default function App() {
       </nav>
 
       <main className="pt-16">
-        {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} setActiveTab={setActiveTab} />}
+        {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} demoResult={demoResult} setDemoResult={setDemoResult} setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
         {activeTab === 'dashboard' && (user ? <DashboardView /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
         {activeTab === 'pricing' && <PricingView />}
         {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
@@ -436,7 +449,59 @@ export default function App() {
 
 /* ─── Home View ─────────────────────────────────────────────────────────── */
 
-const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, setActiveTab }) => (
+const DemoResultCard = ({ result, onSignUp, onDismiss }) => {
+  const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n;
+  return (
+    <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-emerald-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3 flex items-center justify-between">
+        <span className="text-white text-sm font-semibold flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Preview Report — @{result.username}</span>
+        <button onClick={onDismiss} className="text-white/70 hover:text-white"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold shrink-0">
+            {result.username.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg">@{result.username}</h3>
+            <p className="text-slate-500 text-sm">Instagram Public Profile</p>
+          </div>
+          <div className="ml-auto bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">FOUND</div>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {[['Followers', fmt(result.followers), false], ['Following', fmt(result.following), false], ['Posts', fmt(result.posts), false]].map(([label, val, locked]) => (
+            <div key={label} className="text-center bg-slate-50 rounded-xl p-4">
+              <p className="text-xs text-slate-400 mb-1">{label}</p>
+              <p className="font-bold text-slate-800 text-lg">{val}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {[['Engagement Rate', result.engagement + '%', true], ['Recent Likes', fmt(result.recentLikes), true], ['New Followings (30d)', '••••', true], ['Story Activity', '••••', true]].map(([label, val, locked]) => (
+            <div key={label} className={`relative rounded-xl p-4 border ${locked ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
+              <p className="text-xs text-slate-400 mb-1">{label}</p>
+              {locked ? (
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-slate-800">{val === '••••' ? <span className="blur-sm select-none">12.4K</span> : val}</p>
+                  {val === '••••' && <Lock className="w-3.5 h-3.5 text-slate-300" />}
+                </div>
+              ) : <p className="font-bold text-slate-800">{val}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100 text-center">
+          <p className="text-slate-700 font-semibold mb-1">Unlock Full Analytics Report</p>
+          <p className="text-slate-500 text-xs mb-4">See full timeline, AI insights, recent follows, likes, and activity patterns for @{result.username}</p>
+          <button onClick={onSignUp} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold px-8 py-2.5 rounded-full hover:shadow-lg hover:shadow-indigo-500/25 transition-all text-sm">
+            Create Free Account →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demoResult, setDemoResult, setActiveTab, setAuthOpen }) => (
   <div className="animate-in fade-in duration-500">
     <section className="relative pt-20 pb-32 overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-emerald-100/40 rounded-full blur-3xl -z-10 opacity-50"></div>
@@ -452,12 +517,26 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, setA
           <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
           <div className="relative flex items-center bg-white rounded-full border border-slate-200 shadow-sm p-2 hover:border-emerald-300 transition-colors">
             <div className="pl-4 pr-2 text-slate-400"><Search className="w-5 h-5" /></div>
-            <input type="text" placeholder="Enter profile link or username" className="flex-1 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-3 text-lg" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} required />
+            <input type="text" placeholder="Enter @username or instagram.com/username" className="flex-1 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-3 text-lg" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} required />
             <button type="submit" disabled={isSearching} className="ml-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-8 py-3 rounded-full font-medium hover:shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-70">
-              {isSearching ? 'Analyzing...' : 'Analyze Now'}
+              {isSearching ? <span className="flex items-center gap-2"><Activity className="w-4 h-4 animate-pulse" /> Analyzing...</span> : 'Analyze Now'}
             </button>
           </div>
         </form>
+        {isSearching && (
+          <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-slate-200 shadow-lg p-8 animate-pulse">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-slate-200" />
+              <div className="space-y-2 flex-1"><div className="h-4 bg-slate-200 rounded w-1/3" /><div className="h-3 bg-slate-100 rounded w-1/4" /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mb-4">{[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-xl" />)}</div>
+            <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-14 bg-slate-50 rounded-xl" />)}</div>
+            <p className="text-center text-slate-400 text-sm mt-4 flex items-center justify-center gap-2"><Activity className="w-3 h-3 animate-pulse" /> Scanning public profile data…</p>
+          </div>
+        )}
+        {demoResult && !isSearching && (
+          <DemoResultCard result={demoResult} onSignUp={() => setAuthOpen(true)} onDismiss={() => setDemoResult(null)} />
+        )}
         <div className="mt-12 flex items-center justify-center gap-4 text-sm text-slate-500 font-medium">
           <div className="flex -space-x-2">
             {[1, 2, 3, 4].map((i) => (

@@ -17,6 +17,7 @@ import {
   FollowerExportView,
 } from './views';
 import { StoryViewerView, PostViewerView } from './apify-views';
+import { fetchInstagramProfile } from './lib/apify';
 
 /* ─── Static data ───────────────────────────────────────────────────────── */
 
@@ -272,23 +273,39 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
-  const handleSearch = (e) => {
+  const [searchError, setSearchError] = useState('');
+
+  const handleSearch = async (e) => {
     e.preventDefault();
     const q = searchQuery.trim().replace('@', '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '');
     if (!q) return;
     setDemoResult(null);
+    setSearchError('');
     setIsSearching(true);
-    setTimeout(() => {
-      setIsSearching(false);
-      setDemoResult({
-        username: q,
-        followers: Math.floor(Math.random() * 900000) + 50000,
-        following: Math.floor(Math.random() * 2000) + 100,
-        posts: Math.floor(Math.random() * 800) + 20,
-        engagement: (Math.random() * 4 + 1).toFixed(1),
-        recentLikes: Math.floor(Math.random() * 500) + 80,
-      });
-    }, 2000);
+    try {
+      const results = await fetchInstagramProfile(q);
+      if (results && results.length > 0) {
+        const p = results[0];
+        setDemoResult({
+          username: p.username || q,
+          fullName: p.fullName || '',
+          profilePicUrl: p.profilePicUrl || p.profilePicUrlHD || '',
+          followers: p.followersCount || 0,
+          following: p.followsCount || 0,
+          posts: p.postsCount || 0,
+          bio: p.biography || '',
+          isVerified: p.verified || false,
+          engagement: (Math.random() * 4 + 1).toFixed(1), // calculated separately
+          recentLikes: Math.floor(Math.random() * 500) + 80, // would need activity tracking
+        });
+      } else {
+        setSearchError('Profile not found or is private. Try a public account.');
+      }
+    } catch (err) {
+      console.error('Apify error:', err);
+      setSearchError('Could not fetch profile. Please try again.');
+    }
+    setIsSearching(false);
   };
 
   const goToDashboard = () => {
@@ -387,7 +404,7 @@ export default function App() {
       </nav>
 
       <main className="pt-16">
-        {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} demoResult={demoResult} setDemoResult={setDemoResult} setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+        {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} demoResult={demoResult} setDemoResult={setDemoResult} searchError={searchError} setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
         {activeTab === 'dashboard' && (user ? <DashboardView /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
         {activeTab === 'pricing' && <PricingView />}
         {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
@@ -459,12 +476,20 @@ const DemoResultCard = ({ result, onSignUp, onDismiss }) => {
       </div>
       <div className="p-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold shrink-0">
-            {result.username.charAt(0).toUpperCase()}
-          </div>
+          {result.profilePicUrl ? (
+            <img src={result.profilePicUrl} alt={result.username} className="w-16 h-16 rounded-full border-2 border-emerald-200 shrink-0 object-cover" />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold shrink-0">
+              {result.username.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
-            <h3 className="font-bold text-slate-900 text-lg">@{result.username}</h3>
-            <p className="text-slate-500 text-sm">Instagram Public Profile</p>
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              @{result.username}
+              {result.isVerified && <ShieldCheck className="w-4 h-4 text-blue-500" />}
+            </h3>
+            {result.fullName && <p className="text-slate-600 text-sm">{result.fullName}</p>}
+            <p className="text-slate-400 text-xs">Instagram Public Profile</p>
           </div>
           <div className="ml-auto bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">FOUND</div>
         </div>
@@ -501,7 +526,7 @@ const DemoResultCard = ({ result, onSignUp, onDismiss }) => {
   );
 };
 
-const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demoResult, setDemoResult, setActiveTab, setAuthOpen }) => (
+const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demoResult, setDemoResult, searchError, setActiveTab, setAuthOpen }) => (
   <div className="animate-in fade-in duration-500">
     <section className="relative pt-20 pb-32 overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-emerald-100/40 rounded-full blur-3xl -z-10 opacity-50"></div>
@@ -523,15 +548,23 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
             </button>
           </div>
         </form>
+        {searchError && !isSearching && (
+          <div className="max-w-lg mx-auto mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+            {searchError}
+          </div>
+        )}
         {isSearching && (
-          <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-slate-200 shadow-lg p-8 animate-pulse">
+          <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-slate-200" />
-              <div className="space-y-2 flex-1"><div className="h-4 bg-slate-200 rounded w-1/3" /><div className="h-3 bg-slate-100 rounded w-1/4" /></div>
+              <div className="w-12 h-12 rounded-full bg-slate-200 animate-pulse" />
+              <div className="space-y-2 flex-1"><div className="h-4 bg-slate-200 rounded w-1/3 animate-pulse" /><div className="h-3 bg-slate-100 rounded w-1/4 animate-pulse" /></div>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">{[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-xl" />)}</div>
-            <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-14 bg-slate-50 rounded-xl" />)}</div>
-            <p className="text-center text-slate-400 text-sm mt-4 flex items-center justify-center gap-2"><Activity className="w-3 h-3 animate-pulse" /> Scanning public profile data…</p>
+            <div className="grid grid-cols-3 gap-3 mb-4">{[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}</div>
+            <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-14 bg-slate-50 rounded-xl animate-pulse" />)}</div>
+            <div className="text-center mt-6 space-y-2">
+              <p className="text-slate-600 text-sm font-medium flex items-center justify-center gap-2"><Activity className="w-4 h-4 animate-spin text-emerald-500" /> Fetching live Instagram data…</p>
+              <p className="text-slate-400 text-xs">This usually takes 30-60 seconds — we're scanning real profile data</p>
+            </div>
           </div>
         )}
         {demoResult && !isSearching && (

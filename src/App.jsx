@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from './lib/supabase';
 import {
   Activity, Search, ShieldCheck, UserX, BarChart2, Brain, ThumbsUp,
   ChevronDown, Check, X, Menu, ArrowRight, TrendingUp, Globe,
@@ -625,6 +626,58 @@ const DashboardView = () => {
   const [toolkitSubTab, setToolkitSubTab] = useState('viewer');
   const [unfollowerMode, setUnfollowerMode] = useState('guardian');
 
+  // ── Tracked accounts (live Supabase) ──────────────────────────────────────
+  const [trackedAccounts, setTrackedAccounts] = useState([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [addInput, setAddInput] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!user) return;
+    loadAccounts();
+  }, [user]);
+
+  const loadAccounts = async () => {
+    setAccountsLoading(true);
+    const { data, error } = await supabase
+      .from('tracked_accounts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error) setTrackedAccounts(data || []);
+    setAccountsLoading(false);
+  };
+
+  const handleAddAccount = async () => {
+    const username = addInput.trim().replace('@', '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '');
+    if (!username) return;
+    setAddError('');
+    setAddLoading(true);
+    const { error } = await supabase.from('tracked_accounts').insert({
+      user_id: user.id,
+      username,
+      created_at: new Date().toISOString(),
+    });
+    setAddLoading(false);
+    if (error) {
+      setAddError(error.code === '23505' ? 'Already tracking this account.' : error.message);
+    } else {
+      setAddInput('');
+      loadAccounts();
+    }
+  };
+
+  const handleRemoveAccount = async (id) => {
+    await supabase.from('tracked_accounts').delete().eq('id', id);
+    setTrackedAccounts(prev => prev.filter(a => a.id !== id));
+  };
+
+  const formatDate = (iso) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50 pb-20">
       <div className="bg-white border-b border-slate-200">
@@ -648,59 +701,100 @@ const DashboardView = () => {
               <h1 className="text-3xl font-bold text-slate-900 mb-6">Social Insights</h1>
               <div className="bg-white rounded-lg p-1.5 border border-slate-200 shadow-sm flex items-center max-w-lg mx-auto">
                 <div className="pl-3 pr-2 text-slate-400"><ImageIcon className="w-5 h-5" /></div>
-                <input type="text" placeholder="Enter profile link or username" className="flex-1 bg-transparent border-none outline-none text-slate-700 py-2 text-sm" />
-                <button className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-2 px-6 rounded-md transition-colors shadow-sm text-sm">ADD ACCOUNT</button>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={addInput}
+                  onChange={e => { setAddInput(e.target.value); setAddError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+                  placeholder="Enter profile link or @username"
+                  className="flex-1 bg-transparent border-none outline-none text-slate-700 py-2 text-sm"
+                />
+                <button
+                  onClick={handleAddAccount}
+                  disabled={addLoading}
+                  className="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-60 text-white font-semibold py-2 px-6 rounded-md transition-colors shadow-sm text-sm">
+                  {addLoading ? '...' : 'ADD ACCOUNT'}
+                </button>
               </div>
+              {addError && <p className="text-red-500 text-xs mt-2">{addError}</p>}
             </div>
+
             <div className="space-y-4 max-w-4xl mx-auto">
-              {/* Live account card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-4 w-full md:w-1/3">
-                  <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop" alt="User" className="w-16 h-16 rounded-full border border-slate-200" />
-                  <div>
-                    <h3 className="font-bold text-slate-900">zacefron</h3>
-                    <p className="text-xs text-slate-400 mb-3">Added May 18, 2026</p>
-                    <button className="bg-indigo-500 text-white text-xs font-semibold px-4 py-1.5 rounded-full flex items-center gap-1 shadow-sm hover:bg-indigo-400 transition-colors">
-                      <Lock className="w-3 h-3" /> Start Tracking
+              {accountsLoading ? (
+                <div className="space-y-4">
+                  {[1,2].map(i => (
+                    <div key={i} className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse h-32" />
+                  ))}
+                </div>
+              ) : trackedAccounts.length === 0 ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
+                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 font-medium mb-2">No accounts tracked yet</p>
+                  <p className="text-slate-400 text-sm">Enter an Instagram username above to start tracking.</p>
+                </div>
+              ) : (
+                trackedAccounts.map(account => (
+                  <div key={account.id} className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm hover:shadow-md transition-shadow relative group">
+                    <button
+                      onClick={() => handleRemoveAccount(account.id)}
+                      className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400 p-1 rounded">
+                      <X className="w-4 h-4" />
                     </button>
+                    <div className="flex items-center gap-4 w-full md:w-1/3">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold border border-slate-200 shrink-0">
+                        {account.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">@{account.username}</h3>
+                        <p className="text-xs text-slate-400 mb-3">Added {formatDate(account.created_at)}</p>
+                        <button className="bg-indigo-500 text-white text-xs font-semibold px-4 py-1.5 rounded-full flex items-center gap-1 shadow-sm hover:bg-indigo-400 transition-colors">
+                          <Lock className="w-3 h-3" /> Start Tracking
+                        </button>
+                      </div>
+                    </div>
+                    <div className="w-full md:w-2/3 grid grid-cols-3 gap-4 text-center md:text-left">
+                      <div><p className="text-xs text-slate-400 mb-1">Likes made</p><p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><Heart className="w-4 h-4 text-indigo-500" /> --</p></div>
+                      <div><p className="text-xs text-slate-400 mb-1">New Followings</p><p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><UserCheck className="w-4 h-4 text-indigo-500" /> --</p></div>
+                      <div><p className="text-xs text-slate-400 mb-1">Stories</p><p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><MonitorPlay className="w-4 h-4 text-indigo-500" /> --</p></div>
+                    </div>
                   </div>
-                </div>
-                <div className="w-full md:w-2/3 grid grid-cols-3 gap-4 text-center md:text-left">
-                  <div><p className="text-xs text-slate-400 mb-1">Likes made</p><p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><Heart className="w-4 h-4 text-indigo-500" /> --</p></div>
-                  <div><p className="text-xs text-slate-400 mb-1">New Followings</p><p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><UserCheck className="w-4 h-4 text-indigo-500" /> --</p></div>
-                  <div className="relative"><p className="text-xs text-slate-400 mb-1">Stories</p><p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><MonitorPlay className="w-4 h-4 text-indigo-500" /> --</p></div>
-                </div>
-              </div>
-              <div className="text-center text-xs font-semibold text-slate-400 my-6">Examples — Demo Profiles</div>
-              {/* Demo example card */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm hover:shadow-md transition-shadow relative">
-                <div className="absolute -top-3 right-4 bg-indigo-100 text-indigo-600 text-[10px] font-bold px-3 py-1 rounded-full">Example</div>
-                <div className="flex items-center gap-4 w-full md:w-1/3">
-                  <img src="https://images.unsplash.com/photo-1524502397800-2eea19dc1ce3?w=150&h=150&fit=crop" alt="User" className="w-16 h-16 rounded-full border border-slate-200" />
-                  <div>
-                    <h3 className="font-bold text-slate-900">kyliejenner</h3>
-                    <p className="text-xs text-slate-400 mb-3">Annual · Mar 29, 2024</p>
-                    <button className="bg-indigo-50 text-indigo-600 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-indigo-100 transition-colors">See Analytics</button>
+                ))
+              )}
+
+              {trackedAccounts.length > 0 && (
+                <>
+                  <div className="text-center text-xs font-semibold text-slate-400 my-6">Examples — Demo Profiles</div>
+                  <div className="bg-white rounded-xl border border-slate-200 p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm hover:shadow-md transition-shadow relative">
+                    <div className="absolute -top-3 right-4 bg-indigo-100 text-indigo-600 text-[10px] font-bold px-3 py-1 rounded-full">Example</div>
+                    <div className="flex items-center gap-4 w-full md:w-1/3">
+                      <img src="https://images.unsplash.com/photo-1524502397800-2eea19dc1ce3?w=150&h=150&fit=crop" alt="User" className="w-16 h-16 rounded-full border border-slate-200" />
+                      <div>
+                        <h3 className="font-bold text-slate-900">kyliejenner</h3>
+                        <p className="text-xs text-slate-400 mb-3">Annual · Mar 29, 2024</p>
+                        <button className="bg-indigo-50 text-indigo-600 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-indigo-100 transition-colors">See Analytics</button>
+                      </div>
+                    </div>
+                    <div className="w-full md:w-2/3 grid grid-cols-3 gap-4 text-center md:text-left">
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Likes made</p>
+                        <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><Heart className="w-4 h-4 text-indigo-500 fill-indigo-500" /> 1,329</p>
+                        <p className="text-xs text-slate-400 mt-3 mb-1">Liked users</p>
+                        <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><UserCheck className="w-4 h-4 text-indigo-500" /> 865</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">New Followings</p>
+                        <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><UserCheck className="w-4 h-4 text-indigo-500" /> 111</p>
+                      </div>
+                      <div className="relative">
+                        <p className="text-xs text-slate-400 mb-1">Stories</p>
+                        <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><MonitorPlay className="w-4 h-4 text-indigo-500" /> 3,451</p>
+                        <button className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300 hover:text-indigo-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="w-full md:w-2/3 grid grid-cols-3 gap-4 text-center md:text-left">
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Likes made</p>
-                    <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><Heart className="w-4 h-4 text-indigo-500 fill-indigo-500" /> 1,329</p>
-                    <p className="text-xs text-slate-400 mt-3 mb-1">Liked users</p>
-                    <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><UserCheck className="w-4 h-4 text-indigo-500" /> 865</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">New Followings</p>
-                    <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><UserCheck className="w-4 h-4 text-indigo-500" /> 111</p>
-                  </div>
-                  <div className="relative">
-                    <p className="text-xs text-slate-400 mb-1">Stories</p>
-                    <p className="font-semibold text-slate-700 flex items-center justify-center md:justify-start gap-1"><MonitorPlay className="w-4 h-4 text-indigo-500" /> 3,451</p>
-                    <button className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-300 hover:text-indigo-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
         )}

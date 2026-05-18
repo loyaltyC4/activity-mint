@@ -28,8 +28,71 @@ import {
   Award,
   MonitorPlay,
   UserCheck,
-  PenTool
+  PenTool,
+  Lock,
+  HelpCircle,
+  BookOpen,
 } from 'lucide-react';
+
+/* ─── Static data ───────────────────────────────────────────────────────── */
+
+const PRICING_FAQS = [
+  { q: 'What are AI Insights and which plans include them?', a: 'AI Insights are advanced analysis modules powered by large language models. They include MBTI personality estimation, relationship status indicators, emotional tone analysis, and interest archetype mapping. The Standard plan includes 4 modules; Premium includes 9 — including financial behavior patterns and encounter location estimation.' },
+  { q: 'Can I cancel my subscription at any time?', a: 'Yes. You can cancel at any time from your account dashboard under Account → Subscription. Your access continues until the end of the current billing period. We do not offer refunds for unused portions of a subscription term.' },
+  { q: 'Can I download CSV reports of tracking activity?', a: 'Downloadable CSV activity reports are available on Standard and Premium plans. These reports include all tracked follows, likes, engagement patterns, and behavioral timelines exported in a clean spreadsheet format for offline analysis.' },
+  { q: 'Does Activity Mint track Instagram Stories?', a: 'Activity Mint detects and logs Story activity for tracked public accounts. On supported plans, you can see when a tracked account publishes Stories and download that public Story content privately without leaving any trace.' },
+  { q: 'How many Instagram accounts can I track simultaneously?', a: 'All current plans support tracking 1 account at a time, enabling deep, continuous tracking with rich data histories. Multi-account support for agencies and power users is on our roadmap — join the waitlist to be notified first.' },
+  { q: 'Is Activity Mint legal to use?', a: 'Yes. Activity Mint processes only publicly available data. We never access private accounts, require no Instagram credentials, and our methodology fully complies with applicable privacy regulations. We only surface information already visible to the public.' },
+  { q: 'What payment methods do you accept?', a: 'We accept all major credit and debit cards (Visa, Mastercard, American Express, Discover) as well as PayPal. All transactions are processed securely via Stripe — a PCI DSS Level 1 certified payment processor.' },
+  { q: 'When will I be charged and how does auto-renewal work?', a: 'You are charged immediately upon subscribing. Your plan renews automatically at the end of each billing period. You will receive an email reminder before each renewal. Manage or cancel your subscription anytime from your account settings.' },
+  { q: 'Can I switch between plans after subscribing?', a: 'Yes. Upgrades take effect immediately with prorated billing for the remaining period. Downgrades take effect at the start of your next billing cycle. Go to Account → Subscription to make changes at any time.' },
+  { q: 'Is my usage data and browsing activity kept private?', a: 'Absolutely. Your tracking activity is never shared with third parties, and monitored accounts will never know you are observing them. Activity Mint uses industry-standard 256-bit SSL encryption to protect all user data and account interactions.' },
+];
+
+const HELP_CATEGORIES = [
+  {
+    id: 'general',
+    label: 'General Inquiries',
+    faqs: [
+      { q: 'What is Activity Mint and how does it work?', a: 'Activity Mint is an AI-powered social analytics platform that monitors and analyzes publicly available Instagram activity. Enter a public username and our detection engine continuously tracks follows, likes, engagement, and behavioral patterns — then presents everything in structured reports. No personal Instagram account required.' },
+      { q: 'Do I need an Instagram account to use Activity Mint?', a: 'No. Activity Mint operates completely independently of your personal Instagram account. You never need to log in to Instagram or share your credentials. Your identity is fully protected at all times.' },
+      { q: 'What data does Activity Mint collect?', a: 'We collect only publicly available data: follow and follower activity, likes on public posts, engagement patterns, public Story activity, interest tags, and behavioral timelines. We never access private accounts, direct messages, or any data not already publicly visible.' },
+      { q: 'How accurate is the activity tracking data?', a: 'Data accuracy depends on the public visibility and activity level of the tracked account. For active public accounts, we achieve near real-time tracking with high data fidelity. Accuracy is highest for accounts that post and engage regularly on public settings.' },
+    ],
+  },
+  {
+    id: 'features',
+    label: 'Features and Usage',
+    faqs: [
+      { q: 'How do I add an account to track?', a: 'After signing in, navigate to your dashboard and click "Add Account." Enter the exact Instagram username (without the @ symbol) of the public account you want to track. Our system begins collecting data within minutes of adding the account.' },
+      { q: 'What are AI Insights modules?', a: 'AI Insights modules are advanced behavioral analyses powered by large language models. They include MBTI personality estimation, relationship indicators, emotional tone analysis, interest archetype mapping, financial behavior patterns, and encounter location estimation. Standard plans include 4 modules; Premium includes 9.' },
+      { q: 'How often are reports and alerts updated?', a: 'Activity is monitored continuously 24/7. Weekly summary reports are sent by email on all plans. Real-time activity alerts for significant events (new follows, activity spikes) can be configured from your notification settings on Standard and Premium plans.' },
+      { q: 'Can I view historical activity data?', a: 'Historical data collection begins from the moment you add an account. Standard and Premium plans include full historical post timelines and top commenter analysis. We do not have access to data from before your tracking start date.' },
+    ],
+  },
+  {
+    id: 'billing',
+    label: 'Billing and Payments',
+    faqs: [
+      { q: 'How do I upgrade or change my subscription plan?', a: 'Go to Account → Subscription in your dashboard and click "Change Plan." Upgrades are applied immediately with prorated billing for the remaining period. Downgrades take effect at the start of your next billing cycle.' },
+      { q: 'Do you offer a refund policy?', a: 'We offer a 3-day satisfaction guarantee for first-time subscribers. If you are not satisfied within the first 3 days of your initial subscription, contact our support team for a full refund. Subscription renewals are non-refundable, but you may cancel at any time to prevent future charges.' },
+      { q: 'Is my payment information stored securely?', a: 'We never store your full card details. All payment processing is handled by Stripe, which is PCI DSS Level 1 certified — the highest standard for payment security. Your card information is tokenized and encrypted throughout every transaction.' },
+      { q: 'What happens if a payment fails?', a: 'If a payment fails, we automatically retry over the following 3 days and notify you by email with instructions to update your payment method. If payment is not resolved, your subscription will be temporarily paused until the issue is corrected.' },
+    ],
+  },
+  {
+    id: 'comparisons',
+    label: 'Comparisons',
+    faqs: [
+      { q: 'How does Activity Mint compare to other Instagram trackers?', a: 'Activity Mint stands out by requiring no connection to your personal Instagram account, ensuring complete anonymity. Our AI Insights modules provide deeper behavioral analysis than most alternatives, and our data collection is fully compliant with public data laws.' },
+      { q: 'Is Activity Mint better than checking an account manually?', a: 'Significantly. Manual checking is time-consuming, inconsistent, and leaves digital footprints. Activity Mint runs 24/7, captures all public activity automatically (even while you sleep), and presents data in AI-powered structured reports you cannot replicate manually.' },
+      { q: 'Does Activity Mint work for TikTok or Twitter/X accounts?', a: 'Activity Mint currently specializes in Instagram tracking. Premium plan users gain access to the Suspicious Account Discovery feature, which searches for connected accounts across 5 major platforms. Full cross-platform tracking is on our product roadmap.' },
+      { q: 'How does Activity Mint handle privacy compliance?', a: 'Privacy is foundational to how we operate. We analyze exclusively public data, never require account credentials, do not profile our own users, and comply with GDPR, CCPA, and other applicable privacy regulations. We conduct regular compliance audits and maintain a transparent data processing policy.' },
+    ],
+  },
+];
+
+/* ─── Logo ───────────────────────────────────────────────────────────────── */
 
 const Logo = ({ onClick }) => (
   <div className="flex items-center gap-2 cursor-pointer" onClick={onClick}>
@@ -41,6 +104,8 @@ const Logo = ({ onClick }) => (
     </span>
   </div>
 );
+
+/* ─── Root App ───────────────────────────────────────────────────────────── */
 
 const ActivityMint = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -68,7 +133,7 @@ const ActivityMint = () => {
               <button onClick={() => setActiveTab('home')} className={`text-sm font-medium hover:text-emerald-600 transition-colors ${activeTab === 'home' ? 'text-emerald-600' : 'text-slate-600'}`}>Features</button>
               <button onClick={() => setActiveTab('pricing')} className={`text-sm font-medium hover:text-emerald-600 transition-colors ${activeTab === 'pricing' ? 'text-emerald-600' : 'text-slate-600'}`}>Pricing</button>
               <button className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Blog</button>
-              <button className="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Help Center</button>
+              <button onClick={() => setActiveTab('help')} className={`text-sm font-medium hover:text-emerald-600 transition-colors ${activeTab === 'help' ? 'text-emerald-600' : 'text-slate-600'}`}>Help Center</button>
               <button className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">
                 Toolkit <ChevronDown className="w-4 h-4" />
               </button>
@@ -94,6 +159,7 @@ const ActivityMint = () => {
             <button onClick={() => { setActiveTab('home'); setMobileMenuOpen(false); }} className="block w-full text-left text-sm font-medium text-slate-600 hover:text-emerald-600 py-2">Features</button>
             <button onClick={() => { setActiveTab('pricing'); setMobileMenuOpen(false); }} className="block w-full text-left text-sm font-medium text-slate-600 hover:text-emerald-600 py-2">Pricing</button>
             <button className="block w-full text-left text-sm font-medium text-slate-600 hover:text-emerald-600 py-2">Blog</button>
+            <button onClick={() => { setActiveTab('help'); setMobileMenuOpen(false); }} className="block w-full text-left text-sm font-medium text-slate-600 hover:text-emerald-600 py-2">Help Center</button>
             <div className="pt-2 border-t border-slate-100 flex gap-3">
               <button className="text-sm font-medium text-slate-600">Log In</button>
               <button className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full">Sign Up</button>
@@ -113,6 +179,7 @@ const ActivityMint = () => {
           />
         )}
         {activeTab === 'pricing' && <PricingView />}
+        {activeTab === 'help' && <HelpView />}
       </main>
 
       <footer className="bg-white border-t border-slate-100 pt-16 pb-8">
@@ -136,7 +203,7 @@ const ActivityMint = () => {
               <h4 className="font-semibold text-slate-900 mb-4">Resources</h4>
               <ul className="space-y-2 text-sm text-slate-500">
                 <li><a href="#" className="hover:text-emerald-600 transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-emerald-600 transition-colors">Help Center</a></li>
+                <li><a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('help'); }} className="hover:text-emerald-600 transition-colors">Help Center</a></li>
                 <li><a href="#" className="hover:text-emerald-600 transition-colors">API Documentation</a></li>
               </ul>
             </div>
@@ -158,6 +225,8 @@ const ActivityMint = () => {
     </div>
   );
 };
+
+/* ─── Home View ──────────────────────────────────────────────────────────── */
 
 const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, setActiveTab }) => (
   <div className="animate-in fade-in duration-500">
@@ -382,26 +451,311 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, setA
   </div>
 );
 
-const PricingView = () => (
-  <div className="animate-in fade-in duration-500 py-20 bg-slate-50 min-h-screen">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h1 className="text-4xl font-bold text-slate-900 mb-4">Our Subscription Plans</h1>
-      <p className="text-slate-600 max-w-2xl mx-auto mb-16">
-        Start tracking anyone you care about. Social media doesn't lie — Activity Mint reveals the truth.
-      </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-end">
-        <PricingCard title="Monthly Subscription" price="$4.49" interval="/month" features={[{ name: "1 Trackable Account, with weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers", included: true }, { name: "AI-Powered Insights & Growth Analytics", included: false }, { name: "Historical Posts and Top Commenters", included: false }, { name: "Downloadable Activity Reports in CSV", included: false }]} />
-        <div className="relative transform md:-translate-y-4">
-          <div className="absolute -top-4 left-0 right-0 flex justify-center z-10">
-            <span className="bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">Most Popular - Save 20%</span>
-          </div>
-          <PricingCard title="Quarterly Subscription" price="$3.66" interval="/month" subtext="$10.99 billed every 3 months" highlighted={true} features={[{ name: "1 Trackable Account, with weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers", included: true }, { name: "4 AI Insights Modules (MBTI, Relationship, etc.)", included: true, isNew: true }, { name: "Historical Posts and Top Commenters", included: true }, { name: "Downloadable Activity Reports in CSV", included: true }, { name: "Discover Suspicious Accounts on 5 Platforms", included: false }]} />
+/* ─── Pricing View ───────────────────────────────────────────────────────── */
+
+const PricingView = () => {
+  const [billingPeriod, setBillingPeriod] = useState('quarterly');
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const billingOptions = [
+    { id: 'monthly', label: 'Monthly' },
+    { id: 'quarterly', label: 'Quarterly', badge: 'Save 20%' },
+    { id: 'annual', label: 'Annual', badge: 'Save 40%' },
+  ];
+
+  return (
+    <div className="animate-in fade-in duration-500 py-20 bg-slate-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 className="text-4xl font-bold text-slate-900 mb-4">Our Subscription Plans</h1>
+        <p className="text-slate-600 max-w-2xl mx-auto mb-10">
+          Start tracking anyone you care about. Social media doesn't lie — Activity Mint reveals the truth.
+        </p>
+
+        {/* Billing period toggle */}
+        <div className="inline-flex items-center bg-slate-100 rounded-full p-1 mb-14 shadow-inner">
+          {billingOptions.map(({ id, label, badge }) => (
+            <button
+              key={id}
+              onClick={() => setBillingPeriod(id)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                billingPeriod === id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {label}
+              {badge && (
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-colors ${
+                  billingPeriod === id
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-200 text-slate-500'
+                }`}>
+                  {badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-        <PricingCard title="Annual Subscription" price="$2.75" interval="/month" subtext="$32.99 billed annually (Save 40%)" features={[{ name: "1 Trackable Account, with weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers", included: true }, { name: "9 AI Insights Modules (Financial, Encounter Loc.)", included: true }, { name: "Historical Posts and Top Commenters", included: true }, { name: "Downloadable Activity Reports in CSV", included: true }, { name: "Discover Suspicious Accounts on 5 Platforms", included: true, isNew: true }, { name: "Visual Map of Visited Areas", included: true, isNew: true }]} />
+
+        {/* Pricing cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-end">
+          <PricingCard
+            title="Basic"
+            price="$4.49"
+            interval="/month"
+            highlighted={billingPeriod === 'monthly'}
+            features={[
+              { name: "1 Trackable Account, with weekly reports", included: true },
+              { name: "Activity Report Email Alerts", included: true },
+              { name: "Recent follow/followers", included: true },
+              { name: "AI-Powered Insights & Growth Analytics", included: false },
+              { name: "Historical Posts and Top Commenters", included: false },
+              { name: "Downloadable Activity Reports in CSV", included: false },
+            ]}
+          />
+          <div className="relative transform md:-translate-y-4">
+            <div className="absolute -top-4 left-0 right-0 flex justify-center z-10">
+              <span className="bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">Most Popular · Save 20%</span>
+            </div>
+            <PricingCard
+              title="Standard"
+              price="$3.66"
+              interval="/month"
+              subtext="$10.99 billed every 3 months"
+              highlighted={billingPeriod === 'quarterly'}
+              features={[
+                { name: "1 Trackable Account, with weekly reports", included: true },
+                { name: "Activity Report Email Alerts", included: true },
+                { name: "Recent follow/followers", included: true },
+                { name: "4 AI Insights Modules (MBTI, Relationship, etc.)", included: true, isNew: true },
+                { name: "Historical Posts and Top Commenters", included: true },
+                { name: "Downloadable Activity Reports in CSV", included: true },
+                { name: "Discover Suspicious Accounts on 5 Platforms", included: false },
+              ]}
+            />
+          </div>
+          <PricingCard
+            title="Premium"
+            price="$2.75"
+            interval="/month"
+            subtext="$32.99 billed annually"
+            highlighted={billingPeriod === 'annual'}
+            features={[
+              { name: "1 Trackable Account, with weekly reports", included: true },
+              { name: "Activity Report Email Alerts", included: true },
+              { name: "Recent follow/followers", included: true },
+              { name: "9 AI Insights Modules (Financial, Encounter Loc.)", included: true },
+              { name: "Historical Posts and Top Commenters", included: true },
+              { name: "Downloadable Activity Reports in CSV", included: true },
+              { name: "Discover Suspicious Accounts on 5 Platforms", included: true, isNew: true },
+              { name: "Visual Map of Visited Areas", included: true, isNew: true },
+            ]}
+          />
+        </div>
+
+        {/* Stripe security notice */}
+        <div className="flex items-center justify-center gap-2.5 mt-10 text-sm text-slate-400 bg-white border border-slate-200 rounded-xl py-3 px-6 max-w-sm mx-auto shadow-sm">
+          <Lock className="w-4 h-4 shrink-0 text-slate-400" />
+          <span>Secure payment via <span className="font-semibold text-slate-600">Stripe</span> · 256-bit SSL · PCI DSS compliant</span>
+        </div>
+
+        {/* FAQ section */}
+        <div className="max-w-3xl mx-auto mt-24 text-left">
+          <h2 className="text-3xl font-bold text-slate-900 mb-2 text-center">Frequently Asked Questions</h2>
+          <p className="text-slate-500 text-center mb-10">Everything you need to know about Activity Mint plans and billing.</p>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
+            {PRICING_FAQS.map((faq, i) => (
+              <FaqItem
+                key={i}
+                q={faq.q}
+                a={faq.a}
+                isOpen={openFaq === i}
+                onToggle={() => setOpenFaq(openFaq === i ? null : i)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
+  );
+};
+
+/* ─── Shared FAQ accordion item ─────────────────────────────────────────── */
+
+const FaqItem = ({ q, a, isOpen, onToggle }) => (
+  <div>
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between px-6 py-5 text-left gap-4 group"
+    >
+      <span className={`font-medium text-base transition-colors ${isOpen ? 'text-emerald-600' : 'text-slate-800 group-hover:text-emerald-600'}`}>{q}</span>
+      <ChevronDown className={`w-5 h-5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-500' : 'text-slate-400'}`} />
+    </button>
+    {isOpen && (
+      <div className="px-6 pb-5 text-slate-500 text-sm leading-relaxed pr-12 -mt-1">
+        {a}
+      </div>
+    )}
   </div>
 );
+
+/* ─── Help View ──────────────────────────────────────────────────────────── */
+
+const HelpView = () => {
+  const [activeCategory, setActiveCategory] = useState('general');
+  const [helpSearch, setHelpSearch] = useState('');
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const handleCategoryChange = (id) => {
+    setActiveCategory(id);
+    setOpenFaq(null);
+  };
+
+  const currentFaqs = HELP_CATEGORIES.find(c => c.id === activeCategory)?.faqs || [];
+  const displayedFaqs = helpSearch.trim()
+    ? currentFaqs.filter(faq =>
+        faq.q.toLowerCase().includes(helpSearch.toLowerCase()) ||
+        faq.a.toLowerCase().includes(helpSearch.toLowerCase())
+      )
+    : currentFaqs;
+
+  return (
+    <div className="animate-in fade-in duration-500">
+
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 text-white pt-16 pb-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">How Can We Help?</h1>
+          <p className="text-emerald-100/80 text-lg mb-10">Find answers to common questions or reach out to our support team.</p>
+          <form onSubmit={(e) => e.preventDefault()} className="max-w-xl mx-auto">
+            <div className="relative flex items-center bg-white/10 backdrop-blur-sm rounded-full border border-white/20 focus-within:border-white/50 focus-within:bg-white/15 transition-all">
+              <Search className="absolute left-5 w-5 h-5 text-white/60" />
+              <input
+                type="text"
+                placeholder="Ask a question..."
+                value={helpSearch}
+                onChange={(e) => { setHelpSearch(e.target.value); setOpenFaq(null); }}
+                className="w-full bg-transparent pl-14 pr-6 py-4 text-white placeholder-white/50 outline-none text-base"
+              />
+            </div>
+          </form>
+        </div>
+      </section>
+
+      {/* Info cards */}
+      <section className="py-12 bg-white border-b border-slate-100">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-start gap-5 p-6 rounded-2xl border border-slate-200 hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer group">
+              <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-emerald-100 transition-colors">
+                <MessageSquare className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 mb-1">Support Center</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">Get personalized help from our support team. Available 7 days a week to assist with any questions or issues.</p>
+                <span className="inline-flex items-center gap-1 text-emerald-600 text-sm font-medium mt-3 group-hover:gap-2 transition-all">
+                  Contact Support <ArrowRight className="w-4 h-4" />
+                </span>
+              </div>
+            </div>
+            <div className="flex items-start gap-5 p-6 rounded-2xl border border-slate-200 hover:border-teal-200 hover:shadow-md transition-all cursor-pointer group">
+              <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-teal-100 transition-colors">
+                <BookOpen className="w-6 h-6 text-teal-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 mb-1">Instagram Resources</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">Browse our library of guides, tutorials, and tips for getting the most out of Instagram analytics and tracking.</p>
+                <span className="inline-flex items-center gap-1 text-teal-600 text-sm font-medium mt-3 group-hover:gap-2 transition-all">
+                  Browse Resources <ArrowRight className="w-4 h-4" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ with sidebar */}
+      <section className="py-16 bg-slate-50">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row gap-8">
+
+            {/* Sidebar nav */}
+            <aside className="md:w-56 shrink-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-1">Categories</p>
+              <nav className="space-y-1">
+                {HELP_CATEGORIES.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategoryChange(cat.id)}
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      activeCategory === cat.id
+                        ? 'bg-white text-emerald-600 shadow-sm border border-emerald-100'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+
+            {/* FAQ content panel */}
+            <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-6 md:px-8 pt-7 pb-4 border-b border-slate-100">
+                <h2 className="text-xl font-bold text-slate-900">
+                  {helpSearch.trim()
+                    ? `Search results in "${HELP_CATEGORIES.find(c => c.id === activeCategory)?.label}"`
+                    : HELP_CATEGORIES.find(c => c.id === activeCategory)?.label}
+                </h2>
+                {helpSearch.trim() && (
+                  <p className="text-sm text-slate-400 mt-1">{displayedFaqs.length} result{displayedFaqs.length !== 1 ? 's' : ''} found</p>
+                )}
+              </div>
+
+              {displayedFaqs.length > 0 ? (
+                <div className="divide-y divide-slate-100">
+                  {displayedFaqs.map((faq, i) => (
+                    <FaqItem
+                      key={i}
+                      q={faq.q}
+                      a={faq.a}
+                      isOpen={openFaq === i}
+                      onToggle={() => setOpenFaq(openFaq === i ? null : i)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-slate-400 px-6">
+                  <HelpCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                  <p className="font-medium text-slate-500">No results found for "{helpSearch}"</p>
+                  <p className="text-sm mt-2">Try a different search term or browse another category.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact CTA */}
+      <section className="py-20 bg-white border-t border-slate-100 text-center">
+        <div className="max-w-lg mx-auto px-4">
+          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <HelpCircle className="w-7 h-7 text-emerald-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-3">Can't find your answer?</h3>
+          <p className="text-slate-500 mb-8 leading-relaxed">
+            Our support team is ready to help. Reach out and we'll get back to you within 24 hours.
+          </p>
+          <button className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-full hover:shadow-lg hover:shadow-emerald-500/30 transition-all transform hover:-translate-y-0.5">
+            Contact Support
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── Reusable card components ───────────────────────────────────────────── */
 
 const FeatureCard = ({ icon, title, description }) => (
   <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all duration-300 group">

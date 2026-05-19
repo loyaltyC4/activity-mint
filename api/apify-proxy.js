@@ -34,13 +34,18 @@ async function pollRun(runId, maxWaitMs = 110000, intervalMs = 4000) {
   while (Date.now() < deadline) {
     await sleep(intervalMs);
     const res = await fetch(`${BASE}/actor-runs/${runId}?token=${APIFY_TOKEN}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to poll run status (${res.status}): ${text}`);
+    }
     const { data } = await res.json();
+    if (!data) throw new Error('Empty response while polling run status');
     if (data.status === 'SUCCEEDED') return data;
     if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(data.status)) {
-      throw new Error(`Actor run ${data.status}`);
+      throw new Error(`Actor run ${data.status}${data.statusMessage ? `: ${data.statusMessage}` : ''}`);
     }
   }
-  throw new Error('Timed out waiting for actor run');
+  throw new Error('Timed out waiting for actor run — the account may have too many followers. Try a smaller limit.');
 }
 
 async function getDatasetItems(datasetId, limit = 200) {
@@ -48,7 +53,12 @@ async function getDatasetItems(datasetId, limit = 200) {
     `${BASE}/datasets/${datasetId}/items?token=${APIFY_TOKEN}&clean=true&limit=${limit}`
   );
   if (!res.ok) throw new Error(`Failed to fetch dataset: ${res.status}`);
-  return res.json();
+  const items = await res.json();
+  // Detect instaprism free-tier-limit response (returns a single meta item instead of results)
+  if (Array.isArray(items) && items.length === 1 && items[0]?.status === 'free_tier_limit_reached') {
+    throw new Error('Apify free tier limit reached for this actor. Please upgrade your Apify plan at https://apify.com/pricing to continue using the followers scraper.');
+  }
+  return items;
 }
 
 export default async function handler(req, res) {

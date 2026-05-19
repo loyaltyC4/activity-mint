@@ -1015,9 +1015,10 @@ const getStoredSnapshot = (username) => {
 };
 
 const normalizeFollower = (f) => ({
-  username: f.username || '',
-  fullName: f.full_name || f.fullName || f.name || '',
-  profilePicUrl: f.profile_pic_url || f.profilePicUrl || f.profilePicture || '',
+  // username: actor returns 'username' (instaprism) — add aliases for resilience
+  username: f.username || f.handle || f.login || f.user_name || f.userName || '',
+  fullName: f.full_name || f.fullName || f.name || f.displayName || '',
+  profilePicUrl: f.profile_pic_url || f.profilePicUrl || f.profilePicture || f.avatar || '',
   isVerified: f.is_verified || f.isVerified || false,
   isPrivate: f.is_private || f.isPrivate || false,
 });

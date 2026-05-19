@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/apify-proxy.js": {
+      "maxDuration": 300
+    },
+    "api/proxy-image.js": {
+      "maxDuration": 15
+    }
+  }
+}

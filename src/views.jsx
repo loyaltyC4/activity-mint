@@ -17,7 +17,13 @@ import {
   ChevronRight,
   Users,
   Star,
+  Clock,
+  RefreshCw,
+  UserPlus,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react';
+import { fetchFollowersList } from './lib/apify';
 
 /* ─── Blog Page View ─────────────────────────────────────────────────────── */
 
@@ -376,39 +382,49 @@ export const ToolkitPageView = ({ setActiveTab }) => (
 /* ─── Shared Tool Hero ───────────────────────────────────────────────────── */
 
 const ToolHero = ({ title, subtitle, gradient = 'from-indigo-600 via-indigo-700 to-teal-700' }) => (
-  <section className={`bg-gradient-to-br ${gradient} text-white pt-16 pb-20`}>
+  <section className={`bg-gradient-to-br ${gradient} text-white pt-12 sm:pt-16 pb-14 sm:pb-20`}>
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">{title}</h1>
-      <p className="text-white/75 text-lg">{subtitle}</p>
+      <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 sm:mb-4 tracking-tight">{title}</h1>
+      <p className="text-white/75 text-sm sm:text-base md:text-lg">{subtitle}</p>
     </div>
   </section>
 );
 
-const ToolSearchBar = ({ value, onChange, placeholder, buttonLabel, onSubmit }) => (
-  <div className="max-w-2xl mx-auto">
-    <form onSubmit={onSubmit || (e => e.preventDefault())} className="flex gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-2">
-      <div className="pl-3 flex items-center text-slate-400 shrink-0">
-        <Search className="w-5 h-5" />
-      </div>
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="flex-1 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-2.5 text-base"
-      />
-      <button
-        type="submit"
-        className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-md hover:shadow-emerald-500/25 transition-all shrink-0"
-      >
-        {buttonLabel}
-      </button>
-    </form>
-  </div>
-);
+const ToolSearchBar = ({ value, onChange, placeholder, buttonLabel, onSubmit, onSearch, disabled }) => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (onSearch) onSearch();
+    if (onSubmit) onSubmit(e);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <form onSubmit={handleSubmit} className="flex gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-2">
+        <div className="pl-3 flex items-center text-slate-400 shrink-0">
+          <Search className="w-5 h-5" />
+        </div>
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          disabled={disabled}
+          className="flex-1 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-2.5 text-base disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={disabled}
+          className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-md hover:shadow-emerald-500/25 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+        >
+          {buttonLabel}
+        </button>
+      </form>
+    </div>
+  );
+};
 
 const EmptyStateBox = ({ message }) => (
-  <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 border-dashed p-16 text-center mt-8 shadow-sm">
+  <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 border-dashed p-8 sm:p-16 text-center mt-8 shadow-sm">
     <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
       <Search className="w-7 h-7 text-slate-400" />
     </div>
@@ -916,33 +932,523 @@ const SimpleToolPage = ({ title, subtitle, placeholder, gradient, children }) =>
 
 /* ─── Recent Follower View ───────────────────────────────────────────────── */
 
-export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) => (
-  <SimpleToolPage
-    title="Instagram Recent Follower Tracker"
-    subtitle="Discover who recently started following any public Instagram account in real time."
-    placeholder="Enter an Instagram username..."
-    gradient="from-teal-600 via-emerald-600 to-indigo-700"
-  />
+const STORAGE_KEY_PREFIX = 'activitymint_followers_';
+
+const getStoredSnapshot = (username) => {
+  try {
+    const data = localStorage.getItem(`${STORAGE_KEY_PREFIX}${username.toLowerCase()}`);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+};
+
+const normalizeFollower = (f) => ({
+  username: f.username || '',
+  fullName: f.full_name || f.fullName || f.name || '',
+  profilePicUrl: f.profile_pic_url || f.profilePicUrl || f.profilePicture || '',
+  isVerified: f.is_verified || f.isVerified || false,
+  isPrivate: f.is_private || f.isPrivate || false,
+});
+
+const storeSnapshot = (username, followers) => {
+  const snapshot = {
+    timestamp: new Date().toISOString(),
+    followers: followers.map(normalizeFollower),
+  };
+  localStorage.setItem(`${STORAGE_KEY_PREFIX}${username.toLowerCase()}`, JSON.stringify(snapshot));
+  return snapshot;
+};
+
+const proxyImageUrl = (url) => {
+  if (!url) return null;
+  if (url.includes('cdninstagram.com') || url.includes('fbcdn.net') || url.includes('scontent')) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
+
+const FollowerCard = ({ user, badge, badgeColor }) => (
+  <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 hover:border-emerald-200 transition-all">
+    <div className="w-11 h-11 rounded-full overflow-hidden bg-slate-100 flex-shrink-0">
+      {user.profilePicUrl ? (
+        <img
+          src={proxyImageUrl(user.profilePicUrl)}
+          alt={user.username}
+          className="w-full h-full object-cover"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-slate-400">
+          <Users className="w-5 h-5" />
+        </div>
+      )}
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold text-slate-800 text-sm truncate">@{user.username}</span>
+        {user.isVerified && (
+          <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+          </svg>
+        )}
+      </div>
+      {user.fullName && (
+        <p className="text-xs text-slate-500 truncate">{user.fullName}</p>
+      )}
+    </div>
+    {badge && (
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${badgeColor}`}>
+        {badge}
+      </span>
+    )}
+    <a
+      href={`https://instagram.com/${user.username}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+    >
+      <ExternalLink className="w-4 h-4" />
+    </a>
+  </div>
 );
+
+export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [error, setError] = useState(null);
+  const [currentFollowers, setCurrentFollowers] = useState([]);
+  const [newFollowers, setNewFollowers] = useState([]);
+  const [previousSnapshot, setPreviousSnapshot] = useState(null);
+  const [fetchTime, setFetchTime] = useState(null);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    const username = input.trim().replace('@', '');
+
+    setStatus('loading');
+    setError(null);
+    setNewFollowers([]);
+
+    try {
+      // Get previous snapshot for comparison
+      const prev = getStoredSnapshot(username);
+      setPreviousSnapshot(prev);
+
+      // Fetch current followers from Apify
+      const items = await fetchFollowersList(username, 'followers', 200);
+
+      if (!items || items.length === 0) {
+        throw new Error('No followers found or account is private.');
+      }
+
+      // Normalize the data (actor returns snake_case: full_name, is_verified, profile_pic_url)
+      const followers = items.map(normalizeFollower).filter(f => f.username);
+
+      setCurrentFollowers(followers);
+      setFetchTime(new Date().toISOString());
+
+      // Compare with previous snapshot to find new followers
+      if (prev && prev.followers) {
+        const prevUsernames = new Set(prev.followers.map(f => f.username.toLowerCase()));
+        const newOnes = followers.filter(f => !prevUsernames.has(f.username.toLowerCase()));
+        setNewFollowers(newOnes);
+      }
+
+      // Store the new snapshot
+      storeSnapshot(username, followers);
+      setStatus('success');
+
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err.message || 'Failed to fetch followers. The account may be private.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="Instagram Recent Follower Tracker"
+        subtitle="Discover who recently started following any public Instagram account. Compare snapshots to detect new followers."
+        gradient="from-teal-600 via-emerald-600 to-indigo-700"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Info Banner */}
+          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-6">
+            <h4 className="font-semibold text-teal-800 text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              How It Works
+            </h4>
+            <p className="text-teal-700 text-xs mt-1">
+              First search captures a snapshot. Search again later to compare and see new followers.
+              Snapshots are stored locally in your browser.
+            </p>
+          </div>
+
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Enter an Instagram username..."
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Check Followers'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {/* Loading State */}
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-teal-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching followers for @{input.trim()}</p>
+              <p className="text-slate-500 text-sm">This may take 30-60 seconds for large accounts...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-rose-600" />
+              </div>
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch followers</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success State */}
+          {status === 'success' && (
+            <div className="mt-8 space-y-6">
+              {/* Summary Card */}
+              <div className="bg-white rounded-2xl border border-teal-200 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-800">
+                    @{input.trim()} Followers
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    {new Date(fetchTime).toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="bg-teal-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-xl sm:text-2xl font-bold text-teal-700">{currentFollowers.length}</p>
+                    <p className="text-xs text-teal-600 font-medium">Total Fetched</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-700">{newFollowers.length}</p>
+                    <p className="text-xs text-emerald-600 font-medium">New Followers</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-base sm:text-2xl font-bold text-slate-700">
+                      {previousSnapshot ? new Date(previousSnapshot.timestamp).toLocaleDateString() : '—'}
+                    </p>
+                    <p className="text-xs text-slate-600 font-medium">Last Check</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* New Followers Section */}
+              {newFollowers.length > 0 && (
+                <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-emerald-600" />
+                    New Followers ({newFollowers.length})
+                  </h3>
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {newFollowers.map((user, i) => (
+                      <FollowerCard key={i} user={user} badge="NEW" badgeColor="bg-emerald-100 text-emerald-700" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No new followers message */}
+              {previousSnapshot && newFollowers.length === 0 && (
+                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 text-center">
+                  <p className="text-slate-600 text-sm">
+                    No new followers since your last check on {new Date(previousSnapshot.timestamp).toLocaleString()}.
+                  </p>
+                </div>
+              )}
+
+              {/* First check message */}
+              {!previousSnapshot && (
+                <div className="bg-teal-50 rounded-2xl border border-teal-200 p-6 text-center">
+                  <p className="text-teal-700 text-sm">
+                    <strong>First snapshot captured!</strong> Check again later to see new followers.
+                  </p>
+                </div>
+              )}
+
+              {/* All Followers Preview */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-slate-600" />
+                  Recent Followers (first {Math.min(20, currentFollowers.length)})
+                </h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {currentFollowers.slice(0, 20).map((user, i) => (
+                    <FollowerCard key={i} user={user} />
+                  ))}
+                </div>
+                {currentFollowers.length > 20 && (
+                  <p className="text-center text-slate-500 text-sm mt-4">
+                    + {currentFollowers.length - 20} more followers captured
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Idle state */}
+          {status === 'idle' && (
+            <EmptyStateBox message="Enter a username above to check their followers" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
 
 /* ─── Unfollower View ────────────────────────────────────────────────────── */
 
-export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) => (
-  <SimpleToolPage
-    title="Instagram Unfollower Tracker"
-    subtitle="Find out who stopped following an account and when the unfollow happened."
-    placeholder="Enter an Instagram username..."
-    gradient="from-rose-600 via-rose-700 to-slate-800"
-  />
-);
+export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [error, setError] = useState(null);
+  const [currentFollowers, setCurrentFollowers] = useState([]);
+  const [unfollowers, setUnfollowers] = useState([]);
+  const [previousSnapshot, setPreviousSnapshot] = useState(null);
+  const [fetchTime, setFetchTime] = useState(null);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    const username = input.trim().replace('@', '');
+
+    setStatus('loading');
+    setError(null);
+    setUnfollowers([]);
+
+    try {
+      // Get previous snapshot for comparison
+      const prev = getStoredSnapshot(username);
+      setPreviousSnapshot(prev);
+
+      // Fetch current followers from Apify
+      const items = await fetchFollowersList(username, 'followers', 200);
+
+      if (!items || items.length === 0) {
+        throw new Error('No followers found or account is private.');
+      }
+
+      // Normalize the data (actor returns snake_case: full_name, is_verified, profile_pic_url)
+      const followers = items.map(normalizeFollower).filter(f => f.username);
+
+      setCurrentFollowers(followers);
+      setFetchTime(new Date().toISOString());
+
+      // Compare with previous snapshot to find unfollowers
+      if (prev && prev.followers) {
+        const currentUsernames = new Set(followers.map(f => f.username.toLowerCase()));
+        const lostOnes = prev.followers.filter(f => !currentUsernames.has(f.username.toLowerCase()));
+        setUnfollowers(lostOnes);
+      }
+
+      // Store the new snapshot
+      storeSnapshot(username, followers);
+      setStatus('success');
+
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err.message || 'Failed to fetch followers. The account may be private.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="Instagram Unfollower Tracker"
+        subtitle="Find out who stopped following an account. Compare snapshots to detect unfollowers."
+        gradient="from-rose-600 via-rose-700 to-slate-800"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Info Banner */}
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-6">
+            <h4 className="font-semibold text-rose-800 text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              How It Works
+            </h4>
+            <p className="text-rose-700 text-xs mt-1">
+              First search captures a snapshot. Search again later to compare and see who unfollowed.
+              Snapshots are stored locally in your browser.
+            </p>
+          </div>
+
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Enter an Instagram username..."
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Check Unfollowers'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {/* Loading State */}
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-rose-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching followers for @{input.trim()}</p>
+              <p className="text-slate-500 text-sm">This may take 30-60 seconds for large accounts...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-rose-600" />
+              </div>
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch followers</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success State */}
+          {status === 'success' && (
+            <div className="mt-8 space-y-6">
+              {/* Summary Card */}
+              <div className="bg-white rounded-2xl border border-rose-200 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-800">
+                    @{input.trim()} Unfollower Check
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    {new Date(fetchTime).toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-xl sm:text-2xl font-bold text-slate-700">{currentFollowers.length}</p>
+                    <p className="text-xs text-slate-600 font-medium">Current Followers</p>
+                  </div>
+                  <div className="bg-rose-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-xl sm:text-2xl font-bold text-rose-700">{unfollowers.length}</p>
+                    <p className="text-xs text-rose-600 font-medium">Unfollowers</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-base sm:text-2xl font-bold text-slate-700">
+                      {previousSnapshot ? new Date(previousSnapshot.timestamp).toLocaleDateString() : '—'}
+                    </p>
+                    <p className="text-xs text-slate-600 font-medium">Last Check</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Unfollowers Section */}
+              {unfollowers.length > 0 && (
+                <div className="bg-white rounded-2xl border border-rose-200 p-6 shadow-sm">
+                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <UserMinus className="w-5 h-5 text-rose-600" />
+                    Unfollowers ({unfollowers.length})
+                  </h3>
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {unfollowers.map((user, i) => (
+                      <FollowerCard key={i} user={user} badge="LEFT" badgeColor="bg-rose-100 text-rose-700" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No unfollowers message */}
+              {previousSnapshot && unfollowers.length === 0 && (
+                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 text-center">
+                  <p className="text-emerald-700 text-sm">
+                    <strong>Good news!</strong> No one unfollowed since your last check on {new Date(previousSnapshot.timestamp).toLocaleString()}.
+                  </p>
+                </div>
+              )}
+
+              {/* First check message */}
+              {!previousSnapshot && (
+                <div className="bg-rose-50 rounded-2xl border border-rose-200 p-6 text-center">
+                  <p className="text-rose-700 text-sm">
+                    <strong>First snapshot captured!</strong> Check again later to detect unfollowers.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Idle state */}
+          {status === 'idle' && (
+            <EmptyStateBox message="Enter a username above to track unfollowers" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
 
 /* ─── Follower Export View ───────────────────────────────────────────────── */
 
 export const FollowerExportView = ({ searchQuery, setSearchQuery, setActiveTab }) => {
   const [listType, setListType] = useState('followers');
   const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error
+  const [error, setError] = useState(null);
+  const [items, setItems] = useState([]);
 
-  const TABLE_COLUMNS = ['Username', 'Full Name', 'Followers', 'Following', 'Posts'];
+  const TABLE_COLUMNS = ['Username', 'Full Name', 'Verified', 'Private'];
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    const username = input.trim().replace('@', '');
+    setStatus('loading');
+    setError(null);
+    setItems([]);
+    try {
+      const raw = await fetchFollowersList(username, listType, 200);
+      if (!raw || raw.length === 0) {
+        throw new Error('No results found. The account may be private or have no ' + listType + '.');
+      }
+      const normalized = raw.map(normalizeFollower).filter(f => f.username);
+      setItems(normalized);
+      setStatus('success');
+    } catch (err) {
+      console.error('Export fetch error:', err);
+      setError(err.message || 'Failed to fetch. The account may be private.');
+      setStatus('error');
+    }
+  };
+
+  const handleExportCsv = () => {
+    const headers = ['Username', 'Full Name', 'Verified', 'Private', 'Profile URL'];
+    const rows = items.map(u => [
+      u.username,
+      u.fullName,
+      u.isVerified ? 'Yes' : 'No',
+      u.isPrivate ? 'Yes' : 'No',
+      `https://instagram.com/${u.username}`,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${(v || '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${input.trim()}_${listType}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -954,13 +1460,14 @@ export const FollowerExportView = ({ searchQuery, setSearchQuery, setActiveTab }
 
       <section className="py-14 bg-slate-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Radio toggle */}
+          {/* List type toggle */}
           <div className="flex gap-4 justify-center mb-6">
             {['followers', 'following'].map(type => (
               <button
                 key={type}
-                onClick={() => setListType(type)}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold border transition-all ${
+                onClick={() => { setListType(type); setStatus('idle'); setItems([]); }}
+                disabled={status === 'loading'}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   listType === type
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
                     : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
@@ -978,11 +1485,117 @@ export const FollowerExportView = ({ searchQuery, setSearchQuery, setActiveTab }
             value={input}
             onChange={setInput}
             placeholder="Enter an Instagram username..."
-            buttonLabel="Search Now"
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Search Now'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
           />
 
-          {/* Empty state table */}
-          {!input ? (
+          {/* Loading State */}
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching {listType} for @{input.trim()}</p>
+              <p className="text-slate-500 text-sm">This may take 30–90 seconds for large accounts…</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-7 h-7 text-rose-600" />
+              </div>
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch {listType}</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success — Results Table */}
+          {status === 'success' && (
+            <div className="mt-8 bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    @{input.trim()} — {listType}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{items.length} results</p>
+                </div>
+                <button
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-teal-600 px-4 py-2 rounded-lg hover:shadow-md transition-all"
+                >
+                  <Download className="w-4 h-4" /> Export CSV
+                </button>
+              </div>
+              <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">#</th>
+                      {TABLE_COLUMNS.map(col => (
+                        <th key={col} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{col}</th>
+                      ))}
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((user, i) => (
+                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 text-xs text-slate-400">{i + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex-shrink-0">
+                              {user.profilePicUrl ? (
+                                <img
+                                  src={proxyImageUrl(user.profilePicUrl)}
+                                  alt={user.username}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Users className="w-3.5 h-3.5 text-slate-400" />
+                                </div>
+                              )}
+                            </div>
+                            <span className="font-semibold text-slate-800 text-xs">@{user.username}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600 max-w-[140px] truncate">{user.fullName || '—'}</td>
+                        <td className="px-4 py-3">
+                          {user.isVerified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">✓ Yes</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">No</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {user.isPrivate ? (
+                            <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Private</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">Public</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <a
+                            href={`https://instagram.com/${user.username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors inline-flex"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Idle state — empty table preview */}
+          {status === 'idle' && (
             <div className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-700 text-sm">Results will appear here</h3>
@@ -994,17 +1607,19 @@ export const FollowerExportView = ({ searchQuery, setSearchQuery, setActiveTab }
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">#</th>
                       {TABLE_COLUMNS.map(col => (
-                        <th key={col} className="text-left px-6 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{col}</th>
+                        <th key={col} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{col}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {[1, 2, 3, 4, 5].map(r => (
                       <tr key={r} className="border-b border-slate-50">
+                        <td className="px-4 py-4"><div className="h-3 bg-slate-100 rounded w-4 animate-pulse" /></td>
                         {TABLE_COLUMNS.map(col => (
-                          <td key={col} className="px-6 py-4">
-                            <div className="h-3 bg-slate-100 rounded w-20 animate-pulse" />
+                          <td key={col} className="px-4 py-4">
+                            <div className="h-3 bg-slate-100 rounded w-24 animate-pulse" />
                           </td>
                         ))}
                       </tr>
@@ -1015,17 +1630,6 @@ export const FollowerExportView = ({ searchQuery, setSearchQuery, setActiveTab }
               <div className="px-6 py-8 text-center text-sm text-slate-400">
                 Enter an Instagram username above to export their {listType} list.
               </div>
-            </div>
-          ) : (
-            <div className="mt-8 bg-white rounded-2xl border border-indigo-200 p-8 text-center shadow-sm">
-              <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileUp className="w-7 h-7 text-indigo-600" />
-              </div>
-              <p className="text-slate-700 font-semibold mb-2">Export {listType} for <span className="text-indigo-600">@{input}</span></p>
-              <p className="text-slate-500 text-sm mb-6">Sign up to export the full {listType} list as a CSV file.</p>
-              <button className="px-7 py-2.5 bg-gradient-to-r from-indigo-500 to-teal-600 text-white font-semibold rounded-full hover:shadow-md transition-all">
-                Sign Up to Export
-              </button>
             </div>
           )}
         </div>

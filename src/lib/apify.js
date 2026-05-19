@@ -1,57 +1,22 @@
-// Apify token split to avoid GitHub secret scanning — assembled at runtime
-const _t1 = 'apify_api_bh';
-const _t2 = 'nRWNR36aODO7';
-const _t3 = 'vc8lBBc7K9wNtQpg3Diunt';
-const APIFY_TOKEN = import.meta.env.VITE_APIFY_KEY || (_t1 + _t2 + _t3);
-
-const BASE = 'https://api.apify.com/v2';
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function startRun(actorId, input) {
-  const res = await fetch(`${BASE}/acts/${encodeURIComponent(actorId)}/runs?token=${APIFY_TOKEN}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error(`Failed to start actor: ${res.status}`);
-  const { data } = await res.json();
-  return data;
-}
-
-async function pollRun(runId, maxWaitMs = 90000, intervalMs = 3000) {
-  const deadline = Date.now() + maxWaitMs;
-  while (Date.now() < deadline) {
-    await sleep(intervalMs);
-    const res = await fetch(`${BASE}/actor-runs/${runId}?token=${APIFY_TOKEN}`);
-    const { data } = await res.json();
-    if (data.status === 'SUCCEEDED') return data;
-    if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(data.status)) {
-      throw new Error(`Actor run ${data.status}`);
-    }
-  }
-  throw new Error('Timed out waiting for actor run');
-}
-
-async function getDatasetItems(datasetId) {
-  const res = await fetch(`${BASE}/datasets/${datasetId}/items?token=${APIFY_TOKEN}&clean=true`);
-  if (!res.ok) throw new Error(`Failed to fetch dataset: ${res.status}`);
-  return res.json();
-}
+// All follower/profile calls are proxied through /api/apify-proxy (server-side)
+// so the Apify token never appears in browser JS bundles.
 
 /**
- * Fetch Instagram Stories for a public username.
- * Returns an array of story items with displayUrl, videoUrl, etc.
+ * Internal helper: POST to the server-side Apify proxy.
+ * @param {'followers'|'following'|'profile'} action
+ * @param {object} payload - { username, limit? }
+ * @returns {Promise<Array>} items array
  */
-export async function fetchInstagramStories(username) {
-  const profileUrl = `https://www.instagram.com/${username.replace('@', '')}/`;
-  const run = await startRun('apify/instagram-scraper', {
-    directUrls: [profileUrl],
-    resultsType: 'stories',
-    resultsLimit: 20,
+async function callProxy(action, payload) {
+  const res = await fetch('/api/apify-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, payload }),
   });
-  const completed = await pollRun(run.id);
-  return getDatasetItems(completed.defaultDatasetId);
+  let body;
+  try { body = await res.json(); } catch { throw new Error(`Proxy error: HTTP ${res.status}`); }
+  if (!res.ok || !body.ok) throw new Error(body.error || `Proxy request failed (${res.status})`);
+  return body.items;
 }
 
 /**
@@ -59,10 +24,27 @@ export async function fetchInstagramStories(username) {
  * Returns an array (usually 1 item) with profilePicUrl, latestPosts, etc.
  */
 export async function fetchInstagramProfile(username) {
-  const clean = username.replace('@', '');
-  const run = await startRun('apify/instagram-profile-scraper', {
-    usernames: [clean],
-  });
-  const completed = await pollRun(run.id);
-  return getDatasetItems(completed.defaultDatasetId);
+  return callProxy('profile', { username: username.replace('@', '') });
+}
+
+/**
+ * Fetch Instagram Stories for a public username.
+ * NOTE: Instagram's public API no longer exposes stories — this returns
+ * recent posts instead, proxied through the profile scraper.
+ */
+export async function fetchInstagramStories(username) {
+  return callProxy('profile', { username: username.replace('@', '') });
+}
+
+/**
+ * Fetch followers or following list for a public Instagram account.
+ * Routed server-side through /api/apify-proxy to keep the token hidden.
+ *
+ * @param {string} username - Instagram username
+ * @param {'followers'|'following'} listType - Which list to fetch
+ * @param {number} limit - Max number of users to fetch (default 200)
+ * @returns {Promise<Array>} Array of user objects with username, full_name, profile_pic_url, etc.
+ */
+export async function fetchFollowersList(username, listType = 'followers', limit = 200) {
+  return callProxy(listType, { username: username.replace('@', ''), limit });
 }

@@ -23,7 +23,16 @@ import {
   Loader2,
   ExternalLink,
 } from 'lucide-react';
-import { fetchFollowersList } from './lib/apify';
+import {
+  fetchFollowersList,
+  fetchInstagramStoriesReal,
+  fetchInstagramComments,
+  fetchFacebookPosts,
+  fetchTikTokVideos,
+  fetchLinkedInPosts,
+  fetchLinkedInProfile,
+  fetchYouTubeTranscript,
+} from './lib/apify';
 
 /* ─── Blog Page View ─────────────────────────────────────────────────────── */
 
@@ -327,53 +336,115 @@ export const AffiliateView = () => {
 
 /* ─── Toolkit Page View ──────────────────────────────────────────────────── */
 
-const TOOLKIT_TOOLS = [
-  { icon: <Download className="w-6 h-6" />, name: 'Threads Downloader', desc: 'Download Threads videos and media', tab: 'threads-downloader' },
-  { icon: <Award className="w-6 h-6" />, name: 'Celebrity Influencers', desc: 'Browse top Instagram celebrities', tab: 'celebrities' },
-  { icon: <MonitorPlay className="w-6 h-6" />, name: 'Story Viewer', desc: 'View Instagram Stories anonymously', tab: 'story-viewer' },
-  { icon: <Eye className="w-6 h-6" />, name: 'Post Viewer', desc: 'View public Instagram posts privately', tab: 'post-viewer' },
-  { icon: <Hash className="w-6 h-6" />, name: 'Hashtag Generator', desc: 'Generate trending hashtags for your niche', tab: 'hashtag-generator' },
-  { icon: <AlertCircle className="w-6 h-6" />, name: 'Shadowban Checker', desc: 'Check if your account is shadowbanned', tab: 'shadowban-checker' },
-  { icon: <UserCheck className="w-6 h-6" />, name: 'Recent Follower Tracker', desc: 'Track who recently followed an account', tab: 'recent-follower' },
-  { icon: <UserMinus className="w-6 h-6" />, name: 'Unfollower Tracker', desc: 'See who unfollowed you', tab: 'unfollower' },
-  { icon: <FileUp className="w-6 h-6" />, name: 'Follower Export', desc: 'Export follower lists to CSV', tab: 'follower-export' },
+// Organized by platform
+const TOOLKIT_SECTIONS = [
+  {
+    platform: 'Instagram',
+    color: 'from-pink-500 to-purple-600',
+    tools: [
+      { icon: <MonitorPlay className="w-6 h-6" />, name: 'Story Viewer', desc: 'View Instagram Stories anonymously', tab: 'story-viewer' },
+      { icon: <Eye className="w-6 h-6" />, name: 'Post Viewer', desc: 'View public Instagram posts privately', tab: 'post-viewer' },
+      { icon: <UserCheck className="w-6 h-6" />, name: 'Recent Follower Tracker', desc: 'Track who recently followed an account', tab: 'recent-follower' },
+      { icon: <UserMinus className="w-6 h-6" />, name: 'Unfollower Tracker', desc: 'See who unfollowed you', tab: 'unfollower' },
+      { icon: <FileUp className="w-6 h-6" />, name: 'Follower Export', desc: 'Export follower lists to CSV', tab: 'follower-export' },
+      { icon: <Hash className="w-6 h-6" />, name: 'Hashtag Generator', desc: 'Generate trending hashtags for your niche', tab: 'hashtag-generator' },
+      { icon: <AlertCircle className="w-6 h-6" />, name: 'Shadowban Checker', desc: 'Check if your account is shadowbanned', tab: 'shadowban-checker' },
+      { icon: <Award className="w-6 h-6" />, name: 'Celebrity Influencers', desc: 'Browse top Instagram celebrities', tab: 'celebrities' },
+      { icon: <Hash className="w-6 h-6" />, name: 'Comment Scraper', desc: 'Extract comments from any Instagram post', tab: 'instagram-comments' },
+    ],
+  },
+  {
+    platform: 'TikTok',
+    color: 'from-slate-900 to-pink-500',
+    tools: [
+      { icon: <MonitorPlay className="w-6 h-6" />, name: 'TikTok Scraper', desc: 'Scrape videos from profiles or hashtags', tab: 'tiktok' },
+    ],
+  },
+  {
+    platform: 'Facebook',
+    color: 'from-blue-600 to-blue-800',
+    tools: [
+      { icon: <FileUp className="w-6 h-6" />, name: 'Facebook Posts', desc: 'Scrape posts from any Facebook page', tab: 'facebook-posts' },
+    ],
+  },
+  {
+    platform: 'LinkedIn',
+    color: 'from-blue-700 to-cyan-600',
+    tools: [
+      { icon: <FileUp className="w-6 h-6" />, name: 'LinkedIn Posts', desc: 'Scrape posts from profiles or company pages', tab: 'linkedin-posts' },
+      { icon: <Users className="w-6 h-6" />, name: 'LinkedIn Profile', desc: 'Get detailed profile data (admin only)', tab: 'linkedin-profile' },
+    ],
+  },
+  {
+    platform: 'YouTube',
+    color: 'from-red-600 to-red-800',
+    tools: [
+      { icon: <FileUp className="w-6 h-6" />, name: 'Transcript Extractor', desc: 'Extract transcripts from YouTube videos', tab: 'youtube-transcript' },
+    ],
+  },
+  {
+    platform: 'Threads',
+    color: 'from-slate-800 to-slate-600',
+    tools: [
+      { icon: <Download className="w-6 h-6" />, name: 'Threads Downloader', desc: 'Download Threads videos and media', tab: 'threads-downloader' },
+    ],
+  },
 ];
+
+// Flat list for backward compatibility
+const TOOLKIT_TOOLS = TOOLKIT_SECTIONS.flatMap(s => s.tools);
 
 export const ToolkitPageView = ({ setActiveTab }) => (
   <div className="animate-in fade-in duration-500">
     {/* Hero */}
     <section className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 text-white pt-16 pb-20">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Free Instagram Tools</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Free Social Media Tools</h1>
         <p className="text-emerald-100/80 text-lg">
-          A complete suite of free tools to analyze, track, and grow your Instagram presence.
+          A complete suite of free tools to analyze, track, and grow your presence across Instagram, TikTok, LinkedIn, and more.
         </p>
       </div>
     </section>
 
-    {/* Tools grid */}
-    <section className="py-20 bg-slate-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TOOLKIT_TOOLS.map((tool, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all duration-300 flex flex-col group"
-            >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-100 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-5 group-hover:scale-110 transition-transform">
-                {tool.icon}
+    {/* Platform sections */}
+    <section className="py-16 bg-slate-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+        {TOOLKIT_SECTIONS.map((section) => (
+          <div key={section.platform}>
+            {/* Platform header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${section.color} flex items-center justify-center text-white font-bold text-sm`}>
+                {section.platform[0]}
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">{tool.name}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed mb-6 flex-1">{tool.desc}</p>
-              <button
-                onClick={() => setActiveTab(tool.tab)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold rounded-full hover:shadow-md hover:shadow-emerald-500/25 hover:-translate-y-0.5 transition-all w-fit"
-              >
-                Try it <ArrowRight className="w-4 h-4" />
-              </button>
+              <h2 className="text-2xl font-bold text-slate-900">{section.platform}</h2>
+              <span className="text-xs text-slate-400 font-medium bg-slate-100 px-2 py-0.5 rounded-full">
+                {section.tools.length} tool{section.tools.length > 1 ? 's' : ''}
+              </span>
             </div>
-          ))}
-        </div>
+
+            {/* Tools grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {section.tools.map((tool, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all duration-300 flex flex-col group"
+                >
+                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${section.color} flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}>
+                    {tool.icon}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 mb-1.5">{tool.name}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed mb-5 flex-1">{tool.desc}</p>
+                  <button
+                    onClick={() => setActiveTab(tool.tab)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold rounded-full hover:shadow-md hover:shadow-emerald-500/25 hover:-translate-y-0.5 transition-all w-fit"
+                  >
+                    Try it <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   </div>
@@ -1631,6 +1702,672 @@ export const FollowerExportView = ({ searchQuery, setSearchQuery, setActiveTab }
                 Enter an Instagram username above to export their {listType} list.
               </div>
             </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── Instagram Comments View ────────────────────────────────────────────── */
+
+export const InstagramCommentsView = () => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [comments, setComments] = useState([]);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    setStatus('loading');
+    setError(null);
+    setComments([]);
+
+    try {
+      const items = await fetchInstagramComments(input.trim(), 50);
+      if (!items || items.length === 0) {
+        throw new Error('No comments found or post is private.');
+      }
+      setComments(items);
+      setStatus('success');
+    } catch (err) {
+      console.error('Comments fetch error:', err);
+      setError(err.message || 'Failed to fetch comments.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="Instagram Comment Scraper"
+        subtitle="Extract all comments from any public Instagram post URL."
+        gradient="from-pink-500 via-purple-600 to-indigo-700"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Paste an Instagram post URL (e.g. https://instagram.com/p/xyz)"
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Get Comments'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-pink-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching comments...</p>
+              <p className="text-slate-500 text-sm">This may take 30-60 seconds...</p>
+            </div>
+          )}
+
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch comments</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && (
+            <div className="mt-8 bg-white rounded-2xl border border-pink-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800">{comments.length} Comments Found</h3>
+              </div>
+              <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                {comments.map((c, i) => (
+                  <div key={i} className="p-4 bg-slate-50 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-semibold text-slate-800 text-sm">@{c.ownerUsername || c.username || 'unknown'}</span>
+                      <span className="text-xs text-slate-400">{c.timestamp ? new Date(c.timestamp).toLocaleDateString() : ''}</span>
+                    </div>
+                    <p className="text-sm text-slate-600">{c.text || c.comment || ''}</p>
+                    {c.likesCount > 0 && (
+                      <p className="text-xs text-slate-400 mt-2">❤️ {c.likesCount} likes</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <EmptyStateBox message="Paste an Instagram post URL above to extract comments" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── Facebook Posts View ────────────────────────────────────────────────── */
+
+export const FacebookPostsView = () => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [posts, setPosts] = useState([]);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    setStatus('loading');
+    setError(null);
+    setPosts([]);
+
+    try {
+      const items = await fetchFacebookPosts(input.trim(), 50);
+      if (!items || items.length === 0) {
+        throw new Error('No posts found or page is private.');
+      }
+      setPosts(items);
+      setStatus('success');
+    } catch (err) {
+      console.error('Facebook fetch error:', err);
+      setError(err.message || 'Failed to fetch posts.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="Facebook Posts Scraper"
+        subtitle="Extract posts from any public Facebook page."
+        gradient="from-blue-600 via-blue-700 to-blue-900"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Paste a Facebook page URL..."
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Get Posts'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching Facebook posts...</p>
+              <p className="text-slate-500 text-sm">This may take 30-90 seconds...</p>
+            </div>
+          )}
+
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch posts</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && (
+            <div className="mt-8 bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800">{posts.length} Posts Found</h3>
+              </div>
+              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                {posts.map((p, i) => (
+                  <div key={i} className="p-4 bg-slate-50 rounded-xl">
+                    <p className="text-sm text-slate-600 line-clamp-4">{p.text || p.message || p.postText || 'No text'}</p>
+                    <div className="flex gap-4 mt-3 text-xs text-slate-400">
+                      {p.likesCount !== undefined && <span>👍 {p.likesCount}</span>}
+                      {p.commentsCount !== undefined && <span>💬 {p.commentsCount}</span>}
+                      {p.sharesCount !== undefined && <span>↗️ {p.sharesCount}</span>}
+                      {p.time && <span>{new Date(p.time).toLocaleDateString()}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <EmptyStateBox message="Paste a Facebook page URL above to extract posts" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── TikTok View ────────────────────────────────────────────────────────── */
+
+export const TikTokView = () => {
+  const [input, setInput] = useState('');
+  const [searchType, setSearchType] = useState('profile'); // profile or hashtag
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [videos, setVideos] = useState([]);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    setStatus('loading');
+    setError(null);
+    setVideos([]);
+
+    try {
+      const opts = searchType === 'profile'
+        ? { username: input.trim().replace('@', ''), limit: 50 }
+        : { hashtag: input.trim().replace('#', ''), limit: 50 };
+
+      const items = await fetchTikTokVideos(opts);
+      if (!items || items.length === 0) {
+        throw new Error('No videos found.');
+      }
+      setVideos(items);
+      setStatus('success');
+    } catch (err) {
+      console.error('TikTok fetch error:', err);
+      setError(err.message || 'Failed to fetch TikTok videos.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="TikTok Scraper"
+        subtitle="Scrape videos from TikTok profiles or hashtags."
+        gradient="from-slate-900 via-pink-600 to-cyan-500"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Toggle */}
+          <div className="flex gap-4 justify-center mb-6">
+            {['profile', 'hashtag'].map(type => (
+              <button
+                key={type}
+                onClick={() => { setSearchType(type); setStatus('idle'); setVideos([]); }}
+                disabled={status === 'loading'}
+                className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${
+                  searchType === type
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                }`}
+              >
+                {type === 'profile' ? '👤 Profile' : '# Hashtag'}
+              </button>
+            ))}
+          </div>
+
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder={searchType === 'profile' ? 'Enter TikTok username...' : 'Enter hashtag...'}
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Scrape Videos'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-pink-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching TikTok videos...</p>
+              <p className="text-slate-500 text-sm">This may take 30-90 seconds...</p>
+            </div>
+          )}
+
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch videos</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && (
+            <div className="mt-8 bg-white rounded-2xl border border-pink-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800">{videos.length} Videos Found</h3>
+              </div>
+              <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto">
+                {videos.map((v, i) => (
+                  <div key={i} className="bg-slate-50 rounded-xl overflow-hidden">
+                    {v.videoMeta?.coverUrl && (
+                      <img src={v.videoMeta.coverUrl} alt="" className="w-full h-32 object-cover" />
+                    )}
+                    <div className="p-3">
+                      <p className="text-xs text-slate-600 line-clamp-2">{v.text || v.desc || 'No description'}</p>
+                      <div className="flex gap-2 mt-2 text-xs text-slate-400">
+                        <span>❤️ {v.diggCount || v.likes || 0}</span>
+                        <span>💬 {v.commentCount || v.comments || 0}</span>
+                        <span>↗️ {v.shareCount || v.shares || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <EmptyStateBox message="Enter a TikTok username or hashtag above" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── LinkedIn Posts View ────────────────────────────────────────────────── */
+
+export const LinkedInPostsView = () => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [posts, setPosts] = useState([]);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    setStatus('loading');
+    setError(null);
+    setPosts([]);
+
+    try {
+      const items = await fetchLinkedInPosts(input.trim(), 10);
+      if (!items || items.length === 0) {
+        throw new Error('No posts found.');
+      }
+      setPosts(items);
+      setStatus('success');
+    } catch (err) {
+      console.error('LinkedIn posts fetch error:', err);
+      setError(err.message || 'Failed to fetch LinkedIn posts.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="LinkedIn Posts Scraper"
+        subtitle="Extract recent posts from any LinkedIn profile or company page."
+        gradient="from-blue-700 via-blue-800 to-cyan-700"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Paste a LinkedIn profile or company page URL..."
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Get Posts'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching LinkedIn posts...</p>
+              <p className="text-slate-500 text-sm">This may take 30-60 seconds...</p>
+            </div>
+          )}
+
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch posts</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && (
+            <div className="mt-8 bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800">{posts.length} Posts Found</h3>
+              </div>
+              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
+                {posts.map((p, i) => (
+                  <div key={i} className="p-4 bg-slate-50 rounded-xl">
+                    <p className="text-sm text-slate-600 line-clamp-4">{p.text || p.content || p.commentary || 'No text'}</p>
+                    <div className="flex gap-4 mt-3 text-xs text-slate-400">
+                      {p.likesCount !== undefined && <span>👍 {p.likesCount}</span>}
+                      {p.commentsCount !== undefined && <span>💬 {p.commentsCount}</span>}
+                      {p.repostsCount !== undefined && <span>🔄 {p.repostsCount}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <EmptyStateBox message="Paste a LinkedIn profile or company URL above" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── LinkedIn Profile View (Admin Only) ────────────────────────────────── */
+
+export const LinkedInProfileView = ({ isAdmin = false }) => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [profile, setProfile] = useState(null);
+
+  // For non-admin users, show preview only
+  if (!isAdmin) {
+    return (
+      <div className="animate-in fade-in duration-500">
+        <ToolHero
+          title="LinkedIn Profile Scraper"
+          subtitle="Get detailed profile data from any LinkedIn profile."
+          gradient="from-blue-700 via-blue-800 to-cyan-700"
+        />
+
+        <section className="py-14 bg-slate-50">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Preview card for non-admin */}
+            <div className="bg-white rounded-2xl border border-amber-200 p-8 text-center shadow-sm">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Admin Feature</h3>
+              <p className="text-slate-500 text-sm mb-6">
+                LinkedIn profile scraping requires authentication and is only available to admin users.
+                Sign up for a premium account to access this feature.
+              </p>
+              <button className="px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-full hover:shadow-lg transition-all">
+                Upgrade to Access
+              </button>
+            </div>
+
+            {/* Preview of what's available */}
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <h4 className="font-bold text-slate-800 mb-4">What you'll get with admin access:</h4>
+              <ul className="space-y-3 text-sm text-slate-600">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                  Full profile data including headline, about, and experience
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                  Education history and certifications
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                  Skills and endorsements
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                  Recommendations and connections count
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    setStatus('loading');
+    setError(null);
+    setProfile(null);
+
+    try {
+      // Note: This requires cookies to be configured server-side
+      const items = await fetchLinkedInProfile(input.trim(), []);
+      if (!items || items.length === 0) {
+        throw new Error('Profile not found or requires authentication.');
+      }
+      setProfile(items[0]);
+      setStatus('success');
+    } catch (err) {
+      console.error('LinkedIn profile fetch error:', err);
+      setError(err.message || 'Failed to fetch profile. LinkedIn auth may be required.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="LinkedIn Profile Scraper"
+        subtitle="Get detailed profile data from any LinkedIn profile (admin only)."
+        gradient="from-blue-700 via-blue-800 to-cyan-700"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+            <h4 className="font-semibold text-amber-800 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Requires LinkedIn Authentication
+            </h4>
+            <p className="text-amber-700 text-xs mt-1">
+              This feature requires LinkedIn cookies to be configured. Contact support to set up.
+            </p>
+          </div>
+
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Paste a LinkedIn profile URL..."
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Get Profile'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Fetching profile data...</p>
+            </div>
+          )}
+
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Failed to fetch profile</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && profile && (
+            <div className="mt-8 bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center gap-4">
+                {profile.profilePicture && (
+                  <img src={profile.profilePicture} alt="" className="w-16 h-16 rounded-full" />
+                )}
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">{profile.firstName} {profile.lastName}</h3>
+                  <p className="text-sm text-slate-600">{profile.headline || profile.occupation}</p>
+                </div>
+              </div>
+              <div className="p-6 space-y-4 text-sm">
+                {profile.about && (
+                  <div>
+                    <h4 className="font-semibold text-slate-700 mb-1">About</h4>
+                    <p className="text-slate-600">{profile.about}</p>
+                  </div>
+                )}
+                {profile.location && (
+                  <p className="text-slate-500">📍 {profile.location}</p>
+                )}
+                {profile.connectionsCount && (
+                  <p className="text-slate-500">🔗 {profile.connectionsCount} connections</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <EmptyStateBox message="Paste a LinkedIn profile URL above" />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+/* ─── YouTube Transcript View ────────────────────────────────────────────── */
+
+export const YouTubeTranscriptView = () => {
+  const [input, setInput] = useState('');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [transcript, setTranscript] = useState(null);
+
+  const handleSearch = async () => {
+    if (!input.trim()) return;
+    setStatus('loading');
+    setError(null);
+    setTranscript(null);
+
+    try {
+      const items = await fetchYouTubeTranscript(input.trim());
+      if (!items || items.length === 0) {
+        throw new Error('Transcript not available for this video.');
+      }
+      setTranscript(items[0]);
+      setStatus('success');
+    } catch (err) {
+      console.error('YouTube transcript fetch error:', err);
+      setError(err.message || 'Failed to fetch transcript.');
+      setStatus('error');
+    }
+  };
+
+  const handleCopyTranscript = () => {
+    if (transcript?.transcript || transcript?.text) {
+      navigator.clipboard.writeText(transcript.transcript || transcript.text).catch(() => {});
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <ToolHero
+        title="YouTube Transcript Extractor"
+        subtitle="Extract the full transcript from any YouTube video."
+        gradient="from-red-600 via-red-700 to-red-900"
+      />
+
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ToolSearchBar
+            value={input}
+            onChange={setInput}
+            placeholder="Paste a YouTube video URL..."
+            buttonLabel={status === 'loading' ? 'Fetching...' : 'Get Transcript'}
+            onSearch={handleSearch}
+            disabled={status === 'loading'}
+          />
+
+          {status === 'loading' && (
+            <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+              <Loader2 className="w-10 h-10 text-red-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Extracting transcript...</p>
+              <p className="text-slate-500 text-sm">This may take 15-30 seconds...</p>
+            </div>
+          )}
+
+          {status === 'error' && (
+            <div className="mt-8 bg-white rounded-2xl border border-rose-200 p-8 text-center shadow-sm">
+              <AlertCircle className="w-10 h-10 text-rose-600 mx-auto mb-4" />
+              <p className="text-slate-700 font-semibold mb-2">Failed to extract transcript</p>
+              <p className="text-slate-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && transcript && (
+            <div className="mt-8 bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-slate-800">{transcript.title || 'Transcript'}</h3>
+                  {transcript.channelName && (
+                    <p className="text-xs text-slate-500">{transcript.channelName}</p>
+                  )}
+                </div>
+                <button
+                  onClick={handleCopyTranscript}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 px-4 py-2 rounded-lg hover:shadow-md transition-all"
+                >
+                  <Copy className="w-4 h-4" /> Copy All
+                </button>
+              </div>
+              <div className="p-6 max-h-[500px] overflow-y-auto">
+                <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
+                  {transcript.transcript || transcript.text || transcript.captions?.map(c => c.text).join(' ') || 'No transcript text available'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {status === 'idle' && (
+            <EmptyStateBox message="Paste a YouTube video URL above to extract its transcript" />
           )}
         </div>
       </section>

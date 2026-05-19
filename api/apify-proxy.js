@@ -66,24 +66,47 @@ export default async function handler(req, res) {
   if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
 
   try {
-    let run;
+    let run, completed, items;
 
-    if (action === 'followers' || action === 'following') {
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTAGRAM: Followers
+    // Actor: instaprism/instagram-followers-scraper
+    // Input: { username: string, limit: number }
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'followers') {
       const { username, limit = 200 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
 
-      run = await startRun(
-        'scraping_solutions/instagram-scraper-followers-following-no-cookies',
-        {
-          Account: [username.replace('@', '')],
-          scrapeType: action, // 'followers' or 'following'
-        }
-      );
-      const completed = await pollRun(run.id);
-      const items = await getDatasetItems(completed.defaultDatasetId, limit);
+      run = await startRun('instaprism/instagram-followers-scraper', {
+        username: username.replace('@', ''),
+        limit: limit,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, limit);
       return res.status(200).json({ ok: true, items });
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTAGRAM: Following (who the account follows)
+    // Actor: instaprism/instagram-following-scraper (pay-per-event: $3.80/1000)
+    // Input: { username: string, limit: number }
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'following') {
+      const { username, limit = 200 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+
+      run = await startRun('instaprism/instagram-following-scraper', {
+        username: username.replace('@', ''),
+        limit: limit,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, limit);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTAGRAM: Profile
+    // ─────────────────────────────────────────────────────────────────────────
     if (action === 'profile') {
       const { username } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
@@ -91,8 +114,122 @@ export default async function handler(req, res) {
       run = await startRun('apify/instagram-profile-scraper', {
         usernames: [username.replace('@', '')],
       });
-      const completed = await pollRun(run.id);
-      const items = await getDatasetItems(completed.defaultDatasetId, 1);
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, 1);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTAGRAM: Stories
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'stories') {
+      const { username } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+
+      run = await startRun('gordian/instagram-story-scraper', {
+        usernames: [username.replace('@', '')],
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, 100);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INSTAGRAM: Comments on a post
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'comments') {
+      const { postUrl, limit = 50 } = payload;
+      if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
+
+      run = await startRun('apify/instagram-comment-scraper', {
+        directUrls: [postUrl],
+        resultsLimit: limit,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, limit);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FACEBOOK: Posts from a page
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'facebook-posts') {
+      const { pageUrl, limit = 50 } = payload;
+      if (!pageUrl) return res.status(400).json({ error: 'Missing pageUrl' });
+
+      run = await startRun('apify/facebook-posts-scraper', {
+        startUrls: [{ url: pageUrl }],
+        resultsLimit: limit,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, limit);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIKTOK: Profile or hashtag scraping
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'tiktok') {
+      const { username, hashtag, limit = 50 } = payload;
+      if (!username && !hashtag) return res.status(400).json({ error: 'Missing username or hashtag' });
+
+      const input = { resultsPerPage: limit };
+      if (username) input.profiles = [username.replace('@', '')];
+      if (hashtag) input.hashtags = [hashtag.replace('#', '')];
+
+      run = await startRun('clockworks/tiktok-scraper', input);
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, limit);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LINKEDIN: Posts from a profile or company page
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'linkedin-posts') {
+      const { profileUrl, limit = 10 } = payload;
+      if (!profileUrl) return res.status(400).json({ error: 'Missing profileUrl' });
+
+      run = await startRun('supreme_coder/linkedin-post', {
+        urls: [profileUrl],
+        limitPerSource: limit,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, limit);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LINKEDIN: Profile scraping (requires cookies - passed from client)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'linkedin-profile') {
+      const { profileUrl, cookies } = payload;
+      if (!profileUrl) return res.status(400).json({ error: 'Missing profileUrl' });
+      if (!cookies || !Array.isArray(cookies)) {
+        return res.status(400).json({ error: 'Missing cookies array (LinkedIn auth required)' });
+      }
+
+      run = await startRun('curious_coder/linkedin-profile-scraper', {
+        urls: [profileUrl],
+        cookie: cookies,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, 1);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // YOUTUBE: Transcript extraction
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'youtube-transcript') {
+      const { videoUrl } = payload;
+      if (!videoUrl) return res.status(400).json({ error: 'Missing videoUrl' });
+
+      run = await startRun('pintostudio/youtube-transcript-scraper', {
+        videoUrl: videoUrl,
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, 1);
       return res.status(200).json({ ok: true, items });
     }
 

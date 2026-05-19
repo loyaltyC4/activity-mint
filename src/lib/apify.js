@@ -48,3 +48,67 @@ export async function fetchInstagramStories(username) {
 export async function fetchFollowersList(username, listType = 'followers', limit = 200) {
   return callProxy(listType, { username: username.replace('@', ''), limit });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEW SCRAPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Fetch Instagram Stories for a public username.
+ * Uses gordian/instagram-story-scraper actor.
+ */
+export async function fetchInstagramStoriesReal(username) {
+  return callProxy('stories', { username: username.replace('@', '') });
+}
+
+/**
+ * Fetch comments from an Instagram post URL.
+ * @param {string} postUrl - Full Instagram post URL (e.g. https://instagram.com/p/xyz)
+ * @param {number} limit - Max comments to fetch (default 50)
+ */
+export async function fetchInstagramComments(postUrl, limit = 50) {
+  return callProxy('comments', { postUrl, limit });
+}
+
+/**
+ * Fetch posts from a Facebook page.
+ * @param {string} pageUrl - Full Facebook page URL
+ * @param {number} limit - Max posts to fetch (default 50)
+ */
+export async function fetchFacebookPosts(pageUrl, limit = 50) {
+  return callProxy('facebook-posts', { pageUrl, limit });
+}
+
+/**
+ * Fetch TikTok videos from a profile or hashtag.
+ * @param {object} options - { username?, hashtag?, limit? }
+ */
+export async function fetchTikTokVideos({ username, hashtag, limit = 50 }) {
+  return callProxy('tiktok', { username, hashtag, limit });
+}
+
+/**
+ * Fetch LinkedIn posts from a profile or company page.
+ * @param {string} profileUrl - Full LinkedIn profile/company URL
+ * @param {number} limit - Max posts to fetch (default 10)
+ */
+export async function fetchLinkedInPosts(profileUrl, limit = 10) {
+  return callProxy('linkedin-posts', { profileUrl, limit });
+}
+
+/**
+ * Fetch LinkedIn profile data (requires cookies for auth).
+ * @param {string} profileUrl - Full LinkedIn profile URL
+ * @param {Array} cookies - LinkedIn session cookies array
+ */
+export async function fetchLinkedInProfile(profileUrl, cookies) {
+  return callProxy('linkedin-profile', { profileUrl, cookies });
+}
+
+/**
+ * Fetch YouTube video transcript.
+ * @param {string} videoUrl - Full YouTube video URL
+ */
+export async function fetchYouTubeTranscript(videoUrl) {
+  return callProxy('youtube-transcript', { videoUrl });
+}

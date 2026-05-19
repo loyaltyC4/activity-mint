@@ -323,7 +323,7 @@ export default function App() {
     if (user) { setActiveTab('dashboard'); } else { setAuthOpen(true); }
   };
 
-  const toolkitTabs = ['toolkit', 'threads-downloader', 'celebrities', 'story-viewer', 'post-viewer', 'hashtag-generator', 'shadowban-checker', 'recent-follower', 'unfollower', 'follower-export'];
+  const toolkitTabs = ['toolkit', 'threads-downloader', 'celebrities', 'story-viewer', 'post-viewer', 'hashtag-generator', 'shadowban-checker', 'recent-follower', 'unfollower', 'follower-export', 'instagram-comments', 'facebook-posts', 'tiktok', 'linkedin-posts', 'linkedin-profile', 'youtube-transcript'];
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-emerald-200">
@@ -357,17 +357,27 @@ export default function App() {
                 <button className={`flex items-center gap-1 text-sm font-medium transition-colors py-2 ${toolkitTabs.includes(activeTab) ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>
                   Toolkit <ChevronDown className="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
                 </button>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-80 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-2 flex flex-col gap-1">
-                    <DropdownItem icon={<Download className="w-4 h-4" />} title="Threads Downloader" onClick={() => setActiveTab('threads-downloader')} />
-                    <DropdownItem icon={<Award className="w-4 h-4" />} title="Celebrity Influencers" onClick={() => setActiveTab('celebrities')} />
-                    <DropdownItem icon={<MonitorPlay className="w-4 h-4" />} title="Instagram Story Viewer" onClick={() => setActiveTab('story-viewer')} />
-                    <DropdownItem icon={<Eye className="w-4 h-4" />} title="Post Viewer for Instagram" onClick={() => setActiveTab('post-viewer')} />
-                    <DropdownItem icon={<Hash className="w-4 h-4" />} title="Hashtag Generator" onClick={() => setActiveTab('hashtag-generator')} />
-                    <DropdownItem icon={<AlertCircle className="w-4 h-4" />} title="Shadowban Checker" onClick={() => setActiveTab('shadowban-checker')} />
+                    {/* Instagram */}
+                    <div className="px-3 pt-2 pb-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Instagram</span></div>
+                    <DropdownItem icon={<MonitorPlay className="w-4 h-4" />} title="Story Viewer" onClick={() => setActiveTab('story-viewer')} />
                     <DropdownItem icon={<UserCheck className="w-4 h-4" />} title="Recent Follower Tracker" onClick={() => setActiveTab('recent-follower')} />
                     <DropdownItem icon={<UserMinus className="w-4 h-4" />} title="Unfollower Tracker" onClick={() => setActiveTab('unfollower')} />
-                    <DropdownItem icon={<FileUp className="w-4 h-4" />} title="Follower Export Tool" onClick={() => setActiveTab('follower-export')} />
+                    <DropdownItem icon={<FileUp className="w-4 h-4" />} title="Follower Export" onClick={() => setActiveTab('follower-export')} />
+                    <DropdownItem icon={<Hash className="w-4 h-4" />} title="Comment Scraper" onClick={() => setActiveTab('instagram-comments')} />
+                    {/* Other platforms */}
+                    <div className="px-3 pt-2 pb-1 border-t border-slate-100 mt-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">More Platforms</span></div>
+                    <DropdownItem icon={<Video className="w-4 h-4" />} title="TikTok Scraper" onClick={() => setActiveTab('tiktok')} />
+                    <DropdownItem icon={<Globe className="w-4 h-4" />} title="Facebook Posts" onClick={() => setActiveTab('facebook-posts')} />
+                    <DropdownItem icon={<Briefcase className="w-4 h-4" />} title="LinkedIn Posts" onClick={() => setActiveTab('linkedin-posts')} />
+                    <DropdownItem icon={<BookOpen className="w-4 h-4" />} title="YouTube Transcript" onClick={() => setActiveTab('youtube-transcript')} />
+                    <DropdownItem icon={<Download className="w-4 h-4" />} title="Threads Downloader" onClick={() => setActiveTab('threads-downloader')} />
+                    <div className="border-t border-slate-100 mt-1 pt-1">
+                      <button onClick={() => setActiveTab('toolkit')} className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 rounded-xl px-3 py-2 transition-colors">
+                        View all tools <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

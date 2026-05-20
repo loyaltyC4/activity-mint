@@ -7,9 +7,15 @@ import {
   Image as ImageIcon, Video, RefreshCw, AlertCircle, Award,
   MonitorPlay, UserCheck, PenTool, UserMinus, FileUp, Flame,
   LayoutGrid, DollarSign, BookOpen, Briefcase, Mail, FileText,
-  Lock, PlusCircle, ChevronRight, PieChart, HelpCircle,
+  Lock, PlusCircle, ChevronRight, PieChart, HelpCircle, Sparkles,
+  Link2, Repeat2, Star,
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
+import { useTier } from './context/TierContext';
+import { useI18n } from './lib/i18n';
+import { canAccess } from './lib/tiers';
+import LanguageSwitcher from './components/LanguageSwitcher';
+import AccessGate from './components/AccessGate';
 import {
   BlogPageView, AffiliateView, ToolkitPageView,
   ThreadsDownloaderView, CelebritiesView, HashtagGeneratorView,
@@ -19,6 +25,9 @@ import {
 } from './views';
 import { StoryViewerView, PostViewerView } from './apify-views';
 import { fetchInstagramProfile } from './lib/apify';
+import Dashboard from './components/Dashboard';
+import { HighlightsViewerView, LinksViewerView, RepostsViewerView, LikeViewerView } from './pages/NewTools';
+import { ActivityTrackerPage, AISentimentPage, FollowerGrowthPage, CompetitorAnalysisPage } from './pages/AnalyticsPages';
 
 /* ─── Helper: Proxy Instagram CDN images to bypass CORS ─────────────────── */
 const proxyImageUrl = (url) => {
@@ -277,6 +286,8 @@ const AuthModal = ({ onClose }) => {
 
 export default function App() {
   const { user, signOut } = useAuth();
+  const { tier } = useTier();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -323,7 +334,8 @@ export default function App() {
     if (user) { setActiveTab('dashboard'); } else { setAuthOpen(true); }
   };
 
-  const toolkitTabs = ['toolkit', 'threads-downloader', 'celebrities', 'story-viewer', 'post-viewer', 'hashtag-generator', 'shadowban-checker', 'recent-follower', 'unfollower', 'follower-export', 'instagram-comments', 'facebook-posts', 'tiktok', 'linkedin-posts', 'linkedin-profile', 'youtube-transcript'];
+  const toolkitTabs = ['toolkit', 'threads-downloader', 'celebrities', 'story-viewer', 'post-viewer', 'highlights-viewer', 'links-viewer', 'reposts-viewer', 'like-viewer', 'hashtag-generator', 'shadowban-checker', 'recent-follower', 'unfollower', 'follower-export', 'instagram-comments', 'facebook-posts', 'tiktok', 'linkedin-posts', 'linkedin-profile', 'youtube-transcript'];
+  const featurePages = ['activity-tracker', 'ai-sentiment', 'follower-growth', 'competitor-analysis'];
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-emerald-200">
@@ -342,10 +354,10 @@ export default function App() {
                 </button>
                 <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-64 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                   <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-2 flex flex-col gap-1">
-                    <DropdownItem icon={<Activity className="w-4 h-4" />} title="Activity Tracker" onClick={() => setActiveTab('home')} />
-                    <DropdownItem icon={<Brain className="w-4 h-4" />} title="AI Sentiment Analysis" onClick={() => setActiveTab('home')} />
-                    <DropdownItem icon={<TrendingUp className="w-4 h-4" />} title="Follower Growth" onClick={() => setActiveTab('home')} />
-                    <DropdownItem icon={<Target className="w-4 h-4" />} title="Competitor Analysis" onClick={() => setActiveTab('home')} />
+                    <DropdownItem icon={<Activity className="w-4 h-4" />} title="Activity Tracker" onClick={() => setActiveTab('activity-tracker')} />
+                    <DropdownItem icon={<Brain className="w-4 h-4" />} title="AI Sentiment Analysis" onClick={() => setActiveTab('ai-sentiment')} />
+                    <DropdownItem icon={<TrendingUp className="w-4 h-4" />} title="Follower Growth" onClick={() => setActiveTab('follower-growth')} />
+                    <DropdownItem icon={<Target className="w-4 h-4" />} title="Competitor Analysis" onClick={() => setActiveTab('competitor-analysis')} />
                   </div>
                 </div>
               </div>
@@ -362,6 +374,10 @@ export default function App() {
                     {/* Instagram */}
                     <div className="px-3 pt-2 pb-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Instagram</span></div>
                     <DropdownItem icon={<MonitorPlay className="w-4 h-4" />} title="Story Viewer" onClick={() => setActiveTab('story-viewer')} />
+                    <DropdownItem icon={<Star className="w-4 h-4" />} title="Highlights Viewer" onClick={() => setActiveTab('highlights-viewer')} />
+                    <DropdownItem icon={<Heart className="w-4 h-4" />} title="Like Viewer" onClick={() => setActiveTab('like-viewer')} />
+                    <DropdownItem icon={<Link2 className="w-4 h-4" />} title="Links Viewer" onClick={() => setActiveTab('links-viewer')} />
+                    <DropdownItem icon={<Repeat2 className="w-4 h-4" />} title="Reposts Viewer" onClick={() => setActiveTab('reposts-viewer')} />
                     <DropdownItem icon={<UserCheck className="w-4 h-4" />} title="Recent Follower Tracker" onClick={() => setActiveTab('recent-follower')} />
                     <DropdownItem icon={<UserMinus className="w-4 h-4" />} title="Unfollower Tracker" onClick={() => setActiveTab('unfollower')} />
                     <DropdownItem icon={<FileUp className="w-4 h-4" />} title="Follower Export" onClick={() => setActiveTab('follower-export')} />
@@ -397,7 +413,7 @@ export default function App() {
                   </button>
                 </>
               )}
-              <div className="flex items-center gap-1 text-sm text-slate-500 cursor-pointer"><Globe className="w-4 h-4" /> EN</div>
+              <LanguageSwitcher variant="nav" />
             </div>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-slate-600"><Menu className="w-6 h-6" /></button>
           </div>
@@ -419,6 +435,7 @@ export default function App() {
                   <button onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }} className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full">Sign Up</button>
                 </>
               )}
+              <LanguageSwitcher variant="nav" />
             </div>
           </div>
         )}
@@ -426,7 +443,7 @@ export default function App() {
 
       <main className="pt-16">
         {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} demoResult={demoResult} setDemoResult={setDemoResult} searchError={searchError} setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
-        {activeTab === 'dashboard' && (user ? <DashboardView /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
+        {activeTab === 'dashboard' && (user ? <Dashboard /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
         {activeTab === 'pricing' && <PricingView />}
         {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
         {activeTab === 'help-center' && <HelpCenterView />}
@@ -447,6 +464,14 @@ export default function App() {
         {activeTab === 'linkedin-posts' && <LinkedInPostsView />}
         {activeTab === 'linkedin-profile' && <LinkedInProfileView isAdmin={user?.email?.endsWith('@activitymint.com')} />}
         {activeTab === 'youtube-transcript' && <YouTubeTranscriptView />}
+        {activeTab === 'highlights-viewer' && <HighlightsViewerView />}
+        {activeTab === 'links-viewer' && <LinksViewerView />}
+        {activeTab === 'reposts-viewer' && <RepostsViewerView />}
+        {activeTab === 'like-viewer' && <LikeViewerView />}
+        {activeTab === 'activity-tracker' && <ActivityTrackerPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+        {activeTab === 'ai-sentiment' && <AISentimentPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+        {activeTab === 'follower-growth' && <FollowerGrowthPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+        {activeTab === 'competitor-analysis' && <CompetitorAnalysisPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
       </main>
 
       <footer className="bg-white border-t border-slate-100 pt-16 pb-8">
@@ -481,9 +506,12 @@ export default function App() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
+          <div className="border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500 gap-4">
             <p>© {new Date().getFullYear()} Activity Mint. All rights reserved.</p>
-            <span className="mt-4 md:mt-0">Made for smart marketers 🍃</span>
+            <div className="flex items-center gap-4">
+              <LanguageSwitcher variant="footer" />
+              <span>Made for smart marketers 🍃</span>
+            </div>
           </div>
         </div>
       </footer>
@@ -697,30 +725,30 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
                   step: '01',
                   title: 'Create Free Account',
                   desc: 'Sign up in seconds — no credit card needed. Your identity stays completely private.',
-                  icon: '🔐',
+                  icon: <ShieldCheck className="w-6 h-6 text-emerald-200" />,
                 },
                 {
                   step: '02',
                   title: 'Enter Any Username',
                   desc: 'Type the Instagram @username you want to analyse. Works on any public profile.',
-                  icon: '🔍',
+                  icon: <Search className="w-6 h-6 text-emerald-200" />,
                 },
                 {
                   step: '03',
                   title: 'We Scan the Data',
                   desc: 'Our engine fetches live profile data, followers, posts, and activity patterns.',
-                  icon: '⚡',
+                  icon: <Activity className="w-6 h-6 text-emerald-200" />,
                 },
                 {
                   step: '04',
                   title: 'Get Your Report',
                   desc: 'View follower stats, recent posts, engagement rate, and AI-powered insights in your dashboard.',
-                  icon: '📊',
+                  icon: <BarChart2 className="w-6 h-6 text-emerald-200" />,
                 },
               ].map(({ step, title, desc, icon }, i) => (
                 <div key={i} className="relative bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/15 hover:bg-white/15 transition-all group">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl">{icon}</span>
+                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">{icon}</div>
                     <span className="text-white/40 font-black text-sm tracking-widest">{step}</span>
                   </div>
                   <h3 className="font-bold text-white text-base mb-2 group-hover:text-emerald-200 transition-colors">{title}</h3>
@@ -1186,14 +1214,14 @@ const PricingView = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-end">
-          <PricingCard title="Basic" price="$4.49" interval="/month" highlighted={billingPeriod === 'monthly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers", included: true }, { name: "AI-Powered Insights & Analytics", included: false }, { name: "Historical Posts and Top Commenters", included: false }, { name: "Downloadable Activity Reports in CSV", included: false }]} />
+          <PricingCard title="Basic" price="$4.49" interval="/month" highlighted={billingPeriod === 'monthly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "Story Viewer & Post Viewer", included: true }, { name: "Like Viewer & Reposts Viewer", included: false }, { name: "Highlights & Links Viewer", included: false }, { name: "AI Insights (MBTI, Sentiment, Growth)", included: false }, { name: "Activity Tracker & Competitor Analysis", included: false }, { name: "CSV/PDF Export", included: false }]} />
           <div className="relative transform md:-translate-y-4">
             <div className="absolute -top-4 left-0 right-0 flex justify-center z-10">
               <span className="bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">Most Popular · Save 20%</span>
             </div>
-            <PricingCard title="Standard" price="$3.66" interval="/month" subtext="$10.99 billed every 3 months" highlighted={billingPeriod === 'quarterly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers", included: true }, { name: "4 AI Insights Modules (MBTI, Relationship)", included: true, isNew: true }, { name: "Historical Posts and Top Commenters", included: true }, { name: "Downloadable Activity Reports in CSV", included: true }, { name: "Discover Suspicious Accounts on 5 Platforms", included: false }]} />
+            <PricingCard title="Standard" price="$3.66" interval="/month" subtext="$10.99 billed every 3 months" highlighted={billingPeriod === 'quarterly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "Story Viewer & Post Viewer", included: true }, { name: "Like Viewer & Reposts Viewer", included: true, isNew: true }, { name: "Highlights & Links Viewer", included: true, isNew: true }, { name: "4 AI Insights (MBTI, Relationship, Tone, Archetype)", included: true, isNew: true }, { name: "Activity Tracker & Follower Growth", included: true }, { name: "CSV Export", included: true }, { name: "Competitor Analysis & PDF Reports", included: false }]} />
           </div>
-          <PricingCard title="Premium" price="$2.75" interval="/month" subtext="$32.99 billed annually" highlighted={billingPeriod === 'annual'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers", included: true }, { name: "9 AI Insights Modules (Financial, Encounter)", included: true }, { name: "Historical Posts and Top Commenters", included: true }, { name: "Downloadable Activity Reports in CSV", included: true }, { name: "Discover Suspicious Accounts on 5 Platforms", included: true, isNew: true }, { name: "Visual Map of Visited Areas", included: true, isNew: true }]} />
+          <PricingCard title="Premium" price="$2.75" interval="/month" subtext="$32.99 billed annually" highlighted={billingPeriod === 'annual'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "All Viewers (Story, Post, Like, Highlights, Links, Reposts)", included: true }, { name: "9 AI Insights (Financial, Location, Growth, Topics)", included: true, isNew: true }, { name: "Activity Tracker & Follower Growth", included: true }, { name: "Competitor Analysis with SWOT", included: true, isNew: true }, { name: "CSV & PDF Export", included: true }, { name: "Suspicious Account Discovery on 5 Platforms", included: true, isNew: true }]} />
         </div>
 
         <div className="flex items-center justify-center gap-2.5 mt-10 text-sm text-slate-400 bg-white border border-slate-200 rounded-xl py-3 px-6 max-w-sm mx-auto shadow-sm">

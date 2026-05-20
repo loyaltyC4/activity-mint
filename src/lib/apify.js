@@ -20,20 +20,31 @@ async function callProxy(action, payload) {
 }
 
 /**
- * Fetch Instagram profile data + recent posts for a public username.
- * Returns an array (usually 1 item) with profilePicUrl, latestPosts, etc.
+ * Fetch Instagram profile data for a public username.
+ * Routed through the self-hosted scraper (fast, ~7s) with Apify fallback.
+ * Returns an array (usually 1 item) with profilePicUrl, stats, etc.
+ * NOTE: Does not include latestPosts. Use fetchInstagramProfileWithPosts for that.
  */
 export async function fetchInstagramProfile(username) {
   return callProxy('profile', { username: username.replace('@', '') });
 }
 
 /**
+ * Fetch Instagram profile data + recent posts for a public username.
+ * Uses Apify (slower, ~60s) because only Apify returns latestPosts.
+ * Used by PostViewerView which displays the post grid.
+ */
+export async function fetchInstagramProfileWithPosts(username) {
+  return callProxy('profile-with-posts', { username: username.replace('@', '') });
+}
+
+/**
  * Fetch Instagram Stories for a public username.
- * NOTE: Instagram's public API no longer exposes stories — this returns
- * recent posts instead, proxied through the profile scraper.
+ * Routed server-side through the self-hosted CloakBrowser scraper service.
+ * Returns story items with imageUrl, videoUrl, mediaType, etc.
  */
 export async function fetchInstagramStories(username) {
-  return callProxy('profile', { username: username.replace('@', '') });
+  return callProxy('stories', { username: username.replace('@', '') });
 }
 
 /**
@@ -53,13 +64,7 @@ export async function fetchFollowersList(username, listType = 'followers', limit
 // NEW SCRAPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Fetch Instagram Stories for a public username.
- * Uses gordian/instagram-story-scraper actor.
- */
-export async function fetchInstagramStoriesReal(username) {
-  return callProxy('stories', { username: username.replace('@', '') });
-}
+// fetchInstagramStoriesReal removed — fetchInstagramStories now calls stories directly
 
 /**
  * Fetch comments from an Instagram post URL.

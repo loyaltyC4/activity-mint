@@ -1,12 +1,13 @@
 // Vercel Serverless Function: Apify Actor Proxy + CloakBrowser Scraper Router
 //
 // Routes:
-//   - followers, following, stories → CloakBrowser scraper service (reliable)
+//   - followers, following, stories, profile → CloakBrowser scraper service (Hetzner)
+//   - profile-with-posts → scraper profile + Apify profile for latestPosts
 //   - comments, facebook, tiktok, linkedin, youtube → Apify actors
 //
 // Env vars (Vercel Settings → Environment Variables):
 //   APIFY_TOKEN          — your Apify API token
-//   SCRAPER_SERVICE_URL  — Railway URL of the CloakBrowser service
+//   SCRAPER_SERVICE_URL  — Hetzner URL of the CloakBrowser service (e.g. http://IP:3001)
 //   SCRAPER_SECRET       — shared secret for CloakBrowser service auth
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
@@ -23,7 +24,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ─────────────────────────────────────────────────────────────────────────────
 async function callScraperService(action, payload) {
   if (!SCRAPER_SERVICE_URL) {
-    throw new Error('SCRAPER_SERVICE_URL is not configured. Deploy the Instagram scraper service on Railway and set the env var.');
+    throw new Error('SCRAPER_SERVICE_URL is not configured. Set it to your Hetzner scraper URL (e.g. http://IP:3001) in Vercel env vars.');
   }
   const res = await fetch(`${SCRAPER_SERVICE_URL}/scrape`, {
     method: 'POST',
@@ -131,12 +132,31 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, items });
     }
 
-    // ── APIFY ACTORS (working fine) ──────────────────────────────────────────
-    if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
-
     if (action === 'profile') {
       const { username } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
+      // Try scraper service first (fast, ~7s, free)
+      if (SCRAPER_SERVICE_URL) {
+        try {
+          const scraperItems = await callScraperService('profile', { username });
+          if (scraperItems && scraperItems.length > 0) {
+            // Normalize field names to match what the frontend expects
+            const p = scraperItems[0];
+            items = [{
+              ...p,
+              profilePicUrlHD: p.profilePicUrl,
+              followsCount: p.followingCount,
+              verified: p.isVerified,
+              private: p.isPrivate,
+            }];
+            return res.status(200).json({ ok: true, items });
+          }
+        } catch (scraperErr) {
+          console.warn(`[profile] Scraper service failed, falling back to Apify: ${scraperErr.message}`);
+        }
+      }
+      // Fallback to Apify (slower ~60s, includes latestPosts)
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'Both scraper and Apify unavailable' });
       run = await startRun('apify/instagram-profile-scraper', {
         usernames: [username.replace('@', '')],
       });
@@ -144,6 +164,22 @@ export default async function handler(req, res) {
       items = await getDatasetItems(completed.defaultDatasetId, 1);
       return res.status(200).json({ ok: true, items });
     }
+
+    // profile-with-posts: Used by PostViewerView which needs latestPosts (Apify only)
+    if (action === 'profile-with-posts') {
+      const { username } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
+      run = await startRun('apify/instagram-profile-scraper', {
+        usernames: [username.replace('@', '')],
+      });
+      completed = await pollRun(run.id);
+      items = await getDatasetItems(completed.defaultDatasetId, 1);
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // ── APIFY ACTORS (working fine) ──────────────────────────────────────────
+    if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
 
     if (action === 'comments') {
       const { postUrl, limit = 50 } = payload;

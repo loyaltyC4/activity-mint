@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import {
   MonitorPlay, Eye, Search, Download, User, Heart, MessageCircle,
   Image as ImageIcon, Video, AlertCircle, RefreshCw, ExternalLink,
-  CheckCircle, Clock, ChevronDown,
+  CheckCircle, Clock, ChevronDown, Lock, ArrowRight,
 } from 'lucide-react';
-import { fetchInstagramProfile } from './lib/apify';
+import { fetchInstagramProfile, fetchInstagramProfileWithPosts, fetchInstagramStories } from './lib/apify';
+
+const FREE_POST_LIMIT = 6;
 
 /* ─── Helper: Proxy Instagram CDN images to bypass CORS ─────────────────── */
 const proxyImageUrl = (url) => {
@@ -34,9 +36,9 @@ const ApifySearchBar = ({ value, onChange, placeholder, onSearch, loading }) => 
     <button
       onClick={onSearch}
       disabled={loading || !value.trim()}
-      className="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 text-sm transition-colors shrink-0"
+      className="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 sm:px-6 text-sm transition-colors shrink-0"
     >
-      {loading ? 'Loading…' : 'Search Now'}
+      {loading ? <span className="hidden sm:inline">Loading…</span> : <span><span className="sm:hidden">Go</span><span className="hidden sm:inline">Search Now</span></span>}
     </button>
   </div>
 );
@@ -65,12 +67,62 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+/* ─── Post Signup Gate ───────────────────────────────────────────────────── */
+const PostSignupGate = ({ total, shown, locked, onSignUp }) => (
+  <div className="mt-4 relative">
+    {/* Blurred preview row */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 select-none pointer-events-none">
+      {locked.map((post, i) => {
+        const thumb = post.displayUrl || post.thumbnailUrl;
+        return (
+          <div key={i} className="aspect-square rounded-xl overflow-hidden bg-slate-100 relative">
+            {thumb ? (
+              <img
+                src={proxyImageUrl(thumb)}
+                alt="locked"
+                className="w-full h-full object-cover blur-sm scale-105"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200" />
+            )}
+            <div className="absolute inset-0 bg-white/30" />
+          </div>
+        );
+      })}
+    </div>
+
+    {/* Lock overlay */}
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-white via-white/80 to-transparent rounded-xl">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 text-center max-w-xs mx-auto">
+        <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <Lock className="w-6 h-6 text-indigo-600" />
+        </div>
+        <h3 className="font-bold text-slate-900 text-base mb-1">
+          {total - shown} more posts locked
+        </h3>
+        <p className="text-slate-500 text-xs mb-4">
+          Sign up free to view all {total} posts, download media, and unlock full profile analytics.
+        </p>
+        <button
+          onClick={onSignUp}
+          className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-2.5 rounded-xl hover:shadow-md transition-all flex items-center justify-center gap-2"
+        >
+          Sign Up Free <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+    {/* Spacer so the gate has height */}
+    <div className="h-48" />
+  </div>
+);
+
 /* ─── Story Viewer ───────────────────────────────────────────────────────── */
 
 export const StoryViewerView = () => {
   const [username, setUsername] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [profile, setProfile] = useState(null);
+  const [stories, setStories] = useState([]);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState('');
 
@@ -78,16 +130,20 @@ export const StoryViewerView = () => {
     if (!username.trim()) return;
     setStatus('loading');
     setProfile(null);
+    setStories([]);
     setError('');
     setSearched(username.trim());
     try {
-      // Note: Instagram's story API requires authentication.
-      // We fetch profile + recent posts as an alternative.
-      const items = await fetchInstagramProfile(username.trim());
-      if (!items || items.length === 0) {
+      // Fetch profile + stories in parallel from CloakBrowser scraper
+      const [profileItems, storyItems] = await Promise.all([
+        fetchInstagramProfile(username.trim()),
+        fetchInstagramStories(username.trim()),
+      ]);
+      if (!profileItems || profileItems.length === 0) {
         throw new Error('Profile not found or is private.');
       }
-      setProfile(items[0]);
+      setProfile(profileItems[0]);
+      setStories(storyItems || []);
       setStatus('success');
     } catch (err) {
       setError(err.message || 'Something went wrong. The account may be private or Instagram may be blocking the request.');
@@ -95,16 +151,26 @@ export const StoryViewerView = () => {
     }
   };
 
+  const formatTime = (unix) => {
+    if (!unix) return '';
+    const d = new Date(unix * 1000);
+    const now = new Date();
+    const diffH = Math.round((now - d) / 3600000);
+    if (diffH < 1) return 'Just now';
+    if (diffH < 24) return `${diffH}h ago`;
+    return d.toLocaleDateString();
+  };
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* Hero */}
-      <section className="bg-gradient-to-br from-purple-600 via-indigo-600 to-teal-600 text-white pt-16 pb-20">
+      <section className="bg-gradient-to-br from-purple-600 via-indigo-600 to-teal-600 text-white pt-10 sm:pt-16 pb-12 sm:pb-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/20">
             <MonitorPlay className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Instagram Story Viewer</h1>
-          <p className="text-indigo-100/80 text-lg mb-10">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 tracking-tight">Instagram Story Viewer</h1>
+          <p className="text-indigo-100/80 text-sm sm:text-lg mb-8 sm:mb-10">
             View and download Instagram Stories from any public account — completely anonymously.
           </p>
           <ApifySearchBar
@@ -128,7 +194,7 @@ export const StoryViewerView = () => {
           {status === 'loading' && (
             <div>
               <p className="text-slate-500 text-sm text-center mb-6">
-                Fetching profile for <span className="font-semibold text-indigo-600">@{searched}</span> — this usually takes 20–60 seconds…
+                Fetching stories for <span className="font-semibold text-indigo-600">@{searched}</span> — this usually takes 5–10 seconds…
               </p>
               <LoadingSkeleton count={6} />
             </div>
@@ -137,7 +203,7 @@ export const StoryViewerView = () => {
           {status === 'error' && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
               <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" />
-              <h3 className="font-bold text-red-700 mb-2">Couldn't fetch profile</h3>
+              <h3 className="font-bold text-red-700 mb-2">Couldn't fetch stories</h3>
               <p className="text-red-600 text-sm mb-6">{error}</p>
               <p className="text-slate-500 text-xs">Only public accounts can be viewed. Private profiles will return empty results.</p>
             </div>
@@ -145,17 +211,6 @@ export const StoryViewerView = () => {
 
           {status === 'success' && profile && (
             <div>
-              {/* Story limitation notice */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-amber-800 text-sm">Story Access Limited</h4>
-                    <p className="text-amber-700 text-xs mt-1">Instagram requires authentication to view stories. We're showing the profile and recent posts instead. Full story access coming soon with our enhanced viewer.</p>
-                  </div>
-                </div>
-              </div>
-
               {/* Profile card */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
                 <div className="flex items-center gap-4">
@@ -173,15 +228,15 @@ export const StoryViewerView = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-xl font-bold text-slate-900">@{profile.username}</h2>
-                      {profile.verified && (
+                      {(profile.verified || profile.isVerified) && (
                         <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">✓ Verified</span>
                       )}
                     </div>
                     {profile.fullName && <p className="text-slate-500 text-sm">{profile.fullName}</p>}
-                    <div className="flex gap-4 mt-2 text-sm">
+                    <div className="flex flex-wrap gap-3 sm:gap-4 mt-2 text-xs sm:text-sm">
                       <span><strong>{profile.postsCount?.toLocaleString() || 0}</strong> posts</span>
                       <span><strong>{profile.followersCount?.toLocaleString() || 0}</strong> followers</span>
-                      <span><strong>{profile.followsCount?.toLocaleString() || 0}</strong> following</span>
+                      <span><strong>{(profile.followsCount || profile.followingCount)?.toLocaleString() || 0}</strong> following</span>
                     </div>
                   </div>
                 </div>
@@ -190,22 +245,23 @@ export const StoryViewerView = () => {
                 )}
               </div>
 
-              {/* Recent posts */}
-              {profile.latestPosts && profile.latestPosts.length > 0 && (
+              {/* Stories */}
+              {stories.length > 0 ? (
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-4">
-                    Recent Posts <span className="text-slate-400 font-normal text-sm">({profile.latestPosts.length})</span>
+                    Active Stories <span className="text-slate-400 font-normal text-sm">({stories.length})</span>
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {profile.latestPosts.map((post, i) => {
-                      const isVideo = post.type === 'Video' || post.videoUrl;
-                      const thumb = post.displayUrl || post.thumbnailUrl;
+                    {stories.map((story, i) => {
+                      const isVideo = story.mediaType === 'video';
+                      const thumb = story.imageUrl;
+                      const downloadUrl = isVideo ? story.videoUrl : story.imageUrl;
                       return (
-                        <div key={i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all aspect-square">
+                        <div key={story.id || i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all aspect-[9/16]">
                           {thumb ? (
                             <img
                               src={proxyImageUrl(thumb)}
-                              alt={`Post ${i + 1}`}
+                              alt={`Story ${i + 1}`}
                               className="w-full h-full object-cover"
                               onError={(e) => { e.target.style.display = 'none'; }}
                             />
@@ -214,14 +270,48 @@ export const StoryViewerView = () => {
                               {isVideo ? <Video className="w-8 h-8 text-purple-300" /> : <ImageIcon className="w-8 h-8 text-purple-300" />}
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs font-semibold">
-                            <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> {post.likesCount?.toLocaleString() || 0}</span>
-                            <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {post.commentsCount || 0}</span>
+                          {/* Type badge + time */}
+                          <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isVideo ? 'bg-purple-500 text-white' : 'bg-white/80 text-slate-700'}`}>
+                              {isVideo ? 'VIDEO' : 'PHOTO'}
+                            </span>
+                            {story.takenAt && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-black/40 text-white">
+                                {formatTime(story.takenAt)}
+                              </span>
+                            )}
+                          </div>
+                          {/* Hover overlay */}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-3">
+                            {isVideo && story.duration && (
+                              <span className="text-white text-xs font-semibold">{Math.round(story.duration)}s</span>
+                            )}
+                            {story.viewCount != null && (
+                              <span className="flex items-center gap-1 text-white text-xs font-semibold">
+                                <Eye className="w-3.5 h-3.5" /> {story.viewCount?.toLocaleString() || 0} views
+                              </span>
+                            )}
+                            {downloadUrl && (
+                              <a
+                                href={downloadUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
+                              >
+                                <Download className="w-3 h-3" /> Download
+                              </a>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+                  <MonitorPlay className="w-10 h-10 text-slate-300 mx-auto mb-4" />
+                  <h3 className="font-bold text-slate-700 mb-2">No active stories</h3>
+                  <p className="text-slate-500 text-sm">@{profile.username} doesn't have any stories right now. Stories expire after 24 hours.</p>
                 </div>
               )}
             </div>
@@ -230,8 +320,8 @@ export const StoryViewerView = () => {
           {status === 'idle' && (
             <div className="text-center py-16 text-slate-400">
               <MonitorPlay className="w-12 h-12 mx-auto mb-4 opacity-30" />
-              <p className="font-medium text-slate-500">Enter a public Instagram username to view their profile and posts</p>
-              <p className="text-sm mt-2">Profile photo, bio, stats, and recent posts — all fetched live via Apify</p>
+              <p className="font-medium text-slate-500">Enter a public Instagram username to view their stories</p>
+              <p className="text-sm mt-2">Stories fetched live and anonymously — including photos, videos, and view counts</p>
             </div>
           )}
         </div>
@@ -256,7 +346,8 @@ export const PostViewerView = () => {
     setError('');
     setSearched(username.trim());
     try {
-      const items = await fetchInstagramProfile(username.trim());
+      // Uses profile-with-posts (Apify) because we need latestPosts for the grid
+      const items = await fetchInstagramProfileWithPosts(username.trim());
       if (!items || items.length === 0) throw new Error('No profile data returned. The account may not exist or may be private.');
       setProfile(items[0]);
       setStatus('success');
@@ -276,13 +367,13 @@ export const PostViewerView = () => {
   return (
     <div className="animate-in fade-in duration-500">
       {/* Hero */}
-      <section className="bg-gradient-to-br from-teal-600 via-emerald-600 to-indigo-700 text-white pt-16 pb-20">
+      <section className="bg-gradient-to-br from-teal-600 via-emerald-600 to-indigo-700 text-white pt-10 sm:pt-16 pb-12 sm:pb-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/20">
             <Eye className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Instagram Post Viewer</h1>
-          <p className="text-teal-100/80 text-lg mb-10">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4 tracking-tight">Instagram Post Viewer</h1>
+          <p className="text-teal-100/80 text-sm sm:text-lg mb-8 sm:mb-10">
             View any public Instagram profile, their photo, bio, and recent posts — privately.
           </p>
           <ApifySearchBar
@@ -402,7 +493,7 @@ export const PostViewerView = () => {
                     Recent Posts <span className="text-slate-400 font-normal text-sm">({profile.latestPosts.length})</span>
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {profile.latestPosts.map((post, i) => (
+                    {profile.latestPosts.slice(0, FREE_POST_LIMIT).map((post, i) => (
                       <div key={i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all aspect-square">
                         {post.displayUrl ? (
                           <img
@@ -435,6 +526,10 @@ export const PostViewerView = () => {
                       </div>
                     ))}
                   </div>
+                  {/* Sign-up gate for remaining posts */}
+                  {profile.latestPosts.length > FREE_POST_LIMIT && (
+                    <PostSignupGate total={profile.latestPosts.length} shown={FREE_POST_LIMIT} locked={profile.latestPosts.slice(FREE_POST_LIMIT, FREE_POST_LIMIT + 3)} />
+                  )}
                 </div>
               )}
             </div>

@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import {
   fetchFollowersList,
-  fetchInstagramStoriesReal,
   fetchInstagramComments,
   fetchFacebookPosts,
   fetchTikTokVideos,
@@ -146,10 +145,10 @@ const HOW_IT_WORKS_STEPS = [
 ];
 
 const AFFILIATE_STATS = [
-  { value: '$50K+', label: 'Paid Out' },
-  { value: '1,200+', label: 'Active Affiliates' },
   { value: '30%', label: 'Max Commission' },
+  { value: 'Recurring', label: 'Commission Type' },
   { value: '90-day', label: 'Cookie Window' },
+  { value: 'Monthly', label: 'Payout Cycle' },
 ];
 
 export const AffiliateView = () => {
@@ -470,22 +469,24 @@ const ToolSearchBar = ({ value, onChange, placeholder, buttonLabel, onSubmit, on
 
   return (
     <div className="max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="flex gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-2">
-        <div className="pl-3 flex items-center text-slate-400 shrink-0">
-          <Search className="w-5 h-5" />
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-2">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="pl-2 sm:pl-3 flex items-center text-slate-400 shrink-0">
+            <Search className="w-5 h-5" />
+          </div>
+          <input
+            type="text"
+            placeholder={placeholder}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            disabled={disabled}
+            className="flex-1 min-w-0 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-2.5 text-sm sm:text-base disabled:opacity-50"
+          />
         </div>
-        <input
-          type="text"
-          placeholder={placeholder}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          disabled={disabled}
-          className="flex-1 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-2.5 text-base disabled:opacity-50"
-        />
         <button
           type="submit"
           disabled={disabled}
-          className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-md hover:shadow-emerald-500/25 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+          className="px-6 py-2.5 min-h-[44px] bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-md hover:shadow-emerald-500/25 transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none text-sm sm:text-base"
         >
           {buttonLabel}
         </button>

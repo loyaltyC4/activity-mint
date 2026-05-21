@@ -150,19 +150,19 @@ const ToolkitCard = ({ title, icon, description, items, bgIcon }) => {
 };
 
 const PricingCard = ({ title, price, interval, subtext, features, highlighted = false }) => (
-  <div className={`bg-white rounded-3xl p-8 transition-all duration-300 flex flex-col h-full ${highlighted ? 'border-2 border-emerald-500 shadow-2xl' : 'border border-slate-200 shadow-lg hover:shadow-xl hover:border-emerald-200'}`}>
-    <h3 className="text-lg font-semibold text-slate-700 mb-4">{title}</h3>
-    <div className="mb-6"><span className="text-4xl font-extrabold text-slate-900">{price}</span><span className="text-slate-500 font-medium">{interval}</span></div>
-    {subtext && <p className="text-sm text-slate-400 mb-6 -mt-4">{subtext}</p>}
-    <button className={`w-full py-3 rounded-full font-semibold transition-colors mb-8 ${highlighted ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-lg hover:shadow-emerald-500/30' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>Subscribe</button>
-    <div className="text-left space-y-4 flex-1">
-      <p className="font-semibold text-sm text-slate-900 border-b border-slate-100 pb-2">Included Features</p>
+  <div className={`bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 transition-all duration-300 flex flex-col h-full ${highlighted ? 'border-2 border-emerald-500 shadow-2xl' : 'border border-slate-200 shadow-lg hover:shadow-xl hover:border-emerald-200'}`}>
+    <h3 className="text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4">{title}</h3>
+    <div className="mb-4 sm:mb-6"><span className="text-3xl sm:text-4xl font-extrabold text-slate-900">{price}</span><span className="text-slate-500 font-medium text-sm sm:text-base">{interval}</span></div>
+    {subtext && <p className="text-xs sm:text-sm text-slate-400 mb-4 sm:mb-6 -mt-2 sm:-mt-4">{subtext}</p>}
+    <button className={`w-full py-3 min-h-[48px] rounded-full font-semibold transition-colors mb-6 sm:mb-8 text-sm sm:text-base ${highlighted ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-lg hover:shadow-emerald-500/30' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>Subscribe</button>
+    <div className="text-left space-y-3 sm:space-y-4 flex-1">
+      <p className="font-semibold text-xs sm:text-sm text-slate-900 border-b border-slate-100 pb-2">Included Features</p>
       {features.map((f, idx) => (
-        <div key={idx} className="flex items-start gap-3">
-          {f.included ? <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> : <X className="w-5 h-5 text-slate-300 shrink-0 mt-0.5" />}
-          <span className={`text-sm ${f.included ? 'text-slate-700' : 'text-slate-400'}`}>
+        <div key={idx} className="flex items-start gap-2 sm:gap-3">
+          {f.included ? <Check className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0 mt-0.5" /> : <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 shrink-0 mt-0.5" />}
+          <span className={`text-xs sm:text-sm leading-snug ${f.included ? 'text-slate-700' : 'text-slate-400'}`}>
             {f.name}
-            {f.isNew && <span className="ml-2 inline-block text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">New</span>}
+            {f.isNew && <span className="ml-1.5 inline-block text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">New</span>}
           </span>
         </div>
       ))}
@@ -419,23 +419,50 @@ export default function App() {
           </div>
         </div>
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-slate-100 px-4 py-4 space-y-2">
-            {[['home', 'Features'], ['pricing', 'Pricing'], ['blog', 'Blog'], ['help-center', 'Help Center'], ['affiliate', 'Affiliate'], ['toolkit', 'Toolkit']].map(([tab, label]) => (
-              <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }} className="block w-full text-left text-sm font-medium text-slate-600 hover:text-emerald-600 py-2">{label}</button>
-            ))}
-            <div className="pt-2 border-t border-slate-100 flex gap-3">
-              {user ? (
-                <>
-                  <button onClick={() => { goToDashboard(); setMobileMenuOpen(false); }} className="text-sm font-medium text-indigo-600">Dashboard</button>
-                  <button onClick={() => { signOut(); setMobileMenuOpen(false); }} className="text-sm font-medium text-slate-500">Sign Out</button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }} className="text-sm font-medium text-slate-600">Log In</button>
-                  <button onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }} className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full">Sign Up</button>
-                </>
-              )}
-              <LanguageSwitcher variant="nav" />
+          <div className="md:hidden fixed inset-0 top-16 z-50 bg-white overflow-y-auto overscroll-contain">
+            <div className="px-5 py-6 space-y-1">
+              {/* Primary nav — large touch targets */}
+              {[['home', 'Features', '🏠'], ['pricing', 'Pricing', '💰'], ['blog', 'Blog', '📝'], ['help-center', 'Help Center', '❓'], ['affiliate', 'Affiliate', '🤝']].map(([tab, label, emoji]) => (
+                <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }}
+                  className={`flex items-center gap-3 w-full text-left font-medium py-3.5 px-4 rounded-xl min-h-[48px] transition-colors ${activeTab === tab ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'}`}>
+                  <span className="text-lg">{emoji}</span> {label}
+                </button>
+              ))}
+              {/* Tools section */}
+              <div className="pt-3 pb-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 px-4 mb-2">Free Tools</p>
+              </div>
+              {[['story-viewer', 'Story Viewer'], ['post-viewer', 'Post Viewer'], ['hashtag-generator', 'Hashtag Generator'], ['shadowban-checker', 'Shadowban Checker'], ['unfollower', 'Unfollower Finder'], ['recent-follower', 'Recent Followers'], ['toolkit', 'All Tools →']].map(([tab, label]) => (
+                <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }}
+                  className={`block w-full text-left text-sm font-medium py-3 px-4 rounded-xl min-h-[44px] transition-colors ${activeTab === tab ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100'}`}>
+                  {label}
+                </button>
+              ))}
+              {/* Auth section — pinned to bottom area */}
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                {user ? (
+                  <div className="space-y-2">
+                    <button onClick={() => { goToDashboard(); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 px-6 min-h-[48px] bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-sm">
+                      <BarChart2 className="w-4 h-4" /> My Dashboard
+                    </button>
+                    <button onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                      className="w-full text-center text-sm font-medium text-slate-500 py-3 min-h-[44px]">Sign Out</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center justify-center py-3.5 px-6 min-h-[48px] bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-sm">
+                      Get Started Free
+                    </button>
+                    <button onClick={() => { setAuthOpen(true); setMobileMenuOpen(false); }}
+                      className="w-full text-center text-sm font-medium text-slate-600 py-3 min-h-[44px]">Already have an account? Log In</button>
+                  </div>
+                )}
+                <div className="flex justify-center pt-3">
+                  <LanguageSwitcher variant="nav" />
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1214,14 +1241,14 @@ const PricingView = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-end">
-          <PricingCard title="Basic" price="$4.49" interval="/month" highlighted={billingPeriod === 'monthly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "Story Viewer & Post Viewer", included: true }, { name: "Like Viewer & Reposts Viewer", included: false }, { name: "Highlights & Links Viewer", included: false }, { name: "AI Insights (MBTI, Sentiment, Growth)", included: false }, { name: "Activity Tracker & Competitor Analysis", included: false }, { name: "CSV/PDF Export", included: false }]} />
+          <PricingCard title="Basic" price="$5.39" interval="/month" highlighted={billingPeriod === 'monthly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "Story Viewer & Post Viewer", included: true }, { name: "Like Viewer & Reposts Viewer", included: false }, { name: "Highlights & Links Viewer", included: false }, { name: "AI Insights (MBTI, Sentiment, Growth)", included: false }, { name: "Activity Tracker & Competitor Analysis", included: false }, { name: "CSV/PDF Export", included: false }]} />
           <div className="relative transform md:-translate-y-4">
             <div className="absolute -top-4 left-0 right-0 flex justify-center z-10">
               <span className="bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">Most Popular · Save 20%</span>
             </div>
-            <PricingCard title="Standard" price="$3.66" interval="/month" subtext="$10.99 billed every 3 months" highlighted={billingPeriod === 'quarterly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "Story Viewer & Post Viewer", included: true }, { name: "Like Viewer & Reposts Viewer", included: true, isNew: true }, { name: "Highlights & Links Viewer", included: true, isNew: true }, { name: "4 AI Insights (MBTI, Relationship, Tone, Archetype)", included: true, isNew: true }, { name: "Activity Tracker & Follower Growth", included: true }, { name: "CSV Export", included: true }, { name: "Competitor Analysis & PDF Reports", included: false }]} />
+            <PricingCard title="Standard" price="$4.39" interval="/month" subtext="$13.19 billed every 3 months" highlighted={billingPeriod === 'quarterly'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "Story Viewer & Post Viewer", included: true }, { name: "Like Viewer & Reposts Viewer", included: true, isNew: true }, { name: "Highlights & Links Viewer", included: true, isNew: true }, { name: "4 AI Insights (MBTI, Relationship, Tone, Archetype)", included: true, isNew: true }, { name: "Activity Tracker & Follower Growth", included: true }, { name: "CSV Export", included: true }, { name: "Competitor Analysis & PDF Reports", included: false }]} />
           </div>
-          <PricingCard title="Premium" price="$2.75" interval="/month" subtext="$32.99 billed annually" highlighted={billingPeriod === 'annual'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "All Viewers (Story, Post, Like, Highlights, Links, Reposts)", included: true }, { name: "9 AI Insights (Financial, Location, Growth, Topics)", included: true, isNew: true }, { name: "Activity Tracker & Follower Growth", included: true }, { name: "Competitor Analysis with SWOT", included: true, isNew: true }, { name: "CSV & PDF Export", included: true }, { name: "Suspicious Account Discovery on 5 Platforms", included: true, isNew: true }]} />
+          <PricingCard title="Premium" price="$3.29" interval="/month" subtext="$39.59 billed annually" highlighted={billingPeriod === 'annual'} features={[{ name: "1 Trackable Account, weekly reports", included: true }, { name: "Activity Report Email Alerts", included: true }, { name: "Recent follow/followers & unfollowers", included: true }, { name: "All Viewers (Story, Post, Like, Highlights, Links, Reposts)", included: true }, { name: "9 AI Insights (Financial, Location, Growth, Topics)", included: true, isNew: true }, { name: "Activity Tracker & Follower Growth", included: true }, { name: "Competitor Analysis with SWOT", included: true, isNew: true }, { name: "CSV & PDF Export", included: true }, { name: "Suspicious Account Discovery on 5 Platforms", included: true, isNew: true }]} />
         </div>
 
         <div className="flex items-center justify-center gap-2.5 mt-10 text-sm text-slate-400 bg-white border border-slate-200 rounded-xl py-3 px-6 max-w-sm mx-auto shadow-sm">

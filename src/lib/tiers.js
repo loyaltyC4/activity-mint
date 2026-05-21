@@ -152,6 +152,6 @@ export function upgradeTierFor(currentTier, feature) {
  * Pricing constants for upgrade CTAs
  */
 export const PRICING = {
-  standard: { monthly: 9.99, label: 'Standard' },
-  premium: { monthly: 19.99, label: 'Premium' },
+  standard: { monthly: 11.99, label: 'Standard' },
+  premium: { monthly: 23.99, label: 'Premium' },
 };

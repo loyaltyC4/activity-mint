@@ -27,6 +27,18 @@ import { saveSnapshotDB, getSnapshotsDB, migrateLocalSnapshots, saveSnapshotLoca
 import { getCompetitors, addCompetitor, removeCompetitor, saveCompetitorSnapshot } from '../lib/competitors';
 import { getDigestPreferences, upsertDigestPreferences } from '../lib/digest';
 
+/* ─── shadcn/ui components ──────────────────────────────────────────────── */
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 const fmt = (n) => {
   if (n === null || n === undefined) return '--';
@@ -52,50 +64,81 @@ const ago = (iso) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-/* ─── Stat card ─────────────────────────────────────────────────────────── */
-const StatCard = ({ icon, label, value, sub, trend, color = 'indigo' }) => {
-  const colors = {
-    indigo: 'from-indigo-50 to-indigo-100/50 text-indigo-600',
-    emerald: 'from-emerald-50 to-emerald-100/50 text-emerald-600',
-    purple: 'from-purple-50 to-purple-100/50 text-purple-600',
-    rose: 'from-rose-50 to-rose-100/50 text-rose-600',
-    amber: 'from-amber-50 to-amber-100/50 text-amber-600',
-    teal: 'from-teal-50 to-teal-100/50 text-teal-600',
-  };
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-        <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br ${colors[color]} flex items-center justify-center shrink-0`}>
-          {icon}
-        </div>
-        <span className="text-[10px] sm:text-xs font-medium text-slate-500 uppercase tracking-wide leading-tight">{label}</span>
-      </div>
-      <p className="text-xl sm:text-2xl font-bold text-slate-900">{value}</p>
-      <div className="flex items-center gap-2 mt-1">
-        {trend !== undefined && (
-          <span className={`text-xs font-semibold ${trend >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-            {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
-          </span>
-        )}
-        {sub && <span className="text-[10px] sm:text-xs text-slate-400">{sub}</span>}
-      </div>
-    </div>
-  );
+/* ─── Stat card (shadcn enhanced) ───────────────────────────────────────── */
+const colorVariants = {
+  indigo: 'bg-indigo-500/10 text-indigo-600 border-indigo-100',
+  emerald: 'bg-emerald-500/10 text-emerald-600 border-emerald-100',
+  purple: 'bg-purple-500/10 text-purple-600 border-purple-100',
+  rose: 'bg-rose-500/10 text-rose-600 border-rose-100',
+  amber: 'bg-amber-500/10 text-amber-600 border-amber-100',
+  teal: 'bg-teal-500/10 text-teal-600 border-teal-100',
+  blue: 'bg-blue-500/10 text-blue-600 border-blue-100',
+  violet: 'bg-violet-500/10 text-violet-600 border-violet-100',
 };
 
-/* ─── Section header ────────────────────────────────────────────────────── */
-const SectionHeader = ({ icon, title, badge, children }) => (
-  <div className="flex items-center justify-between mb-4">
-    <div className="flex items-center gap-2">
-      {icon}
-      <h3 className="font-bold text-slate-900 text-sm sm:text-base">{title}</h3>
-      {badge && (
-        <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
-          {badge}
-        </span>
+const StatCard = ({ icon, label, value, sub, trend, color = 'indigo', tooltip }) => {
+  const content = (
+    <Card className="group hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-primary/20">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border transition-colors", colorVariants[color])}>
+            {icon}
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {label}
+          </span>
+        </div>
+        <p className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+          {value}
+        </p>
+        <div className="flex items-center gap-2 mt-2 min-h-[20px]">
+          {trend !== undefined && (
+            <Badge variant="secondary" className={cn("gap-1 font-semibold text-xs", trend >= 0 ? 'text-emerald-600' : 'text-rose-500')}>
+              {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingUp className="w-3 h-3 rotate-180" />}
+              {Math.abs(trend)}%
+            </Badge>
+          )}
+          {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (tooltip) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{content}</TooltipTrigger>
+          <TooltipContent>{tooltip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+  return content;
+};
+
+/* ─── Section header (shadcn enhanced) ──────────────────────────────────── */
+const SectionHeader = ({ icon, title, badge, description, children }) => (
+  <div className="flex items-center justify-between mb-5">
+    <div className="flex items-center gap-3">
+      {icon && (
+        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+          {React.cloneElement(icon, { className: 'w-4 h-4 text-primary' })}
+        </div>
       )}
+      <div>
+        <div className="flex items-center gap-2">
+          <h3 className="font-bold text-foreground text-base sm:text-lg tracking-tight">{title}</h3>
+          {badge && (
+            <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
+              {badge}
+            </Badge>
+          )}
+        </div>
+        {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
+      </div>
     </div>
-    {children}
+    {children && <div className="flex items-center gap-2">{children}</div>}
   </div>
 );
 
@@ -177,44 +220,72 @@ function calcHealthScore(profile, posts, avgEngagement) {
   return { grade, score: clamped, color, erScore: Math.round(erScore), ratioScore: Math.round(ratioScore), consistencyScore: Math.round(consistencyScore), profileScore: Math.round(profileScore) };
 }
 
+const gradeColors = {
+  'A+': 'text-emerald-500', 'A': 'text-emerald-500', 'B+': 'text-green-500', 'B': 'text-lime-500',
+  'C+': 'text-yellow-500', 'C': 'text-amber-500', 'D': 'text-orange-500', 'F': 'text-red-500', '--': 'text-slate-400',
+};
+
 const HealthScoreCard = ({ profile, posts, avgEngagement }) => {
   const h = calcHealthScore(profile, posts, avgEngagement);
   const r = 54, circ = 2 * Math.PI * r;
   const offset = circ - (h.score / 100) * circ;
+
+  const metrics = [
+    { label: 'Engagement', val: h.erScore, max: 40, icon: BarChart2, tip: 'Based on engagement rate vs similar accounts' },
+    { label: 'Ratio', val: h.ratioScore, max: 20, icon: Activity, tip: 'Healthy follower to following ratio' },
+    { label: 'Consistency', val: h.consistencyScore, max: 20, icon: Calendar, tip: 'Regular posting frequency' },
+    { label: 'Profile', val: h.profileScore, max: 20, icon: Sparkles, tip: 'Profile completeness and verification' },
+  ];
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5 hover:shadow-lg transition-all">
-      <div className="flex items-center gap-6">
-        <div className="relative w-32 h-32 flex-shrink-0">
-          <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-            <circle cx="60" cy="60" r={r} fill="none" stroke="#e2e8f0" strokeWidth="10" />
-            <circle cx="60" cy="60" r={r} fill="none" stroke={h.color} strokeWidth="10"
-              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-              className="transition-all duration-1000" />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-black" style={{ color: h.color }}>{h.grade}</span>
-            <span className="text-xs text-slate-400">{h.score}/100</span>
+    <Card className="mb-5 overflow-hidden hover:shadow-lg transition-all">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Activity className="w-5 h-5 text-primary" />
+          Account Health Score
+          <Badge variant="secondary" className="ml-auto font-bold">{h.grade}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          {/* Score Ring */}
+          <div className="relative w-32 h-32 flex-shrink-0">
+            <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+              <circle cx="60" cy="60" r={r} fill="none" className="stroke-muted" strokeWidth="10" />
+              <circle cx="60" cy="60" r={r} fill="none" stroke={h.color} strokeWidth="10"
+                strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+                className="transition-all duration-1000 ease-out" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={cn("text-4xl font-black", gradeColors[h.grade])}>{h.grade}</span>
+              <span className="text-sm text-muted-foreground font-medium">{h.score}/100</span>
+            </div>
+          </div>
+          {/* Metric Bars */}
+          <div className="flex-1 w-full space-y-4">
+            {metrics.map(({ label, val, max, icon: Icon, tip }) => (
+              <TooltipProvider key={label}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="space-y-1.5 cursor-help">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Icon className="w-4 h-4" />
+                          <span className="font-medium">{label}</span>
+                        </div>
+                        <span className="font-bold text-foreground">{val}/{max}</span>
+                      </div>
+                      <Progress value={(val / max) * 100} className="h-2" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">{tip}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
           </div>
         </div>
-        <div className="flex-1 grid grid-cols-2 gap-3">
-          {[
-            ['Engagement', h.erScore, 40, '📊'],
-            ['Ratio', h.ratioScore, 20, '⚖️'],
-            ['Consistency', h.consistencyScore, 20, '📅'],
-            ['Profile', h.profileScore, 20, '✨'],
-          ].map(([label, val, max, emoji]) => (
-            <div key={label} className="text-sm">
-              <div className="flex justify-between text-slate-500 mb-1">
-                <span>{emoji} {label}</span><span className="font-medium text-slate-700">{val}/{max}</span>
-              </div>
-              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(val/max)*100}%`, background: h.color }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -9,6 +9,7 @@ import {
   Smile, Tag, Zap, Award, User, Coffee, Camera,
   Crown, Trophy, Layers, PenTool, ShieldAlert,
   ShieldCheck, AlertTriangle, EyeOff, HeartHandshake, CircleDot,
+  Mail, Bell, Shield, Copy, Printer, ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTier } from '../context/TierContext';
@@ -22,6 +23,9 @@ import {
   fetchInstagramStories,
   fetchFollowersList,
 } from '../lib/apify';
+import { saveSnapshotDB, getSnapshotsDB, migrateLocalSnapshots, saveSnapshotLocal } from '../lib/tracking';
+import { getCompetitors, addCompetitor, removeCompetitor, saveCompetitorSnapshot } from '../lib/competitors';
+import { getDigestPreferences, upsertDigestPreferences } from '../lib/digest';
 
 /* ─── helpers ───────────────────────────────────────────────────────────── */
 const fmt = (n) => {
@@ -239,9 +243,38 @@ function getSnapshots(username) {
   return JSON.parse(localStorage.getItem(`am_track_${username}`) || '[]');
 }
 
-const TrackingSection = ({ username, profile }) => {
-  const snaps = getSnapshots(username);
-  if (snaps.length < 2) return null;
+const TrackingSection = ({ username, profile, userId }) => {
+  const [snaps, setSnaps] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const load = async () => {
+      try {
+        let data;
+        if (userId) {
+          data = await getSnapshotsDB(userId, username);
+        } else {
+          // Fallback for non-logged-in: localStorage
+          const local = JSON.parse(localStorage.getItem(`am_track_${username}`) || '[]');
+          data = local.map(s => ({
+            created_at: new Date(s.ts).toISOString(),
+            followers_count: s.followers,
+            following_count: s.following,
+            posts_count: s.posts,
+            engagement_rate: s.er,
+          }));
+        }
+        if (!cancelled) setSnaps(data || []);
+      } catch { if (!cancelled) setSnaps([]); }
+      if (!cancelled) setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [userId, username]);
+
+  if (loading || snaps.length < 2) return null;
   const latest = snaps[snaps.length - 1];
   const prev = snaps[snaps.length - 2];
   const delta = (curr, old) => {
@@ -270,10 +303,10 @@ const TrackingSection = ({ username, profile }) => {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
         {[
-          ['Followers', 'followers'],
-          ['Following', 'following'],
-          ['Posts', 'posts'],
-          ['ER%', 'er'],
+          ['Followers', 'followers_count'],
+          ['Following', 'following_count'],
+          ['Posts', 'posts_count'],
+          ['ER%', 'engagement_rate'],
         ].map(([label, field]) => (
           <div key={field} className="bg-white/70 rounded-lg p-2.5">
             <div className="text-slate-500 text-xs mb-1">{label}</div>
@@ -640,15 +673,33 @@ export default function Dashboard() {
     setProfileLoading(false);
   }, []);
 
-  // Save tracking snapshot when profile data loads
+  // Save tracking snapshot when profile data loads (Supabase or localStorage fallback)
   useEffect(() => {
     if (profile && selectedAccount) {
       const er = profile.followers > 0 && posts.length > 0
         ? posts.reduce((s, p) => s + (p.likesCount || 0) + (p.commentsCount || 0), 0) / posts.length / profile.followers * 100
         : 0;
-      saveSnapshot(selectedAccount.username, profile, er);
+      const snapData = {
+        followers: profile.followers || profile.followersCount || 0,
+        following: profile.following || profile.followsCount || 0,
+        posts: profile.posts || profile.postsCount || 0,
+        er,
+      };
+      if (user?.id) {
+        saveSnapshotDB(user.id, selectedAccount.username, snapData);
+      } else {
+        saveSnapshotLocal(selectedAccount.username, snapData);
+      }
     }
-  }, [profile, selectedAccount, posts]);
+  }, [profile, selectedAccount, posts, user]);
+
+  // One-time migration: move localStorage snapshots to Supabase
+  useEffect(() => {
+    if (!user?.id || !trackedAccounts.length) return;
+    trackedAccounts.forEach(acc => {
+      migrateLocalSnapshots(user.id, acc.username);
+    });
+  }, [user, trackedAccounts]);
 
   useEffect(() => {
     if (!selectedAccount) { setProfile(null); setPosts([]); setStories([]); setFollowers([]); setFollowing([]); return; }
@@ -677,6 +728,8 @@ export default function Dashboard() {
     { id: 'stories', icon: <MonitorPlay className="w-4 h-4" />, label: 'Stories' },
     { id: 'insights', icon: <Brain className="w-4 h-4" />, label: 'Deep Insights' },
     { id: 'compare', icon: <BarChart2 className="w-4 h-4" />, label: 'Compare' },
+    { id: 'mediakit', icon: <FileText className="w-4 h-4" />, label: 'Media Kit' },
+    { id: 'competitors', icon: <Target className="w-4 h-4" />, label: 'Competitors' },
   ];
 
   /* ═══ Engagement metrics computed from posts ═══════════════════════════ */
@@ -839,7 +892,7 @@ export default function Dashboard() {
           <HealthScoreCard profile={profile} posts={posts} avgEngagement={avgEngagement} />
 
           {/* ── Tracking History ──────────────────────────────────────── */}
-          <TrackingSection username={selectedAccount} profile={profile} />
+          <TrackingSection username={selectedAccount?.username || selectedAccount} profile={profile} userId={user?.id} />
 
           {/* Report tabs — horizontal scroll on mobile */}
           <div className="bg-white rounded-t-2xl border border-b-0 border-slate-200 px-2 sm:px-4 overflow-x-auto scrollbar-hide">
@@ -877,12 +930,728 @@ export default function Dashboard() {
             {reportTab === 'compare' && (
               <CompareTab tier={tier} />
             )}
+            {reportTab === 'mediakit' && (
+              <MediaKitTab profile={profile} posts={posts} tier={tier} followers={followers} following={following} avgEngagement={avgEngagement} />
+            )}
+            {reportTab === 'competitors' && (
+              <CompetitorsTab profile={profile} posts={posts} tier={tier} avgEngagement={avgEngagement} user={user} />
+            )}
           </div>
+
+          {/* ── Digest Email Settings ──────────────────────────────────── */}
+          <DigestSettings user={user} tier={tier} />
         </div>
       )}
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Media Kit Tab (Wave 3)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const MediaKitTab = ({ profile, posts, tier, followers, following, avgEngagement }) => {
+  const [copied, setCopied] = useState(false);
+
+  if (!profile) return <p className="text-slate-400 text-sm">Load a profile to generate your media kit.</p>;
+
+  // Content breakdown
+  const typeCount = { photo: 0, video: 0, carousel: 0 };
+  posts.forEach(p => {
+    const t = (p.type || p.productType || '').toLowerCase();
+    if (t.includes('carousel') || t.includes('sidecar') || (p.images && p.images.length > 1)) typeCount.carousel++;
+    else if (t.includes('video') || t.includes('reel') || t.includes('clip')) typeCount.video++;
+    else typeCount.photo++;
+  });
+  const total = posts.length || 1;
+  const photoPct = ((typeCount.photo / total) * 100).toFixed(0);
+  const videoPct = ((typeCount.video / total) * 100).toFixed(0);
+  const carouselPct = ((typeCount.carousel / total) * 100).toFixed(0);
+
+  // Avg likes / comments
+  const avgLikes = posts.length > 0 ? Math.round(posts.reduce((s, p) => s + (p.likesCount || 0), 0) / posts.length) : 0;
+  const avgComments = posts.length > 0 ? Math.round(posts.reduce((s, p) => s + (p.commentsCount || 0), 0) / posts.length) : 0;
+
+  // Top hashtags
+  const hashMap = {};
+  posts.forEach(p => {
+    const caption = p.caption || p.text || '';
+    const tags = caption.match(/#[\w]+/g) || [];
+    tags.forEach(t => { hashMap[t.toLowerCase()] = (hashMap[t.toLowerCase()] || 0) + 1; });
+  });
+  const topHashtags = Object.entries(hashMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+  // Best posting hours
+  const hourMap = {};
+  posts.forEach(p => {
+    if (!p.timestamp) return;
+    const h = new Date(p.timestamp).getHours();
+    hourMap[h] = (hourMap[h] || 0) + 1;
+  });
+  const bestHours = Object.entries(hourMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([h]) => {
+    const hr = parseInt(h);
+    return hr === 0 ? '12 AM' : hr < 12 ? `${hr} AM` : hr === 12 ? '12 PM' : `${hr - 12} PM`;
+  });
+
+  // Ghost follower estimate (basic heuristic: low ER + high followers = more ghosts)
+  const ghostPct = avgEngagement > 0
+    ? Math.max(5, Math.min(80, Math.round(100 - avgEngagement * 15 - (posts.length > 10 ? 5 : 0))))
+    : 0;
+  const audienceQuality = ghostPct < 25 ? 'Excellent' : ghostPct < 40 ? 'Good' : ghostPct < 60 ? 'Fair' : 'Needs Work';
+  const aqColor = ghostPct < 25 ? 'text-emerald-600' : ghostPct < 40 ? 'text-blue-600' : ghostPct < 60 ? 'text-amber-600' : 'text-red-500';
+
+  const handleCopyStats = () => {
+    const text = [
+      `--- Media Kit: @${profile.username} ---`,
+      profile.fullName ? `Name: ${profile.fullName}` : '',
+      profile.bio ? `Bio: ${profile.bio}` : '',
+      '',
+      `Followers: ${fmt(profile.followers)}`,
+      `Following: ${fmt(profile.following)}`,
+      `Posts: ${fmt(profile.posts)}`,
+      `Avg Engagement Rate: ${pct(avgEngagement)}`,
+      `Avg Likes/Post: ${fmt(avgLikes)}`,
+      `Avg Comments/Post: ${fmt(avgComments)}`,
+      '',
+      `Content Mix: ${photoPct}% Photo, ${videoPct}% Video, ${carouselPct}% Carousel`,
+      topHashtags.length ? `Top Hashtags: ${topHashtags.map(([t]) => t).join(', ')}` : '',
+      bestHours.length ? `Best Posting Times: ${bestHours.join(', ')}` : '',
+      `Audience Quality: ${audienceQuality} (est. ${100 - ghostPct}% real)`,
+      '',
+      'Generated by Activity Mint',
+    ].filter(Boolean).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handlePrint = () => { window.print(); };
+
+  return (
+    <AccessGate tier={tier} feature="insights.basic">
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {/* Print-optimized styles */}
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .media-kit-card, .media-kit-card * { visibility: visible; }
+            .media-kit-card { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+          }
+        `}</style>
+
+        <SectionHeader icon={<FileText className="w-5 h-5 text-indigo-500" />} title="Influencer Media Kit" badge="Wave 3">
+          <div className="flex gap-2 no-print">
+            <button onClick={handleCopyStats} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+              <Copy className="w-3.5 h-3.5" />
+              {copied ? 'Copied!' : 'Copy Stats'}
+            </button>
+            <button onClick={handlePrint} className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+              <Printer className="w-3.5 h-3.5" />
+              Print / Save PDF
+            </button>
+          </div>
+        </SectionHeader>
+
+        {/* Media Kit Card */}
+        <div className="media-kit-card bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 rounded-2xl p-6 sm:p-8 text-white">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/10">
+            {profile.profilePicUrl ? (
+              <img src={proxyImg(profile.profilePicUrl)} alt={profile.username}
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-indigo-400/50 object-cover" />
+            ) : (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-2xl font-bold">
+                {profile.username.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold">@{profile.username}</h2>
+              {profile.fullName && <p className="text-indigo-300 text-sm">{profile.fullName}</p>}
+              {profile.category && <p className="text-indigo-400/70 text-xs mt-0.5">{profile.category}</p>}
+              {profile.bio && <p className="text-slate-300 text-xs mt-1 line-clamp-2 max-w-md">{profile.bio}</p>}
+            </div>
+          </div>
+
+          {/* Key Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            {[
+              { label: 'Followers', value: fmt(profile.followers), icon: <Users className="w-4 h-4" /> },
+              { label: 'Avg ER', value: pct(avgEngagement), icon: <Heart className="w-4 h-4" /> },
+              { label: 'Avg Likes', value: fmt(avgLikes), icon: <ThumbsUp className="w-4 h-4" /> },
+              { label: 'Avg Comments', value: fmt(avgComments), icon: <MessageSquare className="w-4 h-4" /> },
+            ].map((m, i) => (
+              <div key={i} className="bg-white/5 backdrop-blur rounded-xl p-3 sm:p-4 border border-white/10">
+                <div className="flex items-center gap-1.5 text-indigo-300 mb-1">
+                  {m.icon}
+                  <span className="text-[10px] uppercase tracking-wider">{m.label}</span>
+                </div>
+                <p className="text-lg sm:text-xl font-bold">{m.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Content Breakdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+              <h4 className="text-xs uppercase tracking-wider text-indigo-300 mb-3">Content Mix</h4>
+              <div className="space-y-2">
+                {[
+                  { label: 'Photos', pct: photoPct, color: 'bg-blue-400' },
+                  { label: 'Videos', pct: videoPct, color: 'bg-purple-400' },
+                  { label: 'Carousels', pct: carouselPct, color: 'bg-pink-400' },
+                ].map((item, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-300">{item.label}</span>
+                      <span className="text-white font-semibold">{item.pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div className={`h-full ${item.color} rounded-full transition-all`} style={{ width: `${item.pct}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Hashtags */}
+            <div className="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+              <h4 className="text-xs uppercase tracking-wider text-indigo-300 mb-3">Top Hashtags</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {topHashtags.length > 0 ? topHashtags.map(([tag, count], i) => (
+                  <span key={i} className="bg-indigo-500/20 text-indigo-200 text-[10px] px-2 py-1 rounded-full border border-indigo-400/20">
+                    {tag} <span className="text-indigo-400">({count})</span>
+                  </span>
+                )) : <p className="text-slate-400 text-xs">No hashtags found in recent posts</p>}
+              </div>
+            </div>
+
+            {/* Best Times + Audience Quality */}
+            <div className="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+              <h4 className="text-xs uppercase tracking-wider text-indigo-300 mb-3">Audience Quality</h4>
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-5 h-5 text-indigo-300" />
+                <span className={`font-bold text-lg ${aqColor.replace('text-', 'text-')}`} style={{ color: ghostPct < 25 ? '#34d399' : ghostPct < 40 ? '#60a5fa' : ghostPct < 60 ? '#fbbf24' : '#f87171' }}>
+                  {audienceQuality}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mb-3">Est. {100 - ghostPct}% real, engaged followers</p>
+              {bestHours.length > 0 && (
+                <div>
+                  <h4 className="text-xs uppercase tracking-wider text-indigo-300 mb-1.5">Best Times</h4>
+                  <div className="flex gap-2">
+                    {bestHours.map((h, i) => (
+                      <span key={i} className="bg-emerald-500/20 text-emerald-200 text-[10px] px-2 py-1 rounded-full border border-emerald-400/20">
+                        <Clock className="w-3 h-3 inline mr-0.5" />{h}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center pt-4 border-t border-white/10">
+            <p className="text-[10px] text-slate-400">Generated by Activity Mint &middot; {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+          </div>
+        </div>
+      </div>
+    </AccessGate>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Competitors Tab (Wave 3)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const CompetitorsTab = ({ profile, posts, tier, avgEngagement, user }) => {
+  const [competitors, setCompetitors] = useState([]);
+  const [competitorProfiles, setCompetitorProfiles] = useState({});
+  const [addInput, setAddInput] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const maxCompetitors = tier === 'premium' ? 15 : 5;
+
+  // Load competitors
+  useEffect(() => {
+    if (!user?.id) { setLoading(false); return; }
+    let cancelled = false;
+    getCompetitors(user.id).then(data => {
+      if (!cancelled) { setCompetitors(data); setLoading(false); }
+    }).catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Fetch profiles for each competitor
+  useEffect(() => {
+    competitors.forEach(c => {
+      if (competitorProfiles[c.username]) return;
+      fetchInstagramProfile(c.username).then(res => {
+        if (res?.[0]) {
+          const p = res[0];
+          const compProfile = {
+            username: p.username,
+            fullName: p.fullName || '',
+            profilePicUrl: p.profilePicUrl || p.profilePicUrlHD || '',
+            followers: p.followersCount || 0,
+            following: p.followsCount || p.followingCount || 0,
+            posts: p.postsCount || 0,
+            bio: p.biography || '',
+            isVerified: p.verified || false,
+          };
+          setCompetitorProfiles(prev => ({ ...prev, [c.username]: compProfile }));
+          // Save snapshot
+          saveCompetitorSnapshot(c.id, {
+            followers: compProfile.followers,
+            following: compProfile.following,
+            posts: compProfile.posts,
+            er: 0,
+          });
+        }
+      }).catch(() => {});
+    });
+  }, [competitors]);
+
+  const handleAdd = async () => {
+    const username = addInput.trim().replace('@', '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '');
+    if (!username) return;
+    if (competitors.length >= maxCompetitors) {
+      setAddError(`Max ${maxCompetitors} competitors on your plan.`);
+      return;
+    }
+    setAddError('');
+    setAddLoading(true);
+    try {
+      const data = await addCompetitor(user.id, username);
+      setCompetitors(prev => [...prev, data]);
+      setAddInput('');
+    } catch (err) {
+      setAddError(err.code === '23505' ? 'Already tracking this competitor.' : (err.message || 'Failed to add competitor.'));
+    }
+    setAddLoading(false);
+  };
+
+  const handleRemove = async (id) => {
+    try {
+      await removeCompetitor(id);
+      setCompetitors(prev => prev.filter(c => c.id !== id));
+      setCompetitorProfiles(prev => {
+        const next = { ...prev };
+        const comp = competitors.find(c => c.id === id);
+        if (comp) delete next[comp.username];
+        return next;
+      });
+    } catch {}
+  };
+
+  // Comparison bar helper
+  const ComparisonBar = ({ label, yours, theirs, format = 'number' }) => {
+    const max = Math.max(yours || 1, theirs || 1);
+    const yourW = ((yours / max) * 100).toFixed(0);
+    const theirW = ((theirs / max) * 100).toFixed(0);
+    const formatVal = format === 'pct' ? pct : fmt;
+    return (
+      <div className="mb-3">
+        <div className="flex justify-between text-xs text-slate-500 mb-1">
+          <span>{label}</span>
+          <span className="font-medium text-slate-700">{formatVal(yours)} vs {formatVal(theirs)}</span>
+        </div>
+        <div className="flex gap-1 h-2">
+          <div className="bg-indigo-400 rounded-l-full transition-all" style={{ width: `${yourW}%` }} />
+          <div className="bg-rose-400 rounded-r-full transition-all" style={{ width: `${theirW}%` }} />
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+          <span>You</span>
+          <span>Them</span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <AccessGate tier={tier} feature="insights.basic">
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <SectionHeader icon={<Target className="w-5 h-5 text-indigo-500" />} title="Competitor Tracking" badge="Wave 3" />
+
+        {/* Add competitor */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 px-3 py-2 flex-1 min-w-[200px] max-w-sm">
+            <Search className="w-4 h-4 text-slate-400 mr-2" />
+            <input
+              type="text"
+              value={addInput}
+              onChange={e => { setAddInput(e.target.value); setAddError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              placeholder="Add competitor @username"
+              className="bg-transparent border-none outline-none text-sm text-slate-700 w-full"
+            />
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={addLoading || !user?.id}
+            className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <PlusCircle className="w-4 h-4" />
+            {addLoading ? 'Adding...' : 'Track'}
+          </button>
+          <span className="text-xs text-slate-400">{competitors.length}/{maxCompetitors}</span>
+        </div>
+        {addError && <p className="text-red-500 text-xs">{addError}</p>}
+
+        {/* Competitor Summary Table */}
+        {competitors.length > 0 && profile && (
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Followers</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Posts</th>
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Your account */}
+                  <tr className="border-b border-slate-100 bg-indigo-50/50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                          <Star className="w-3 h-3 text-indigo-500" />
+                        </div>
+                        <span className="font-medium text-indigo-700">@{profile.username}</span>
+                        <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">You</span>
+                      </div>
+                    </td>
+                    <td className="text-right px-4 py-3 font-semibold text-slate-700">{fmt(profile.followers)}</td>
+                    <td className="text-right px-4 py-3 text-slate-600">{fmt(profile.posts)}</td>
+                    <td className="text-right px-4 py-3">
+                      <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-medium">Baseline</span>
+                    </td>
+                    <td></td>
+                  </tr>
+                  {/* Competitors */}
+                  {competitors.map(c => {
+                    const cp = competitorProfiles[c.username];
+                    const growingFaster = cp && profile && cp.followers > profile.followers;
+                    return (
+                      <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {cp?.profilePicUrl ? (
+                              <img src={proxyImg(cp.profilePicUrl)} className="w-6 h-6 rounded-full object-cover" alt="" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                {c.username.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="font-medium text-slate-700">@{c.username}</span>
+                            {cp?.isVerified && <span className="text-[10px] text-blue-500">✓</span>}
+                          </div>
+                        </td>
+                        <td className="text-right px-4 py-3 font-semibold text-slate-700">
+                          {cp ? fmt(cp.followers) : <span className="text-slate-300">Loading...</span>}
+                        </td>
+                        <td className="text-right px-4 py-3 text-slate-600">
+                          {cp ? fmt(cp.posts) : '--'}
+                        </td>
+                        <td className="text-right px-4 py-3">
+                          {cp && growingFaster && (
+                            <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">
+                              Larger Audience
+                            </span>
+                          )}
+                          {cp && !growingFaster && (
+                            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium">
+                              You Lead
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => handleRemove(c.id)} className="text-slate-300 hover:text-red-400 transition-colors p-1">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed comparison cards */}
+        {competitors.map(c => {
+          const cp = competitorProfiles[c.username];
+          if (!cp || !profile) return null;
+          return (
+            <div key={c.id} className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {cp.profilePicUrl ? (
+                    <img src={proxyImg(cp.profilePicUrl)} className="w-10 h-10 rounded-full object-cover border border-slate-200" alt="" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-500">
+                      {c.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-semibold text-slate-800">@{cp.username}</h4>
+                    {cp.fullName && <p className="text-xs text-slate-400">{cp.fullName}</p>}
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">You</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-medium">Them</span>
+                </div>
+              </div>
+              <ComparisonBar label="Followers" yours={profile.followers} theirs={cp.followers} />
+              <ComparisonBar label="Posts" yours={profile.posts} theirs={cp.posts} />
+              <ComparisonBar label="Following" yours={profile.following} theirs={cp.following} />
+            </div>
+          );
+        })}
+
+        {/* Empty state */}
+        {!loading && competitors.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
+              <Target className="w-7 h-7 text-slate-300" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-600 mb-1">No competitors tracked yet</h3>
+            <p className="text-xs text-slate-400">Add an Instagram username above to start comparing metrics.</p>
+          </div>
+        )}
+      </div>
+    </AccessGate>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Digest Settings (Wave 3)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const DigestSettings = ({ user, tier }) => {
+  const [open, setOpen] = useState(false);
+  const [prefs, setPrefs] = useState({
+    email_enabled: false,
+    frequency: 'weekly',
+    day_of_week: 1,
+    include_competitors: true,
+    include_alerts: true,
+    include_recommendations: true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load preferences
+  useEffect(() => {
+    if (!user?.id) return;
+    getDigestPreferences(user.id).then(data => {
+      if (data) setPrefs(data);
+      setLoaded(true);
+    });
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setSaving(true);
+    try {
+      await upsertDigestPreferences(user.id, {
+        email_enabled: prefs.email_enabled,
+        frequency: prefs.frequency,
+        day_of_week: prefs.day_of_week,
+        include_competitors: prefs.include_competitors,
+        include_alerts: prefs.include_alerts,
+        include_recommendations: prefs.include_recommendations,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error('Failed to save digest preferences:', err);
+    }
+    setSaving(false);
+  };
+
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  return (
+    <AccessGate tier={tier} feature="insights.basic">
+      <div className="bg-white rounded-2xl border border-slate-200 mb-8 overflow-hidden">
+        {/* Collapsible header */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-full flex items-center justify-between px-4 sm:px-6 py-4 hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
+              <Mail className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-semibold text-slate-900 text-sm">Email Digest Settings</h3>
+              <p className="text-[10px] text-slate-400">Configure automated reports delivered to your inbox</p>
+            </div>
+          </div>
+          <ChevronUp className={`w-5 h-5 text-slate-400 transition-transform ${open ? '' : 'rotate-180'}`} />
+        </button>
+
+        {/* Settings panel */}
+        {open && (
+          <div className="px-4 sm:px-6 pb-6 border-t border-slate-100 pt-4 space-y-5 animate-in fade-in duration-200">
+            {/* Email display */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">Delivery Email</label>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-600">
+                {user?.email || 'Not signed in'}
+              </div>
+            </div>
+
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Enable Email Digest</label>
+                <p className="text-[10px] text-slate-400">Receive automated analytics reports</p>
+              </div>
+              <button
+                onClick={() => setPrefs(p => ({ ...p, email_enabled: !p.email_enabled }))}
+                className={`relative w-11 h-6 rounded-full transition-colors ${prefs.email_enabled ? 'bg-indigo-500' : 'bg-slate-200'}`}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${prefs.email_enabled ? 'left-[22px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+
+            {prefs.email_enabled && (
+              <>
+                {/* Frequency */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1.5">Frequency</label>
+                    <select
+                      value={prefs.frequency}
+                      onChange={e => setPrefs(p => ({ ...p, frequency: e.target.value }))}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none"
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="daily">Daily</option>
+                    </select>
+                  </div>
+                  {prefs.frequency === 'weekly' && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1.5">Day of Week</label>
+                      <select
+                        value={prefs.day_of_week}
+                        onChange={e => setPrefs(p => ({ ...p, day_of_week: parseInt(e.target.value) }))}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none"
+                      >
+                        {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {/* Checkboxes */}
+                <div className="space-y-3">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Include in digest:</label>
+                  {[
+                    { key: 'include_competitors', label: 'Competitor alerts', icon: <Target className="w-3.5 h-3.5" /> },
+                    { key: 'include_alerts', label: 'Tracking changes', icon: <Bell className="w-3.5 h-3.5" /> },
+                    { key: 'include_recommendations', label: 'Recommendations', icon: <Sparkles className="w-3.5 h-3.5" /> },
+                  ].map(({ key, label, icon }) => (
+                    <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                      <div
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          prefs[key] ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 group-hover:border-indigo-300'
+                        }`}
+                        onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+                      >
+                        {prefs[key] && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="flex items-center gap-1.5 text-sm text-slate-600">{icon} {label}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Preferences'}
+              </button>
+              <button
+                onClick={() => setShowPreview(true)}
+                className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <Eye className="w-4 h-4" />
+                Preview Digest
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Preview Modal */}
+        {showPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowPreview(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-900">Digest Preview</h3>
+                <button onClick={() => setShowPreview(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-4 space-y-4 text-sm">
+                <div className="text-center pb-3 border-b border-slate-200">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center mx-auto mb-2">
+                    <Activity className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <h4 className="font-bold text-slate-800">Activity Mint Weekly Digest</h4>
+                  <p className="text-[10px] text-slate-400">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-slate-200">
+                  <h5 className="font-semibold text-slate-700 text-xs mb-2 flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Account Highlights
+                  </h5>
+                  <p className="text-xs text-slate-500">Your followers grew by <span className="text-emerald-600 font-semibold">+127</span> this week.</p>
+                  <p className="text-xs text-slate-500 mt-1">Engagement rate: <span className="font-semibold">3.2%</span> (up 0.4% from last week)</p>
+                </div>
+                {prefs.include_competitors && (
+                  <div className="bg-white rounded-lg p-3 border border-slate-200">
+                    <h5 className="font-semibold text-slate-700 text-xs mb-2 flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-amber-500" /> Competitor Alerts
+                    </h5>
+                    <p className="text-xs text-slate-500">@competitor1 gained <span className="text-amber-600 font-semibold">+340 followers</span> this week.</p>
+                  </div>
+                )}
+                {prefs.include_recommendations && (
+                  <div className="bg-white rounded-lg p-3 border border-slate-200">
+                    <h5 className="font-semibold text-slate-700 text-xs mb-2 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-500" /> Recommendations
+                    </h5>
+                    <p className="text-xs text-slate-500">Post more carousels -- they get 2.1x higher engagement for your account.</p>
+                  </div>
+                )}
+                <p className="text-[10px] text-center text-slate-400 pt-2">This is a preview. Actual data will populate in real digests.</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AccessGate>
+  );
+};
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TAB 1 — Activity Analytics

@@ -731,68 +731,120 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
     <section className="relative pt-16 pb-16 md:pb-32 overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[500px] bg-emerald-100/40 rounded-full blur-3xl -z-10 opacity-50"></div>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4 sm:mb-6">
+        <Badge className="mb-6 bg-primary/10 text-primary border-primary/20 px-4 py-1.5">
+          <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+          AI-Powered Analytics
+        </Badge>
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-foreground tracking-tight leading-tight mb-4 sm:mb-6">
           Your All-in-One <br className="hidden md:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-600">Social Activity Tracker</span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-teal-600">Social Activity Tracker</span>
         </h1>
-        <p className="mt-3 text-base sm:text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-6 md:mb-10 leading-relaxed">
+        <p className="mt-3 text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 md:mb-12 leading-relaxed">
           Uncover hidden insights with AI-powered, privacy-focused analytics for Instagram and beyond. Track, analyze, and grow smarter without leaving a footprint.
         </p>
         <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative group">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
-          <div className="relative flex items-center bg-white rounded-full border border-slate-200 shadow-sm p-2 hover:border-emerald-300 transition-colors">
-            <div className="pl-3 sm:pl-4 pr-2 text-slate-400 shrink-0"><Search className="w-5 h-5" /></div>
-            <input type="text" placeholder="Enter @username" className="flex-1 min-w-0 bg-transparent border-none outline-none text-slate-700 placeholder-slate-400 py-2.5 sm:py-3 text-base sm:text-lg" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} required />
-            <button type="submit" disabled={isSearching} className="ml-2 shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 sm:px-8 py-2.5 sm:py-3 rounded-full font-medium text-sm sm:text-base hover:shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-70">
-              {isSearching ? <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 animate-pulse" /> <span className="hidden sm:inline">Analyzing...</span></span> : <span><span className="hidden sm:inline">Analyze Now</span><span className="sm:hidden">Go</span></span>}
-            </button>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-teal-500/30 rounded-full blur-xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-700" />
+          <Card className="relative flex items-center rounded-full border-border/50 shadow-lg p-2 hover:border-primary/30 focus-within:border-primary/50 focus-within:shadow-xl focus-within:shadow-primary/5 transition-all duration-300">
+            <div className="pl-4 pr-2 text-muted-foreground shrink-0">
+              <Search className="w-5 h-5" />
+            </div>
+            <input
+              type="text"
+              placeholder="Enter @username"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-foreground placeholder-muted-foreground py-3 sm:py-4 text-base sm:text-lg font-medium"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              required
+            />
+            <Button
+              type="submit"
+              disabled={isSearching}
+              className="ml-2 shrink-0 bg-gradient-to-r from-primary to-teal-600 hover:from-primary/90 hover:to-teal-600/90 text-white px-6 sm:px-8 py-5 sm:py-6 rounded-full font-semibold text-sm sm:text-base hover:shadow-lg hover:shadow-primary/25 transition-all disabled:opacity-70"
+            >
+              {isSearching ? (
+                <span className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 animate-spin" />
+                  <span className="hidden sm:inline">Analyzing...</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span className="hidden sm:inline">Analyze Now</span>
+                  <span className="sm:hidden">Go</span>
+                  <ArrowRight className="w-4 h-4 hidden sm:block" />
+                </span>
+              )}
+            </Button>
+          </Card>
         </form>
         {searchError && !isSearching && (
-          <div className="max-w-lg mx-auto mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-            {searchError}
-          </div>
+          <Card className="max-w-lg mx-auto mt-6 p-4 border-destructive/50 bg-destructive/5">
+            <p className="text-destructive text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {searchError}
+            </p>
+          </Card>
         )}
         {isSearching && (
-          <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-slate-200 animate-pulse" />
-              <div className="space-y-2 flex-1"><div className="h-4 bg-slate-200 rounded w-1/3 animate-pulse" /><div className="h-3 bg-slate-100 rounded w-1/4 animate-pulse" /></div>
+          <Card className="max-w-2xl mx-auto mt-8 p-8 border-primary/10 shadow-xl">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 rounded-full bg-muted animate-pulse" />
+              <div className="space-y-2 flex-1">
+                <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
+                <div className="h-3 bg-muted/50 rounded w-1/4 animate-pulse" />
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">{[1,2,3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />)}</div>
-            <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-14 bg-slate-50 rounded-xl animate-pulse" />)}</div>
-            <div className="text-center mt-6 space-y-2">
-              <p className="text-slate-600 text-sm font-medium flex items-center justify-center gap-2"><Activity className="w-4 h-4 animate-spin text-emerald-500" /> Fetching live Instagram data…</p>
-              <p className="text-slate-400 text-xs">This usually takes 30-60 seconds — we're scanning real profile data</p>
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[1,2,3].map(i => <div key={i} className="h-20 bg-muted/50 rounded-xl animate-pulse" />)}
             </div>
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[1,2,3,4].map(i => <div key={i} className="h-16 bg-muted/30 rounded-xl animate-pulse" />)}
+            </div>
+            <div className="text-center mt-8 space-y-3">
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Activity className="w-4 h-4 animate-spin text-primary" />
+                </div>
+                <p className="text-foreground font-medium">Fetching live Instagram data…</p>
+              </div>
+              <p className="text-muted-foreground text-sm">This usually takes 30-60 seconds — we're scanning real profile data</p>
+            </div>
+          </Card>
         )}
         {demoResult && !isSearching && (
           <DemoResultCard result={demoResult} onSignUp={() => setAuthOpen(true)} onDismiss={() => setDemoResult(null)} />
         )}
-        <div className="mt-12 flex items-center justify-center gap-4 text-sm text-slate-500 font-medium">
-          <div className="flex -space-x-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center overflow-hidden">
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground font-medium">
+          <div className="flex -space-x-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="w-10 h-10 rounded-full border-2 border-background bg-muted flex items-center justify-center overflow-hidden ring-2 ring-background shadow-sm">
                 <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${i}&backgroundColor=e2e8f0`} alt="user" className="w-full h-full object-cover" />
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-500" /><span>Trusted by <strong>50,000+</strong> professionals globally</span></div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
+            </div>
+            <span className="text-foreground">Trusted by <strong className="text-primary">50,000+</strong> professionals globally</span>
+          </div>
         </div>
       </div>
     </section>
 
-    <section className="py-24 bg-white border-t border-slate-100">
+    <section className="py-24 bg-background border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900">Activity Mint meets all your needs</h2>
-          <p className="mt-4 text-slate-500 max-w-2xl mx-auto">Want to know more about the Instagram accounts on your followed list? Activity Mint makes it easy to safely and privately check their likes and interests.</p>
+          <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Use Cases</Badge>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">Activity Mint meets all your needs</h2>
+          <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">Want to know more about the Instagram accounts on your followed list? Activity Mint makes it easy to safely and privately check their likes and interests.</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8">
           <div className="relative pt-12">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2">
-              <span className="bg-indigo-50 text-indigo-600 px-6 py-2 rounded-full text-sm font-bold tracking-wide border border-indigo-100 shadow-sm">For Marketing</span>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
+              <Badge className="bg-indigo-100 text-indigo-700 px-6 py-2 text-sm font-bold tracking-wide border-indigo-200 hover:bg-indigo-100 shadow-sm">
+                <Briefcase className="w-4 h-4 mr-2" />
+                For Marketing
+              </Badge>
             </div>
             <div className="space-y-6">
               <UseCaseCard title="Stay on Top of Your Competition" description="Track competitors' follows, likes, and engagement. Stay one step ahead and make smarter decisions." icon={<PenTool className="w-20 h-20 text-indigo-500 transform -rotate-12 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-indigo-200 to-purple-200" />
@@ -801,8 +853,11 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
             </div>
           </div>
           <div className="relative pt-12">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2">
-              <span className="bg-emerald-50 text-emerald-600 px-6 py-2 rounded-full text-sm font-bold tracking-wide border border-emerald-100 shadow-sm">For Individuals</span>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
+              <Badge className="bg-primary/10 text-primary px-6 py-2 text-sm font-bold tracking-wide border-primary/20 hover:bg-primary/10 shadow-sm">
+                <Users className="w-4 h-4 mr-2" />
+                For Individuals
+              </Badge>
             </div>
             <div className="space-y-6">
               <UseCaseCard title="Explore Public Instagram Activity" description="View public interactions, likes, followers, and follow activity — keeping your browsing private." icon={<UserCheck className="w-20 h-20 text-teal-500 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-teal-200 to-cyan-200" />
@@ -814,11 +869,12 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
       </div>
     </section>
 
-    <section className="py-20 bg-slate-50 border-t border-slate-100">
+    <section className="py-20 bg-muted/30 border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-slate-900">Everything you need to find the truth.</h2>
-          <p className="mt-4 text-slate-500">Objective, data-driven insights while maintaining complete privacy.</p>
+          <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Features</Badge>
+          <h2 className="text-3xl font-bold text-foreground">Everything you need to find the truth.</h2>
+          <p className="mt-4 text-muted-foreground">Objective, data-driven insights while maintaining complete privacy.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <FeatureCard icon={<ShieldCheck className="w-6 h-6 text-emerald-600" />} title="Publicly Available Sources" description="We collect data exclusively from open, publicly available sources. 100% legal, ethical, and compliant." />
@@ -831,11 +887,12 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
       </div>
     </section>
 
-    <section className="py-24 bg-slate-50/50 border-t border-slate-100">
+    <section className="py-24 bg-muted/20 border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-slate-900">The Complete Activity Toolkit</h2>
-          <p className="mt-4 text-slate-500 max-w-2xl mx-auto">Everything you need to monitor, analyze, and archive social activity in one powerful suite.</p>
+          <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Toolkit</Badge>
+          <h2 className="text-3xl font-bold text-foreground">The Complete Activity Toolkit</h2>
+          <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">Everything you need to monitor, analyze, and archive social activity in one powerful suite.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
           <ToolkitCard title="View Privately" icon={<ShieldCheck className="w-6 h-6" />} description="View Stories, search profiles, and explore comments without leaving a trace." items={[{ icon: <Search className="w-5 h-5" />, text: "User search" }, { icon: <MessageSquare className="w-5 h-5" />, text: "View Comments Privately" }]} bgIcon="glasses" />

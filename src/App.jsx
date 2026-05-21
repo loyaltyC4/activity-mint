@@ -906,17 +906,20 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
       </div>
     </section>
 
-    <section className="py-20 sm:py-24 bg-slate-50">
+    <section className="py-20 sm:py-24 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-3xl p-6 sm:p-10 md:p-14 text-white relative overflow-hidden shadow-2xl">
+        <Card className="bg-gradient-to-br from-primary to-teal-700 border-0 rounded-3xl p-6 sm:p-10 md:p-14 text-white relative overflow-hidden shadow-2xl">
           {/* Background glows */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300 opacity-10 rounded-full blur-3xl transform -translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
 
-          <div className="relative z-10">
+          <CardContent className="relative z-10 p-0">
             {/* Header */}
             <div className="text-center mb-10 sm:mb-14">
-              <span className="inline-block bg-white/15 backdrop-blur-sm text-white text-xs font-bold px-4 py-1.5 rounded-full border border-white/20 mb-4 tracking-wide uppercase">Get Started in Minutes</span>
+              <Badge className="bg-white/15 backdrop-blur-sm text-white border-white/20 mb-4 px-4 py-1.5">
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                Get Started in Minutes
+              </Badge>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">How to use Activity Mint</h2>
             </div>
 
@@ -1021,26 +1024,32 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
                   Join 50,000+ users who use Activity Mint to track followers, spot unfollowers, and analyse Instagram profiles — privately and anonymously.
                 </p>
                 <div className="flex flex-col sm:flex-row md:flex-col gap-3">
-                  <button onClick={() => setActiveTab('pricing')} className="bg-white text-teal-700 px-6 py-3 rounded-full font-bold hover:bg-slate-50 transition-colors shadow-lg flex items-center justify-center gap-2">
-                    View Plans <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bg-white/15 text-white border border-white/25 px-6 py-3 rounded-full font-semibold hover:bg-white/25 transition-colors flex items-center justify-center gap-2">
+                  <Button onClick={() => setActiveTab('pricing')} className="bg-white text-teal-700 hover:bg-slate-50 px-6 py-6 rounded-full font-bold shadow-lg">
+                    View Plans <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                  <Button variant="outline" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bg-white/15 text-white border-white/25 hover:bg-white/25 hover:text-white px-6 py-6 rounded-full font-semibold">
                     Try It Free
-                  </button>
+                  </Button>
                 </div>
                 <p className="text-emerald-200/50 text-xs mt-4">No credit card required · Cancel anytime</p>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </section>
 
-    <section className="py-24 bg-white border-t border-slate-100">
+    <section className="py-24 bg-background border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8 sm:mb-12 gap-4">
-          <h2 className="text-xl sm:text-3xl font-bold text-slate-900">Recommended Article</h2>
-          <button onClick={() => setActiveTab('blog')} className="shrink-0 text-emerald-600 font-semibold hover:text-emerald-700 transition-colors flex items-center gap-1 text-sm sm:text-base">More &gt;</button>
+          <div>
+            <Badge className="mb-3 bg-primary/10 text-primary border-primary/20">Blog</Badge>
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground">Recommended Articles</h2>
+          </div>
+          <Button variant="ghost" onClick={() => setActiveTab('blog')} className="shrink-0 text-primary font-semibold hover:text-primary/80 flex items-center gap-1">
+            View All
+            <ArrowRight className="w-4 h-4" />
+          </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <BlogCard image="https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=600&auto=format&fit=crop" title="Tracking Follower Growth: A Guide to Competitor Analysis" date="May 10, 2026" excerpt="Discover how to monitor competitors' follower velocity and engagement metrics to stay one step ahead." />
@@ -1051,24 +1060,31 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
       </div>
     </section>
 
-    <section className="py-20 bg-white pb-32">
+    <section className="py-20 bg-background pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-slate-900 via-teal-950 to-emerald-950 text-center px-6 py-20 shadow-2xl group">
+        <Card className="relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-slate-900 via-teal-950 to-emerald-950 border-0 text-center px-6 py-20 shadow-2xl group">
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-            <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 rounded-full blur-[100px]"></div>
-            <div className="absolute bottom-0 right-0 w-[30rem] h-[30rem] bg-teal-400/10 rounded-full blur-[100px] translate-x-1/3 translate-y-1/3"></div>
+            <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/20 rounded-full blur-[100px] group-hover:scale-150 transition-transform duration-1000"></div>
+            <div className="absolute bottom-0 right-0 w-[30rem] h-[30rem] bg-teal-400/10 rounded-full blur-[100px] translate-x-1/3 translate-y-1/3 group-hover:scale-125 transition-transform duration-1000"></div>
           </div>
-          <div className="relative z-10 max-w-4xl mx-auto">
+          <CardContent className="relative z-10 max-w-4xl mx-auto p-0">
+            <Badge className="mb-6 bg-white/10 text-white border-white/20 backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+              Get Started Free
+            </Badge>
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">Your Ultimate Social Activity Analyzer</h2>
             <p className="text-teal-50/80 leading-relaxed mb-10 text-base md:text-lg max-w-3xl mx-auto font-light">
               Activity Mint: Safely and accurately monitor the activity of accounts you're interested in — without compromising privacy.
             </p>
-            <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(() => document.querySelector('input[type="text"]')?.focus(), 300); }}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-4 px-10 rounded-full transition-all shadow-[0_0_40px_-10px_rgba(16,185,129,0.5)] hover:-translate-y-1">
+            <Button
+              onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(() => document.querySelector('input[type="text"]')?.focus(), 300); }}
+              className="bg-gradient-to-r from-primary to-teal-500 hover:from-primary/90 hover:to-teal-500/90 text-white font-bold py-7 px-12 rounded-full transition-all shadow-[0_0_40px_-10px_rgba(16,185,129,0.5)] hover:-translate-y-1 text-lg"
+            >
               ADD ACCOUNT
-            </button>
-          </div>
-        </div>
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </section>
   </div>

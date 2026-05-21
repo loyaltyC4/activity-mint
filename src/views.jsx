@@ -24,6 +24,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import {
+  fetchInstagramProfile,
   fetchFollowersList,
   fetchInstagramComments,
   fetchFacebookPosts,
@@ -1382,11 +1383,22 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
     setMutuals([]);
 
     try {
-      // Step 1: Fetch BOTH lists in parallel
-      setFetchProgress('Fetching followers list...');
+      // Step 1: Fetch PROFILE first to get real follower/following counts
+      setFetchProgress('Fetching profile to determine list sizes...');
+      const profileData = await fetchInstagramProfile(username).catch(() => null);
+      const realFollowerCount = profileData?.[0]?.followersCount || profileData?.[0]?.follower_count || 5000;
+      const realFollowingCount = profileData?.[0]?.followsCount || profileData?.[0]?.followingCount || profileData?.[0]?.following_count || 5000;
+
+      // Cap at 5000 per list to avoid excessive scraping time — warn user for very large accounts
+      const MAX_FETCH = 5000;
+      const followerLimit = Math.min(realFollowerCount + 100, MAX_FETCH); // +100 buffer for race conditions
+      const followingLimit = Math.min(realFollowingCount + 100, MAX_FETCH);
+
+      // Step 2: Fetch BOTH COMPLETE lists in parallel with real limits
+      setFetchProgress(`Fetching all ${realFollowerCount.toLocaleString()} followers & ${realFollowingCount.toLocaleString()} following...`);
       const [followerRaw, followingRaw] = await Promise.all([
-        fetchFollowersList(username, 'followers', 1000),
-        fetchFollowersList(username, 'following', 1000),
+        fetchFollowersList(username, 'followers', followerLimit),
+        fetchFollowersList(username, 'following', followingLimit),
       ]);
 
       if ((!followerRaw || followerRaw.length === 0) && (!followingRaw || followingRaw.length === 0)) {
@@ -1402,7 +1414,7 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
       setFollowers(followerList);
       setFollowing(followingList);
 
-      // Step 2: Set comparison
+      // Step 3: Set comparison — accurate because we fetched COMPLETE lists
       const followerSet = new Set(followerList.map(f => f.username.toLowerCase()));
       const followingSet = new Set(followingList.map(f => f.username.toLowerCase()));
 

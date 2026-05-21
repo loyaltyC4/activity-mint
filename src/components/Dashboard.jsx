@@ -8,6 +8,7 @@ import {
   ChevronRight, RefreshCw, Flame, Hash, LayoutGrid, MapPin,
   Smile, Tag, Zap, Award, User, Coffee, Camera,
   Crown, Trophy, Layers, PenTool, ShieldAlert,
+  ShieldCheck, AlertTriangle, EyeOff, HeartHandshake, CircleDot,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTier } from '../context/TierContext';
@@ -295,6 +296,12 @@ const CompareTab = ({ tier }) => {
   const [profileB, setProfileB] = useState(null);
   const [comparing, setComparing] = useState(false);
   const [error, setError] = useState(null);
+  // Deep Compare state
+  const [deepCompare, setDeepCompare] = useState(false);
+  const [deepLoading, setDeepLoading] = useState(false);
+  const [followersA, setFollowersA] = useState([]);
+  const [followersB, setFollowersB] = useState([]);
+  const [deepDone, setDeepDone] = useState(false);
 
   const handleCompare = async () => {
     if (!usernameA.trim() || !usernameB.trim()) return;
@@ -380,6 +387,129 @@ const CompareTab = ({ tier }) => {
               );
             })}
           </div>
+        )}
+
+        {/* ── Deep Compare: Mutual Connection Map ────────────────────── */}
+        {profileA && profileB && (
+          <AccessGate tier={tier} required="premium">
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <SectionHeader icon={<CircleDot className="w-5 h-5 text-violet-500" />} title="Mutual Connection Map" badge="Wave 2" />
+              {!deepDone ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-slate-500 mb-4">Fetch follower lists for both accounts to discover shared audience overlap.</p>
+                  <button
+                    onClick={async () => {
+                      setDeepLoading(true);
+                      try {
+                        const [fA, fB] = await Promise.all([
+                          fetchFollowersList(profileA.username, 'followers', 1000).catch(() => []),
+                          fetchFollowersList(profileB.username, 'followers', 1000).catch(() => []),
+                        ]);
+                        setFollowersA(fA || []);
+                        setFollowersB(fB || []);
+                        setDeepDone(true);
+                      } catch (e) { setError(e.message); }
+                      setDeepLoading(false);
+                    }}
+                    disabled={deepLoading}
+                    className="px-6 py-2.5 bg-violet-600 text-white rounded-xl font-medium text-sm hover:bg-violet-700 disabled:opacity-50 transition-colors min-h-[44px] inline-flex items-center gap-2"
+                  >
+                    {deepLoading ? (
+                      <><RefreshCw className="w-4 h-4 animate-spin" /> Fetching Followers...</>
+                    ) : (
+                      <><Users className="w-4 h-4" /> Deep Compare</>
+                    )}
+                  </button>
+                </div>
+              ) : (() => {
+                const setA = new Set(followersA.map(f => (f.username || f.handle || f.login || '').toLowerCase()).filter(Boolean));
+                const setB = new Set(followersB.map(f => (f.username || f.handle || f.login || '').toLowerCase()).filter(Boolean));
+                const shared = [...setA].filter(u => setB.has(u));
+                const onlyA = setA.size - shared.length;
+                const onlyB = setB.size - shared.length;
+                const overlapPctA = setA.size > 0 ? (shared.length / setA.size * 100) : 0;
+                const overlapPctB = setB.size > 0 ? (shared.length / setB.size * 100) : 0;
+                const totalUnion = setA.size + setB.size - shared.length;
+                const jaccardPct = totalUnion > 0 ? (shared.length / totalUnion * 100) : 0;
+                return (
+                  <div className="space-y-5">
+                    {/* Venn Diagram (pure CSS) */}
+                    <div className="flex justify-center py-4">
+                      <div className="relative" style={{ width: 260, height: 160 }}>
+                        {/* Circle A */}
+                        <div className="absolute rounded-full border-3 border-indigo-400 bg-indigo-100/60"
+                          style={{ width: 150, height: 150, left: 0, top: 5 }} />
+                        {/* Circle B */}
+                        <div className="absolute rounded-full border-3 border-purple-400 bg-purple-100/60"
+                          style={{ width: 150, height: 150, right: 0, top: 5 }} />
+                        {/* Overlap indicator */}
+                        <div className="absolute flex flex-col items-center justify-center text-center"
+                          style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+                          <span className="text-xl sm:text-2xl font-bold text-violet-700">{fmt(shared.length)}</span>
+                          <span className="text-[9px] sm:text-[10px] text-violet-500 font-semibold">Shared</span>
+                        </div>
+                        {/* Label A */}
+                        <div className="absolute flex flex-col items-center" style={{ left: 30, top: '50%', transform: 'translateY(-50%)' }}>
+                          <span className="text-sm font-bold text-indigo-700">{fmt(onlyA)}</span>
+                          <span className="text-[9px] text-indigo-500">only</span>
+                        </div>
+                        {/* Label B */}
+                        <div className="absolute flex flex-col items-center" style={{ right: 30, top: '50%', transform: 'translateY(-50%)' }}>
+                          <span className="text-sm font-bold text-purple-700">{fmt(onlyB)}</span>
+                          <span className="text-[9px] text-purple-500">only</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Stats grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                      <div className="bg-indigo-50 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-indigo-700">{fmt(setA.size)}</p>
+                        <p className="text-[10px] text-indigo-500">@{profileA.username} followers</p>
+                      </div>
+                      <div className="bg-purple-50 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-purple-700">{fmt(setB.size)}</p>
+                        <p className="text-[10px] text-purple-500">@{profileB.username} followers</p>
+                      </div>
+                      <div className="bg-violet-50 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-violet-700">{fmt(shared.length)}</p>
+                        <p className="text-[10px] text-violet-500">Shared Followers</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-slate-700">{jaccardPct.toFixed(1)}%</p>
+                        <p className="text-[10px] text-slate-500">Overlap (Jaccard)</p>
+                      </div>
+                    </div>
+                    {/* Overlap bars */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-600 w-40 sm:w-48 shrink-0">@{profileA.username} overlap</span>
+                        <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${overlapPctA}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-700 w-12 text-right">{overlapPctA.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-600 w-40 sm:w-48 shrink-0">@{profileB.username} overlap</span>
+                        <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${overlapPctB}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-700 w-12 text-right">{overlapPctB.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="bg-violet-50 rounded-lg p-3 flex items-start gap-2">
+                      <CircleDot className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-violet-700">
+                        {shared.length > 0
+                          ? <><strong>{fmt(shared.length)} followers</strong> follow both accounts. {overlapPctA > 30 ? 'High audience overlap — these accounts share a similar niche.' : 'Moderate overlap — potential for cross-promotion.'}</>
+                          : <strong>No shared followers detected</strong>}
+                        {' '}Based on {fmt(setA.size)} + {fmt(setB.size)} followers fetched.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </AccessGate>
         )}
       </div>
     </AccessGate>
@@ -1024,6 +1154,100 @@ const ActivityTab = ({ profile, posts, tier, avgEngagement, totalLikes, totalCom
         </div>
       )}
 
+      {/* ── Hashtag ROI Tracker ───────────────────────────────────────── */}
+      {posts.length >= 3 && (() => {
+        const followerCount = profile?.followersCount || profile?.followers_count || 1;
+        const overallAvg = avgEngagement || 0;
+        // Build per-hashtag engagement map
+        const tagEngMap = {};
+        posts.forEach(p => {
+          const tags = ((p.caption || '').match(/#\w+/g) || []).map(t => t.toLowerCase());
+          const eng = ((p.likesCount || 0) + (p.commentsCount || 0)) / followerCount * 100;
+          tags.forEach(tag => {
+            if (!tagEngMap[tag]) tagEngMap[tag] = { totalEng: 0, count: 0 };
+            tagEngMap[tag].totalEng += eng;
+            tagEngMap[tag].count++;
+          });
+        });
+        // Only hashtags used 2+ times
+        const tagRows = Object.entries(tagEngMap)
+          .filter(([, d]) => d.count >= 2)
+          .map(([tag, d]) => {
+            const avg = d.totalEng / d.count;
+            const roi = overallAvg > 0 ? avg / overallAvg : 0;
+            return { tag, avg, count: d.count, roi };
+          })
+          .sort((a, b) => b.roi - a.roi);
+        const totalUnique = Object.keys(tagEngMap).length;
+        const golden = tagRows.slice(0, 3).filter(r => r.roi > 1);
+        const maxAvg = Math.max(1, ...tagRows.map(r => r.avg));
+        return (
+          <AccessGate tier={tier} required="standard">
+            <div>
+              <SectionHeader icon={<Hash className="w-5 h-5 text-emerald-500" />} title="Hashtag ROI Tracker" badge="Wave 2">
+                <span className="text-xs text-slate-400">{totalUnique} unique tags</span>
+              </SectionHeader>
+              {tagRows.length > 0 ? (
+                <div className="bg-emerald-50 rounded-xl p-4 sm:p-6 border border-emerald-200">
+                  {/* Golden hashtags */}
+                  {golden.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Golden Hashtags</p>
+                      <div className="flex flex-wrap gap-2">
+                        {golden.map((r, i) => (
+                          <span key={i} className="bg-gradient-to-r from-amber-100 to-amber-50 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-full border border-amber-300 flex items-center gap-1.5">
+                            <Trophy className="w-3 h-3 text-amber-500" />
+                            {r.tag}
+                            <span className="bg-amber-200 text-amber-900 text-[10px] px-1.5 py-0.5 rounded-full">{r.roi.toFixed(1)}x</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Hashtag table */}
+                  <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                    {tagRows.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 sm:gap-3 bg-white rounded-lg px-3 py-2">
+                        <span className="text-xs sm:text-sm font-medium text-slate-700 w-28 sm:w-36 truncate">{r.tag}</span>
+                        <div className="flex-1 h-4 bg-emerald-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${r.roi >= 1 ? 'bg-emerald-500' : 'bg-rose-400'}`}
+                            style={{ width: `${(r.avg / maxAvg) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-500 w-16 text-right">{r.avg.toFixed(2)}%</span>
+                        <span className={`text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                          r.roi >= 1.5 ? 'bg-emerald-100 text-emerald-700' :
+                          r.roi >= 1 ? 'bg-emerald-50 text-emerald-600' :
+                          'bg-rose-50 text-rose-600'
+                        }`}>
+                          {r.roi >= 1 ? '↑' : '↓'} {r.roi.toFixed(1)}x
+                        </span>
+                        <span className="text-[10px] text-slate-400 w-8 text-right">{r.count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 bg-emerald-100 rounded-lg p-3 flex items-start gap-2">
+                    <Zap className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-emerald-700">
+                      {golden.length > 0
+                        ? <><strong>Top performer:</strong> {golden[0].tag} drives <strong>{golden[0].roi.toFixed(1)}x</strong> your average engagement. Double down on it.</>
+                        : <strong>No hashtags are outperforming your average yet.</strong>}
+                      {' '}ROI is calculated as hashtag avg engagement / overall avg ({pct(overallAvg)}).
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl">
+                  <Hash className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No hashtags used 2+ times. Need more post data for ROI tracking.</p>
+                </div>
+              )}
+            </div>
+          </AccessGate>
+        );
+      })()}
+
       {/* Recent posts grid */}
       <div>
         <SectionHeader icon={<LayoutGrid className="w-5 h-5 text-indigo-500" />} title="Recent Posts">
@@ -1284,6 +1508,80 @@ const TiesTab = ({ profile, posts, tier, followers, following }) => {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </AccessGate>
+        );
+      })()}
+
+      {/* ── Secret Admirers ─────────────────────────────────────────────── */}
+      {(() => {
+        // Cross-reference commenters who are NOT followers
+        const admirers = Object.entries(commenterMap)
+          .filter(([username]) => !followerUsernames.has(username.toLowerCase()))
+          .map(([username, data]) => {
+            const comments = data.comments || [];
+            const avgLen = comments.length > 0 ? comments.reduce((s, c) => s + (c.text || '').length, 0) / comments.length : 0;
+            // Count unique posts they commented on
+            const postsCommented = new Set();
+            posts.forEach(post => {
+              (post.latestComments || []).forEach(c => {
+                if ((c.ownerUsername || '').toLowerCase() === username.toLowerCase()) {
+                  postsCommented.add(post.url || post.shortCode || Math.random());
+                }
+              });
+            });
+            const consistency = postsCommented.size;
+            // Quality score: longer comments and engagement across multiple posts
+            const quality = Math.min(100, Math.round(avgLen * 0.5 + consistency * 15 + data.count * 10));
+            return { username, count: data.count, comments, avgLen, consistency, quality, profilePic: data.profilePic || '' };
+          })
+          .filter(a => a.count >= 2)
+          .sort((a, b) => b.quality - a.quality)
+          .slice(0, 10);
+        if (admirers.length === 0) return null;
+        return (
+          <AccessGate tier={tier} required="standard">
+            <div>
+              <SectionHeader icon={<HeartHandshake className="w-5 h-5 text-pink-500" />} title="Secret Admirers" badge="Wave 2">
+                <span className="text-xs text-slate-400">{admirers.length} found</span>
+              </SectionHeader>
+              <div className="bg-pink-50 rounded-xl p-4 sm:p-6 border border-pink-200">
+                <p className="text-xs text-pink-600 mb-4">
+                  These users frequently comment on your posts but are <strong>not following you</strong>. They engage but haven't hit follow yet!
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  {admirers.map((a, i) => (
+                    <div key={i} className="bg-white rounded-xl p-3 sm:p-4 border border-pink-100 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                          {a.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-700 text-sm truncate">@{a.username}</p>
+                          <p className="text-[10px] text-slate-400">{a.count} comments across {a.consistency} post{a.consistency !== 1 ? 's' : ''}</p>
+                        </div>
+                        <span className="bg-pink-100 text-pink-700 text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap">
+                          Not Following
+                        </span>
+                      </div>
+                      {/* Quality bar */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] text-slate-500 w-14 shrink-0">Quality</span>
+                        <div className="flex-1 h-2 bg-pink-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-pink-400 rounded-full transition-all duration-500" style={{ width: `${a.quality}%` }} />
+                        </div>
+                        <span className="text-[10px] font-semibold text-pink-600 w-8 text-right">{a.quality}</span>
+                      </div>
+                      {/* Sample comment */}
+                      {a.comments[0] && (
+                        <div className="bg-pink-50 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 italic border border-pink-100">
+                          &ldquo;{(a.comments[0].text || '').substring(0, 100)}{(a.comments[0].text || '').length > 100 ? '...' : ''}&rdquo;
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </AccessGate>
@@ -1740,6 +2038,281 @@ const InsightsTab = ({ profile, posts, tier, avgEngagement, followers, following
             <p className="text-sm text-slate-400 py-4">{insights.uniqueMentions.length > 0 ? 'No repeated mentions detected (no strong ties).' : 'No @mentions found in recent posts.'}</p>
           )}
         </div>
+
+        {/* ── Engagement Authenticity Score ─────────────────────────── */}
+        {posts.length >= 3 && (() => {
+          // Gather all commenters
+          const allCommenters = {};
+          let totalCommentCount = 0;
+          posts.forEach(post => {
+            (post.latestComments || []).forEach(c => {
+              const u = (c.ownerUsername || '').toLowerCase();
+              if (!u) return;
+              if (!allCommenters[u]) allCommenters[u] = { count: 0, texts: [] };
+              allCommenters[u].count++;
+              allCommenters[u].texts.push(c.text || '');
+              totalCommentCount++;
+            });
+          });
+          const uniqueCommenterCount = Object.keys(allCommenters).length;
+
+          // Build follower set
+          const followerSet = new Set((followers || []).map(f => (f.username || f.handle || f.login || '').toLowerCase()).filter(Boolean));
+
+          // Factor 1: % commenters who are followers (40 pts)
+          const commentersWhoFollow = Object.keys(allCommenters).filter(u => followerSet.has(u)).length;
+          const followerCommenterRatio = uniqueCommenterCount > 0 ? commentersWhoFollow / uniqueCommenterCount : 0;
+          const factor1Score = Math.round(followerCommenterRatio * 40);
+
+          // Factor 2: Comment diversity — unique vs total (20 pts)
+          const diversityRatio = totalCommentCount > 0 ? uniqueCommenterCount / totalCommentCount : 0;
+          const factor2Score = Math.round(Math.min(1, diversityRatio / 0.5) * 20);
+
+          // Factor 3: Comment quality (20 pts)
+          const genericWords = new Set(['nice', 'great', 'wow', 'cool', 'amazing', 'beautiful', 'love', '🔥', '👏', '❤️']);
+          let genericCount = 0;
+          let totalLen = 0;
+          let totalTexts = 0;
+          Object.values(allCommenters).forEach(d => {
+            d.texts.forEach(t => {
+              totalTexts++;
+              totalLen += t.length;
+              const trimmed = t.trim().toLowerCase().replace(/[!.]+$/, '');
+              if (genericWords.has(trimmed) || t.trim().length <= 3) genericCount++;
+            });
+          });
+          const avgCommentLen = totalTexts > 0 ? totalLen / totalTexts : 0;
+          const genericPct = totalTexts > 0 ? genericCount / totalTexts : 0;
+          const qualityScore = Math.min(1, (avgCommentLen > 30 ? 0.5 : avgCommentLen / 60) + (1 - genericPct) * 0.5);
+          const factor3Score = Math.round(qualityScore * 20);
+
+          // Factor 4: Like/comment ratio (20 pts) — healthy = 20-100x
+          const totalLikesAll = posts.reduce((s, p) => s + (p.likesCount || 0), 0);
+          const totalCommentsAll = posts.reduce((s, p) => s + (p.commentsCount || 0), 0);
+          const lcRatio = totalCommentsAll > 0 ? totalLikesAll / totalCommentsAll : 0;
+          let factor4Score;
+          if (lcRatio >= 20 && lcRatio <= 100) factor4Score = 20;
+          else if (lcRatio >= 10 && lcRatio <= 150) factor4Score = 14;
+          else if (lcRatio >= 5) factor4Score = 8;
+          else factor4Score = 4;
+
+          const totalScore = factor1Score + factor2Score + factor3Score + factor4Score;
+          const grade = totalScore >= 85 ? 'A' : totalScore >= 70 ? 'B' : totalScore >= 55 ? 'C' : totalScore >= 40 ? 'D' : 'F';
+          const gradeColor = totalScore >= 85 ? '#10b981' : totalScore >= 70 ? '#3b82f6' : totalScore >= 55 ? '#f59e0b' : totalScore >= 40 ? '#f97316' : '#ef4444';
+
+          // Suspicious patterns
+          const suspiciousPatterns = [];
+          if (followerCommenterRatio < 0.3 && followerSet.size > 0) suspiciousPatterns.push('Most commenters are not followers — possible bought comments');
+          if (genericPct > 0.5) suspiciousPatterns.push(`${(genericPct * 100).toFixed(0)}% of comments are generic one-word responses`);
+          if (lcRatio > 200) suspiciousPatterns.push(`Like/comment ratio is ${Math.round(lcRatio)}x — unusually high, may indicate bought likes`);
+          if (lcRatio < 5 && lcRatio > 0) suspiciousPatterns.push(`Like/comment ratio is only ${lcRatio.toFixed(1)}x — unusually low, may indicate comment pods`);
+          if (diversityRatio < 0.15) suspiciousPatterns.push('Very few unique commenters — same accounts commenting repeatedly');
+
+          const r = 52;
+          const circ = 2 * Math.PI * r;
+          const offset = circ - (totalScore / 100) * circ;
+
+          const factors = [
+            { label: 'Follower-Commenter Match', score: factor1Score, max: 40, detail: `${commentersWhoFollow}/${uniqueCommenterCount} commenters follow you` },
+            { label: 'Comment Diversity', score: factor2Score, max: 20, detail: `${uniqueCommenterCount} unique out of ${totalCommentCount} comments` },
+            { label: 'Comment Quality', score: factor3Score, max: 20, detail: `Avg ${Math.round(avgCommentLen)} chars, ${(genericPct * 100).toFixed(0)}% generic` },
+            { label: 'Like/Comment Ratio', score: factor4Score, max: 20, detail: `${lcRatio.toFixed(1)}x (healthy: 20-100x)` },
+          ];
+
+          return (
+            <AccessGate tier={tier} required="premium">
+              <div>
+                <SectionHeader icon={<ShieldCheck className="w-5 h-5 text-emerald-500" />} title="Engagement Authenticity Score" badge="Wave 2" />
+                <div className="bg-white rounded-xl p-4 sm:p-6 border border-slate-200">
+                  <div className="flex flex-col sm:flex-row items-center gap-6 mb-5">
+                    {/* Score ring */}
+                    <div className="relative shrink-0">
+                      <svg viewBox="0 0 120 120" className="w-28 h-28 sm:w-32 sm:h-32 -rotate-90">
+                        <circle cx="60" cy="60" r={r} fill="none" stroke="#e2e8f0" strokeWidth="10" />
+                        <circle cx="60" cy="60" r={r} fill="none" stroke={gradeColor} strokeWidth="10"
+                          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+                          style={{ transition: 'stroke-dashoffset 1s ease' }} />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl sm:text-4xl font-black" style={{ color: gradeColor }}>{totalScore}</span>
+                        <span className="text-lg font-bold" style={{ color: gradeColor }}>{grade}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      <p className="text-lg font-bold text-slate-800 mb-1">
+                        {totalScore >= 70 ? 'Healthy Engagement' : totalScore >= 40 ? 'Mixed Signals' : 'Needs Attention'}
+                      </p>
+                      <p className="text-xs sm:text-sm text-slate-500">
+                        Based on {totalCommentCount} comments from {uniqueCommenterCount} unique users across {posts.length} posts.
+                        {followerSet.size > 0 ? ` Cross-referenced with ${followerSet.size} followers.` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Factor breakdown */}
+                  <div className="space-y-3 mb-4">
+                    {factors.map((f, i) => (
+                      <div key={i}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs sm:text-sm font-medium text-slate-700">{f.label}</span>
+                          <span className="text-xs font-semibold text-slate-500">{f.score}/{f.max}</span>
+                        </div>
+                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700" style={{
+                            width: `${(f.score / f.max) * 100}%`,
+                            backgroundColor: (f.score / f.max) >= 0.7 ? '#10b981' : (f.score / f.max) >= 0.4 ? '#f59e0b' : '#ef4444',
+                          }} />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{f.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Suspicious patterns */}
+                  {suspiciousPatterns.length > 0 && (
+                    <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                      <p className="text-xs font-semibold text-amber-700 mb-1.5 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Suspicious Patterns Detected
+                      </p>
+                      <ul className="space-y-1">
+                        {suspiciousPatterns.map((p, i) => (
+                          <li key={i} className="text-[10px] sm:text-xs text-amber-600 flex items-start gap-1.5">
+                            <span className="text-amber-400 mt-0.5 shrink-0">&#9679;</span> {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {suspiciousPatterns.length === 0 && (
+                    <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <p className="text-xs text-emerald-700">No suspicious engagement patterns detected. Your engagement appears authentic.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </AccessGate>
+          );
+        })()}
+
+        {/* ── Shadow Ban Detector ──────────────────────────────────────── */}
+        {posts.length >= 4 && (() => {
+          const followerCount = profile?.followers || profile?.followersCount || 0;
+
+          // Signal 1: Recent engagement drop
+          const sortedByDate = [...posts].filter(p => p.timestamp).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          const recent4 = sortedByDate.slice(0, 4);
+          const older = sortedByDate.slice(4);
+          const recentAvgEng = recent4.length > 0 && followerCount > 0
+            ? recent4.reduce((s, p) => s + ((p.likesCount || 0) + (p.commentsCount || 0)), 0) / recent4.length / followerCount * 100
+            : 0;
+          const olderAvgEng = older.length > 0 && followerCount > 0
+            ? older.reduce((s, p) => s + ((p.likesCount || 0) + (p.commentsCount || 0)), 0) / older.length / followerCount * 100
+            : 0;
+          const engDropPct = olderAvgEng > 0 ? ((olderAvgEng - recentAvgEng) / olderAvgEng * 100) : 0;
+          const signal1Pass = engDropPct < 30;
+
+          // Signal 2: ER vs follower benchmark
+          let benchmark = 6;
+          if (followerCount >= 500000) benchmark = 1.2;
+          else if (followerCount >= 100000) benchmark = 1.8;
+          else if (followerCount >= 50000) benchmark = 2.4;
+          else if (followerCount >= 10000) benchmark = 3.5;
+          const currentER = avgEngagement || 0;
+          const erBenchmarkRatio = benchmark > 0 ? currentER / benchmark : 1;
+          const signal2Pass = erBenchmarkRatio >= 0.5;
+
+          // Signal 3: Hashtag diversity decline
+          const recentTags = new Set();
+          const olderTags = new Set();
+          recent4.forEach(p => ((p.caption || '').match(/#\w+/g) || []).forEach(t => recentTags.add(t.toLowerCase())));
+          older.forEach(p => ((p.caption || '').match(/#\w+/g) || []).forEach(t => olderTags.add(t.toLowerCase())));
+          const signal3Pass = recentTags.size >= Math.max(1, olderTags.size * 0.5) || olderTags.size === 0;
+
+          // Signal 4: Comment-to-like ratio anomaly
+          const totalLikesCheck = posts.reduce((s, p) => s + (p.likesCount || 0), 0);
+          const totalCommentsCheck = posts.reduce((s, p) => s + (p.commentsCount || 0), 0);
+          const clRatio = totalLikesCheck > 0 ? totalCommentsCheck / totalLikesCheck : 0;
+          const signal4Pass = clRatio >= 0.005;
+
+          // Signal 5: Follower stagnation (low variance in recent engagement)
+          const recentEngs = recent4.map(p => (p.likesCount || 0) + (p.commentsCount || 0));
+          const engMean = recentEngs.length > 0 ? recentEngs.reduce((a, b) => a + b, 0) / recentEngs.length : 0;
+          const engVariance = recentEngs.length > 1 ? recentEngs.reduce((s, v) => s + Math.pow(v - engMean, 2), 0) / recentEngs.length : 0;
+          const engCV = engMean > 0 ? Math.sqrt(engVariance) / engMean : 0;
+          const signal5Pass = engCV >= 0.1 || recentEngs.length < 3;
+
+          const failedSignals = [signal1Pass, signal2Pass, signal3Pass, signal4Pass, signal5Pass].filter(s => !s).length;
+          let status, statusColor, statusBg;
+          if (failedSignals >= 3) { status = 'Likely Shadow Banned'; statusColor = 'text-rose-700'; statusBg = 'bg-rose-100 border-rose-300'; }
+          else if (failedSignals >= 1) { status = 'Some Signals Detected'; statusColor = 'text-amber-700'; statusBg = 'bg-amber-100 border-amber-300'; }
+          else { status = 'Clear'; statusColor = 'text-emerald-700'; statusBg = 'bg-emerald-100 border-emerald-300'; }
+
+          const signals = [
+            { label: 'Recent Engagement Drop', pass: signal1Pass, detail: signal1Pass ? `Only ${Math.max(0, engDropPct).toFixed(0)}% drop (under 30% threshold)` : `${engDropPct.toFixed(0)}% drop in last 4 posts vs older posts` },
+            { label: 'ER vs Benchmark', pass: signal2Pass, detail: `${pct(currentER)} vs ${benchmark}% benchmark (${(erBenchmarkRatio * 100).toFixed(0)}% of expected)` },
+            { label: 'Hashtag Diversity', pass: signal3Pass, detail: signal3Pass ? `Healthy: ${recentTags.size} recent tags` : `Declined from ${olderTags.size} to ${recentTags.size} unique tags` },
+            { label: 'Comment-to-Like Ratio', pass: signal4Pass, detail: `${(clRatio * 100).toFixed(2)}% (minimum 0.5% expected)` },
+            { label: 'Engagement Consistency', pass: signal5Pass, detail: signal5Pass ? 'Normal variation in engagement' : 'Suspiciously flat engagement — possible reach suppression' },
+          ];
+
+          const recommendations = [];
+          if (!signal1Pass) recommendations.push('Diversify your content formats — try Reels or Carousels to boost reach.');
+          if (!signal2Pass) recommendations.push('Your engagement rate is below expected for your follower tier. Focus on high-quality content over frequency.');
+          if (!signal3Pass) recommendations.push('Use a wider variety of hashtags. Repeated identical sets can trigger algorithm suppression.');
+          if (!signal4Pass) recommendations.push('Encourage comments with questions and CTAs in your captions.');
+          if (!signal5Pass) recommendations.push('Abnormally consistent engagement numbers may indicate throttled distribution.');
+
+          return (
+            <AccessGate tier={tier} required="standard">
+              <div>
+                <SectionHeader icon={<EyeOff className="w-5 h-5 text-slate-600" />} title="Shadow Ban Detector" badge="Wave 2" />
+                <div className="bg-white rounded-xl p-4 sm:p-6 border border-slate-200">
+                  {/* Status badge */}
+                  <div className="flex items-center justify-center mb-5">
+                    <span className={`${statusBg} ${statusColor} border text-sm sm:text-base font-bold px-5 py-2 rounded-full flex items-center gap-2`}>
+                      {failedSignals >= 3 ? <AlertTriangle className="w-4 h-4" /> : failedSignals >= 1 ? <AlertCircle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                      {status}
+                    </span>
+                  </div>
+                  {/* Signal checklist */}
+                  <div className="space-y-2 mb-4">
+                    {signals.map((s, i) => (
+                      <div key={i} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 ${s.pass ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+                        <span className={`text-base mt-0.5 shrink-0 ${s.pass ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          {s.pass ? '✓' : '✗'}
+                        </span>
+                        <div className="flex-1">
+                          <p className={`text-xs sm:text-sm font-medium ${s.pass ? 'text-emerald-700' : 'text-rose-700'}`}>{s.label}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">{s.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Recommendations */}
+                  {recommendations.length > 0 && (
+                    <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                      <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" /> Recommendations
+                      </p>
+                      <ul className="space-y-1.5">
+                        {recommendations.map((r, i) => (
+                          <li key={i} className="text-[10px] sm:text-xs text-amber-600 flex items-start gap-1.5">
+                            <ArrowRight className="w-3 h-3 mt-0.5 shrink-0" /> {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {recommendations.length === 0 && (
+                    <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <p className="text-xs text-emerald-700">No shadow ban signals detected. Your account reach appears healthy.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </AccessGate>
+          );
+        })()}
 
         {/* Growth Trajectory */}
         <div>

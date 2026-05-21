@@ -7,6 +7,7 @@ import {
   Calendar, AlertCircle, ThumbsUp, Globe, FileText, Download,
   ChevronRight, RefreshCw, Flame, Hash, LayoutGrid, MapPin,
   Smile, Tag, Zap, Award, User, Coffee, Camera,
+  Crown, Trophy, Layers, PenTool, ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTier } from '../context/TierContext';
@@ -831,6 +832,60 @@ const ActivityTab = ({ profile, posts, tier, avgEngagement, totalLikes, totalCom
         </div>
       )}
 
+      {/* ── Content Type Breakdown ─────────────────────────────────────── */}
+      {posts.length > 0 && (() => {
+        const typeMap = {};
+        const followerCount = profile?.followersCount || profile?.followers_count || 1;
+        posts.forEach(p => {
+          let t = (p.type || p.mediaType || p.productType || 'image').toLowerCase();
+          if (t === 'sidecar' || t === 'carousel_album' || t === 'graphsidecar') t = 'carousel';
+          else if (t === 'clips' || t === 'reel' || t === 'graphreel') t = 'reel';
+          else if (t === 'graphvideo' || t === 'video') t = 'video';
+          else if (t === 'graphimage' || t === 'photo') t = 'image';
+          if (!typeMap[t]) typeMap[t] = { count: 0, totalEng: 0 };
+          typeMap[t].count++;
+          typeMap[t].totalEng += ((p.likesCount || 0) + (p.commentsCount || 0)) / followerCount * 100;
+        });
+        const types = Object.entries(typeMap).map(([name, d]) => ({
+          name, count: d.count, avgEng: d.count > 0 ? d.totalEng / d.count : 0,
+        })).sort((a, b) => b.avgEng - a.avgEng);
+        const maxEng = Math.max(1, ...types.map(t => t.avgEng));
+        const best = types[0];
+        const worst = types.length > 1 ? types[types.length - 1] : null;
+        const typeColors = { carousel: 'bg-purple-500', reel: 'bg-rose-500', video: 'bg-indigo-500', image: 'bg-emerald-500' };
+        const typeIcons = { carousel: '📎', reel: '🎬', video: '🎥', image: '📷' };
+        return (
+          <div>
+            <SectionHeader icon={<Layers className="w-5 h-5 text-purple-500" />} title="Content Type Breakdown" badge="Wave 1" />
+            <div className="bg-slate-50 rounded-xl p-4 sm:p-6">
+              <div className="space-y-3">
+                {types.map((t, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-lg w-6 text-center">{typeIcons[t.name] || '📌'}</span>
+                    <span className="text-xs sm:text-sm font-semibold text-slate-700 w-20 capitalize">{t.name}</span>
+                    <div className="flex-1 h-6 bg-white rounded-full overflow-hidden relative">
+                      <div className={`h-full ${typeColors[t.name] || 'bg-slate-400'} rounded-full transition-all duration-500`} style={{ width: `${(t.avgEng / maxEng) * 100}%` }} />
+                      <span className="absolute inset-0 flex items-center px-3 text-[10px] sm:text-xs font-semibold text-slate-700">{t.avgEng.toFixed(2)}% avg eng</span>
+                    </div>
+                    <span className="text-xs text-slate-400 w-16 text-right">{t.count} post{t.count !== 1 ? 's' : ''}</span>
+                  </div>
+                ))}
+              </div>
+              {best && worst && best.name !== worst.name && (
+                <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-purple-700">
+                    Your <strong className="capitalize">{best.name}s</strong> get{' '}
+                    <strong>{worst.avgEng > 0 ? ((best.avgEng / worst.avgEng - 1) * 100).toFixed(0) : '∞'}% more engagement</strong>{' '}
+                    than <strong className="capitalize">{worst.name}s</strong>. Consider posting more {best.name} content.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Posting Activity Heatmap — from real data */}
       <div>
         <SectionHeader icon={<Calendar className="w-5 h-5 text-emerald-500" />} title="Posting Activity">
@@ -867,6 +922,91 @@ const ActivityTab = ({ profile, posts, tier, avgEngagement, totalLikes, totalCom
           </div>
         </div>
       </div>
+
+      {/* ── Best Time to Post Heatmap ────────────────────────────────────── */}
+      {posts.length >= 3 && (
+        <AccessGate tier={tier} required="standard">
+          <div>
+            <SectionHeader icon={<Clock className="w-5 h-5 text-teal-500" />} title="Best Time to Post" badge="Wave 1">
+              <span className="text-xs text-slate-400">by engagement</span>
+            </SectionHeader>
+            {(() => {
+              const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+              const grid = {};
+              dayNames.forEach((_, d) => { for (let h = 0; h < 24; h++) grid[`${d}-${h}`] = { total: 0, count: 0 }; });
+              const followerCount = profile?.followersCount || profile?.followers_count || 1;
+              posts.forEach(p => {
+                if (!p.timestamp) return;
+                const d = new Date(p.timestamp);
+                const key = `${d.getDay()}-${d.getHours()}`;
+                const eng = ((p.likesCount || 0) + (p.commentsCount || 0)) / followerCount * 100;
+                if (grid[key]) { grid[key].total += eng; grid[key].count += 1; }
+              });
+              const cells = [];
+              let maxEng = 0;
+              dayNames.forEach((_, d) => {
+                for (let h = 0; h < 24; h++) {
+                  const k = `${d}-${h}`;
+                  const avg = grid[k].count > 0 ? grid[k].total / grid[k].count : 0;
+                  if (avg > maxEng) maxEng = avg;
+                  cells.push({ day: d, hour: h, avg, count: grid[k].count });
+                }
+              });
+              const topSlots = [...cells].filter(c => c.count > 0).sort((a, b) => b.avg - a.avg).slice(0, 3);
+              const topSet = new Set(topSlots.map(s => `${s.day}-${s.hour}`));
+              return (
+                <div className="bg-slate-50 rounded-xl p-3 sm:p-6 overflow-x-auto">
+                  <div className="min-w-[600px]">
+                    <div className="grid gap-px" style={{ gridTemplateColumns: '40px repeat(24, 1fr)', gridTemplateRows: 'auto repeat(7, 1fr)' }}>
+                      <div />
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <div key={h} className="text-[8px] sm:text-[10px] text-slate-400 text-center pb-1">{h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h-12}p`}</div>
+                      ))}
+                      {dayNames.map((name, d) => (
+                        <React.Fragment key={d}>
+                          <div className="text-[10px] sm:text-xs text-slate-500 font-medium flex items-center pr-1">{name}</div>
+                          {Array.from({ length: 24 }, (_, h) => {
+                            const cell = cells[d * 24 + h];
+                            const intensity = maxEng > 0 ? cell.avg / maxEng : 0;
+                            const isTop = topSet.has(`${d}-${h}`);
+                            return (
+                              <div
+                                key={h}
+                                className={`aspect-square rounded-sm relative ${
+                                  cell.count === 0 ? 'bg-slate-100' :
+                                  intensity > 0.75 ? 'bg-teal-500' :
+                                  intensity > 0.5 ? 'bg-teal-400' :
+                                  intensity > 0.25 ? 'bg-teal-300' : 'bg-teal-100'
+                                }`}
+                                title={`${name} ${h}:00 — ${cell.count} posts, avg ${cell.avg.toFixed(2)}% eng`}
+                              >
+                                {isTop && <span className="absolute inset-0 flex items-center justify-center text-[8px] sm:text-[10px]">{'⭐'}</span>}
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-1">
+                      <span>Low</span>
+                      <div className="w-2.5 h-2.5 rounded-sm bg-slate-100" />
+                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-100" />
+                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-300" />
+                      <div className="w-2.5 h-2.5 rounded-sm bg-teal-500" />
+                      <span>High Engagement</span>
+                    </div>
+                    {topSlots.length > 0 && (
+                      <span>{'⭐'} = Top {topSlots.length} slot{topSlots.length !== 1 ? 's' : ''}: {topSlots.map(s => `${dayNames[s.day]} ${s.hour}:00`).join(', ')}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </AccessGate>
+      )}
 
       {/* Top Hashtags from real data */}
       {topHashtags.length > 0 && (
@@ -1013,26 +1153,60 @@ const TiesTab = ({ profile, posts, tier, followers, following }) => {
         )}
       </div>
 
-      {/* Fans section — real data */}
-      {fansOnly.length > 0 && (
-        <div>
-          <SectionHeader icon={<Heart className="w-5 h-5 text-amber-500" />} title="Top Fans (Follow but Not Followed Back)">
-            <span className="text-xs text-slate-400">{fansOnly.length} fans</span>
-          </SectionHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-64 overflow-y-auto">
-            {fansOnly.slice(0, 20).map((f, i) => {
-              const uname = f.username || f.handle || f.login || '';
-              return (
-                <div key={i} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-                  <span className="text-xs text-slate-400 w-5">#{i+1}</span>
-                  <span className="font-medium text-slate-700 truncate">@{uname}</span>
-                  {f.is_verified && <span className="text-blue-500 text-[10px]">✓</span>}
-                </div>
-              );
-            })}
+      {/* Super Fan Leaderboard — cross-reference followers + commenters */}
+      {fansOnly.length > 0 && (() => {
+        const commenterUsernames = new Set(topCommenters.map(c => c.username.toLowerCase()));
+        const fanScores = fansOnly.map(f => {
+          const uname = (f.username || f.handle || f.login || '').toLowerCase();
+          const commenterData = topCommenters.find(c => c.username.toLowerCase() === uname);
+          const commentCount = commenterData ? commenterData.count : 0;
+          const isSuper = commenterUsernames.has(uname);
+          const fanScore = commentCount * 2 + (isSuper ? 5 : 0);
+          return { ...f, uname, commentCount, isSuper, fanScore, commenterData };
+        }).sort((a, b) => b.fanScore - a.fanScore);
+        const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+        return (
+          <div>
+            <SectionHeader icon={<Trophy className="w-5 h-5 text-amber-500" />} title="Fan Leaderboard">
+              <span className="text-xs text-slate-400">{fansOnly.length} fans {fanScores.filter(f => f.isSuper).length > 0 && <span className="text-amber-500 font-semibold ml-1">{fanScores.filter(f => f.isSuper).length} Super Fans</span>}</span>
+            </SectionHeader>
+            <div className="space-y-1.5 max-h-80 overflow-y-auto">
+              {fanScores.slice(0, 25).map((f, i) => {
+                const picUrl = f.profile_pic_url || f.profilePicUrl || '';
+                return (
+                  <div key={i} className={`flex items-center gap-2 sm:gap-3 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm transition-colors ${f.isSuper ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}`}>
+                    <span className="w-7 text-center shrink-0">
+                      {i < 3 ? <span className="text-lg">{medals[i]}</span> : <span className="text-xs font-bold text-slate-400">#{i+1}</span>}
+                    </span>
+                    {picUrl && !picUrl.includes('default') ? (
+                      <img src={proxyImg(picUrl)} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-white shadow-sm" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        {f.uname.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-slate-700 truncate">@{f.uname}</span>
+                        {f.is_verified && <span className="text-blue-500 text-[10px]">&#10003;</span>}
+                        {f.isSuper && <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">SUPER FAN</span>}
+                      </div>
+                      {f.commentCount > 0 && <span className="text-[10px] text-slate-400">{f.commentCount} comment{f.commentCount !== 1 ? 's' : ''}</span>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-amber-600">{f.fanScore}</div>
+                      <div className="text-[9px] text-slate-400">score</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {fanScores.filter(f => f.isSuper).length > 0 && (
+              <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><Star className="w-3 h-3 text-amber-400" /> Super Fans follow you AND actively comment on your posts</p>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Follower Demographics (Inferred) ─────────────────────────────── */}
       {followers.length > 0 && (
@@ -1042,6 +1216,79 @@ const TiesTab = ({ profile, posts, tier, followers, following }) => {
           </SectionHeader>
         </AccessGate>
       )}
+
+      {/* ── Ghost Follower Detector ──────────────────────────────────────── */}
+      {followers.length > 0 && (() => {
+        const ghosts = followers.map(f => {
+          let flags = 0;
+          const mediaCount = f.mediaCount ?? f.edge_owner_to_timeline_media?.count ?? null;
+          if (mediaCount === 0) flags++;
+          const pic = f.profile_pic_url || f.profilePicUrl || '';
+          if (!pic || pic.includes('default')) flags++;
+          const followingCount = f.followingCount ?? f.edge_follow?.count ?? 0;
+          if (followingCount >= 1500) flags++;
+          return { ...f, ghostFlags: flags, mediaCount, followingCount };
+        });
+        const definite = ghosts.filter(g => g.ghostFlags === 3).length;
+        const likely = ghosts.filter(g => g.ghostFlags === 2).length;
+        const suspicious = ghosts.filter(g => g.ghostFlags === 1).length;
+        const totalGhosts = definite + likely;
+        const ghostPct = followers.length > 0 ? ((totalGhosts / followers.length) * 100).toFixed(1) : 0;
+        const topGhosts = ghosts.filter(g => g.ghostFlags >= 2).sort((a, b) => b.ghostFlags - a.ghostFlags).slice(0, 20);
+        const maxBar = Math.max(definite, likely, suspicious, 1);
+        return (
+          <AccessGate tier={tier} required="standard">
+            <div>
+              <SectionHeader icon={<ShieldAlert className="w-5 h-5 text-rose-500" />} title="Ghost Follower Detector" badge="Wave 1" />
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 sm:p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="text-center">
+                    <p className="text-2xl sm:text-3xl font-bold text-rose-600">{ghostPct}%</p>
+                    <p className="text-[10px] sm:text-xs text-rose-500">Ghost Rate</p>
+                  </div>
+                  <div className="flex-1 text-xs text-slate-600">
+                    Out of <strong>{followers.length}</strong> followers analyzed, <strong>{totalGhosts}</strong> show ghost-like behavior (no posts, no profile pic, or mass-following patterns).
+                  </div>
+                </div>
+                <div className="space-y-2 mb-4">
+                  {[
+                    { label: 'Definite Ghosts (3/3 flags)', count: definite, color: 'bg-rose-500' },
+                    { label: 'Likely Ghosts (2/3 flags)', count: likely, color: 'bg-orange-400' },
+                    { label: 'Suspicious (1/3 flags)', count: suspicious, color: 'bg-amber-300' },
+                  ].map((row, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[10px] sm:text-xs text-slate-600 w-40 sm:w-48 shrink-0">{row.label}</span>
+                      <div className="flex-1 h-4 bg-white rounded-full overflow-hidden">
+                        <div className={`h-full ${row.color} rounded-full transition-all duration-500`} style={{ width: `${(row.count / maxBar) * 100}%` }} />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-700 w-10 text-right">{row.count}</span>
+                    </div>
+                  ))}
+                </div>
+                {topGhosts.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Top Ghost Accounts</p>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {topGhosts.map((g, i) => {
+                        const uname = g.username || g.handle || g.login || 'unknown';
+                        return (
+                          <div key={i} className="flex items-center gap-2 bg-white rounded-lg px-3 py-1.5 text-xs">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${g.ghostFlags === 3 ? 'bg-rose-500' : 'bg-orange-400'}`} />
+                            <span className="font-medium text-slate-700 truncate flex-1">@{uname}</span>
+                            <span className="text-slate-400">{g.mediaCount ?? '?'} posts</span>
+                            <span className="text-slate-400">{fmt(g.followingCount)} following</span>
+                            <span className="font-semibold text-rose-500">{g.ghostFlags}/3</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </AccessGate>
+        );
+      })()}
     </div>
   );
 };
@@ -1341,6 +1588,70 @@ const InsightsTab = ({ profile, posts, tier, avgEngagement, followers, following
             <p className="text-sm text-slate-400 py-4">Not enough caption data to detect interests.</p>
           )}
         </div>
+
+        {/* ── Caption Formula Analyzer ──────────────────────────────────── */}
+        {posts.length >= 3 && (
+          <AccessGate tier={tier} required="standard">
+            <div>
+              <SectionHeader icon={<PenTool className="w-5 h-5 text-violet-500" />} title="Caption Formula Analyzer" badge="Wave 1" />
+              {(() => {
+                const followerCount = profile?.followersCount || profile?.followers_count || 1;
+                const buckets = { short: { label: 'Short (<50 chars)', total: 0, count: 0 }, medium: { label: 'Medium (50-200)', total: 0, count: 0 }, long: { label: 'Long (200+)', total: 0, count: 0 } };
+                const patterns = {
+                  question: { label: 'Asks a question (?)', total: 0, count: 0 },
+                  cta: { label: 'Has CTA', total: 0, count: 0 },
+                  emoji: { label: 'Heavy emoji use', total: 0, count: 0 },
+                  hashtags: { label: 'Uses hashtags', total: 0, count: 0 },
+                  noHashtags: { label: 'No hashtags', total: 0, count: 0 },
+                };
+                posts.forEach(p => {
+                  const cap = p.caption || '';
+                  const eng = ((p.likesCount || 0) + (p.commentsCount || 0)) / followerCount * 100;
+                  if (cap.length < 50) { buckets.short.total += eng; buckets.short.count++; }
+                  else if (cap.length <= 200) { buckets.medium.total += eng; buckets.medium.count++; }
+                  else { buckets.long.total += eng; buckets.long.count++; }
+                  if (cap.includes('?')) { patterns.question.total += eng; patterns.question.count++; }
+                  if (/link in bio|tap |swipe|comment below|check out|click|dm me/i.test(cap)) { patterns.cta.total += eng; patterns.cta.count++; }
+                  const emojiMatches = cap.match(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu) || [];
+                  if (emojiMatches.length / Math.max(1, cap.length) > 0.02) { patterns.emoji.total += eng; patterns.emoji.count++; }
+                  if (cap.includes('#')) { patterns.hashtags.total += eng; patterns.hashtags.count++; }
+                  else { patterns.noHashtags.total += eng; patterns.noHashtags.count++; }
+                });
+                const allItems = [
+                  ...Object.values(buckets).filter(b => b.count > 0).map(b => ({ ...b, avg: b.total / b.count })),
+                  ...Object.values(patterns).filter(b => b.count > 0).map(b => ({ ...b, avg: b.total / b.count })),
+                ].sort((a, b) => b.avg - a.avg);
+                const maxAvg = Math.max(1, ...allItems.map(i => i.avg));
+                const winner = allItems[0];
+                return (
+                  <div className="bg-violet-50 rounded-xl p-4 sm:p-6 border border-violet-200">
+                    <div className="space-y-2.5">
+                      {allItems.map((item, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs sm:text-sm text-slate-700 w-36 sm:w-44 shrink-0">{item.label}</span>
+                          <div className="flex-1 h-5 bg-white rounded-full overflow-hidden relative">
+                            <div className={`h-full rounded-full transition-all duration-500 ${i === 0 ? 'bg-violet-500' : 'bg-violet-300'}`} style={{ width: `${(item.avg / maxAvg) * 100}%` }} />
+                          </div>
+                          <span className="text-xs font-semibold text-slate-600 w-20 text-right">{item.avg.toFixed(2)}% eng</span>
+                          <span className="text-[10px] text-slate-400 w-12 text-right">({item.count})</span>
+                        </div>
+                      ))}
+                    </div>
+                    {winner && (
+                      <div className="mt-4 bg-violet-100 rounded-lg p-3 flex items-start gap-2">
+                        <Crown className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
+                        <p className="text-xs text-violet-700">
+                          <strong>Winning formula:</strong> Posts with &ldquo;{winner.label}&rdquo; average <strong>{winner.avg.toFixed(2)}%</strong> engagement
+                          {allItems.length > 1 && <> &mdash; {((winner.avg / allItems[allItems.length - 1].avg - 1) * 100).toFixed(0)}% better than your lowest-performing pattern</>}.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </AccessGate>
+        )}
 
         {/* Visited Locations */}
         <div>

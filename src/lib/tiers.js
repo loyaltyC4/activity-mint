@@ -73,6 +73,30 @@ export const FEATURES = {
 };
 
 /**
+ * Admin emails — these accounts always get premium tier.
+ * Add your email here, or set localStorage.setItem('am_admin', '1') in browser console.
+ */
+const ADMIN_EMAILS = [
+  // Add your admin emails here:
+  // 'you@example.com',
+];
+const ADMIN_DOMAINS = ['activitymint.com'];
+
+/**
+ * Check if user is an admin (premium override).
+ */
+export function isAdminUser(user) {
+  if (!user) return false;
+  const email = (user.email || '').toLowerCase();
+  if (ADMIN_EMAILS.some(e => e.toLowerCase() === email)) return true;
+  if (ADMIN_DOMAINS.some(d => email.endsWith(`@${d}`))) return true;
+  // localStorage override for testing — set via browser console:
+  //   localStorage.setItem('am_admin', '1')
+  try { if (typeof window !== 'undefined' && localStorage.getItem('am_admin') === '1') return true; } catch {}
+  return false;
+}
+
+/**
  * Determine the user's tier from auth + subscription state.
  * @param {object|null} user — Supabase auth user (null = guest)
  * @param {string|null} subscriptionPlan — 'standard' | 'premium' | null
@@ -80,6 +104,8 @@ export const FEATURES = {
  */
 export function getUserTier(user, subscriptionPlan) {
   if (!user) return 'guest';
+  // Admin override — always premium
+  if (isAdminUser(user)) return 'premium';
   if (subscriptionPlan === 'premium') return 'premium';
   if (subscriptionPlan === 'standard') return 'standard';
   return 'free';

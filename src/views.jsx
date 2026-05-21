@@ -1345,18 +1345,30 @@ export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab, 
   );
 };
 
-/* ─── Unfollower View ────────────────────────────────────────────────────── */
+/* ─── Unfollower View (Dual-Fetch: Followers vs Following comparison) ───── */
 
 export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) => {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [error, setError] = useState(null);
-  const [currentFollowers, setCurrentFollowers] = useState([]);
-  const [unfollowers, setUnfollowers] = useState([]);
-  const [previousSnapshot, setPreviousSnapshot] = useState(null);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [dontFollowBack, setDontFollowBack] = useState([]); // you follow them, they don't follow you
+  const [fans, setFans] = useState([]); // they follow you, you don't follow them
+  const [mutuals, setMutuals] = useState([]);
   const [fetchTime, setFetchTime] = useState(null);
-  const [snapshotHistory, setSnapshotHistory] = useState([]);
   const [fetchProgress, setFetchProgress] = useState('');
+  const [activeResultTab, setActiveResultTab] = useState('not-following-back');
+
+  const dedup = (list) => {
+    const seen = new Set();
+    return list.filter(f => {
+      const key = f.username.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
 
   const handleSearch = async () => {
     if (!input.trim()) return;
@@ -1364,66 +1376,70 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
 
     setStatus('loading');
     setError(null);
-    setUnfollowers([]);
-    setFetchProgress('Loading previous snapshots...');
+    setDontFollowBack([]);
+    setFans([]);
+    setMutuals([]);
 
     try {
-      // Get ALL previous snapshots for history + most recent for comparison
-      const allSnaps = getStoredSnapshots(username);
-      setSnapshotHistory(allSnaps);
-      const prev = allSnaps.length > 0 ? allSnaps[allSnaps.length - 1] : null;
-      setPreviousSnapshot(prev);
+      // Step 1: Fetch BOTH lists in parallel
+      setFetchProgress('Fetching followers list...');
+      const [followerRaw, followingRaw] = await Promise.all([
+        fetchFollowersList(username, 'followers', 1000),
+        fetchFollowersList(username, 'following', 1000),
+      ]);
 
-      // Fetch current followers — use higher limit for accuracy
-      setFetchProgress('Fetching followers (this may take 30-90 seconds)...');
-      const items = await fetchFollowersList(username, 'followers', 1000);
-
-      if (!items || items.length === 0) {
-        throw new Error('No followers found or account is private.');
+      if ((!followerRaw || followerRaw.length === 0) && (!followingRaw || followingRaw.length === 0)) {
+        throw new Error('No data found. Account may be private or doesn\'t exist.');
       }
 
-      // Normalize — preserve original order from Instagram API (most recent first)
-      const followers = items.map(normalizeFollower).filter(f => f.username);
+      setFetchProgress('Comparing lists...');
 
-      // Deduplicate by username (scraper can return dupes across pages)
-      const seen = new Set();
-      const uniqueFollowers = followers.filter(f => {
-        const key = f.username.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      // Normalize and dedup both lists
+      const followerList = dedup((followerRaw || []).map(normalizeFollower).filter(f => f.username));
+      const followingList = dedup((followingRaw || []).map(normalizeFollower).filter(f => f.username));
 
-      setCurrentFollowers(uniqueFollowers);
+      setFollowers(followerList);
+      setFollowing(followingList);
+
+      // Step 2: Set comparison
+      const followerSet = new Set(followerList.map(f => f.username.toLowerCase()));
+      const followingSet = new Set(followingList.map(f => f.username.toLowerCase()));
+
+      // People this account follows who DON'T follow back
+      const notFollowingBack = followingList.filter(f => !followerSet.has(f.username.toLowerCase()));
+      // People who follow this account but this account doesn't follow back (fans)
+      const fansList = followerList.filter(f => !followingSet.has(f.username.toLowerCase()));
+      // Mutual follows
+      const mutualList = followerList.filter(f => followingSet.has(f.username.toLowerCase()));
+
+      setDontFollowBack(notFollowingBack);
+      setFans(fansList);
+      setMutuals(mutualList);
       setFetchTime(new Date().toISOString());
 
-      // Compare with previous snapshot to find unfollowers
-      if (prev && prev.followers) {
-        const currentUsernames = new Set(uniqueFollowers.map(f => f.username.toLowerCase()));
-        const lostOnes = prev.followers.filter(f => !currentUsernames.has(f.username.toLowerCase()));
-        // Also check: if previous snapshot had fewer followers than we fetched now,
-        // some "unfollowers" might just be from pagination limits — flag uncertainty
-        setUnfollowers(lostOnes);
-      }
+      // Also store follower snapshot for historical tracking
+      storeSnapshot(username, followerList);
 
-      // Store snapshot with deduped list
-      storeSnapshot(username, uniqueFollowers);
       setStatus('success');
       setFetchProgress('');
 
     } catch (err) {
-      console.error('Fetch error:', err);
-      setError(err.message || 'Failed to fetch followers. The account may be private.');
+      console.error('Unfollower fetch error:', err);
+      setError(err.message || 'Failed to fetch data. The account may be private.');
       setStatus('error');
       setFetchProgress('');
     }
   };
 
+  const activeList = activeResultTab === 'not-following-back' ? dontFollowBack
+    : activeResultTab === 'fans' ? fans
+    : mutuals;
+
   return (
     <div className="animate-in fade-in duration-500">
       <ToolHero
-        title="Instagram Unfollower Tracker"
-        subtitle="Find out who stopped following an account. Compare snapshots to detect unfollowers."
+        title="Instagram Unfollower Checker"
+        subtitle="Find who doesn't follow back, your fans, and mutual connections — instantly."
         gradient="from-rose-600 via-rose-700 to-slate-800"
       />
 
@@ -1432,12 +1448,13 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
           {/* Info Banner */}
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-6">
             <h4 className="font-semibold text-rose-800 text-sm flex items-center gap-2">
-              <Clock className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               How It Works
             </h4>
             <p className="text-rose-700 text-xs mt-1">
-              First search captures a snapshot. Search again later to compare and see who unfollowed.
-              Snapshots are stored locally in your browser.
+              We fetch both the <strong>followers</strong> and <strong>following</strong> lists, then compare them.
+              People in the following list who aren't in the followers list = <strong>don't follow you back</strong>.
+              Works instantly — no need to wait between checks.
             </p>
           </div>
 
@@ -1445,7 +1462,7 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
             value={input}
             onChange={setInput}
             placeholder="Enter an Instagram username..."
-            buttonLabel={status === 'loading' ? 'Fetching...' : 'Check Unfollowers'}
+            buttonLabel={status === 'loading' ? 'Analyzing...' : 'Check Unfollowers'}
             onSearch={handleSearch}
             disabled={status === 'loading'}
           />
@@ -1454,8 +1471,13 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
           {status === 'loading' && (
             <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
               <Loader2 className="w-10 h-10 text-rose-600 animate-spin mx-auto mb-4" />
-              <p className="text-slate-700 font-semibold mb-2">Fetching followers for @{input.trim()}</p>
-              <p className="text-slate-500 text-sm">{fetchProgress || 'This may take 30-90 seconds for large accounts...'}</p>
+              <p className="text-slate-700 font-semibold mb-2">Analyzing @{input.trim()}</p>
+              <p className="text-slate-500 text-sm">{fetchProgress || 'Fetching followers and following lists (may take 60-120 seconds)...'}</p>
+              <div className="mt-4 flex justify-center gap-8 text-xs text-slate-400">
+                <span>Step 1: Fetch followers</span>
+                <span>Step 2: Fetch following</span>
+                <span>Step 3: Compare</span>
+              </div>
             </div>
           )}
 
@@ -1465,7 +1487,7 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
               <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-7 h-7 text-rose-600" />
               </div>
-              <p className="text-slate-700 font-semibold mb-2">Failed to fetch followers</p>
+              <p className="text-slate-700 font-semibold mb-2">Analysis failed</p>
               <p className="text-slate-500 text-sm">{error}</p>
             </div>
           )}
@@ -1473,106 +1495,131 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
           {/* Success State */}
           {status === 'success' && (
             <div className="mt-8 space-y-6">
-              {/* Summary Card */}
-              <div className="bg-white rounded-2xl border border-rose-200 p-6 shadow-sm">
+              {/* Summary Stats */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-slate-800">
-                    @{input.trim()} Unfollower Check
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    {new Date(fetchTime).toLocaleString()}
-                  </span>
+                  <h3 className="font-bold text-slate-800">@{input.trim()} Analysis</h3>
+                  <span className="text-xs text-slate-500">{new Date(fetchTime).toLocaleString()}</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
-                  <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
-                    <p className="text-xl sm:text-2xl font-bold text-slate-700">{currentFollowers.length}</p>
-                    <p className="text-xs text-slate-600 font-medium">Current Followers</p>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3 text-center">
+                    <p className="text-xl font-bold text-slate-700">{followers.length}</p>
+                    <p className="text-[11px] text-slate-500 font-medium">Followers</p>
                   </div>
-                  <div className="bg-rose-50 rounded-xl p-3 sm:p-4 text-center">
-                    <p className="text-xl sm:text-2xl font-bold text-rose-700">{unfollowers.length}</p>
-                    <p className="text-xs text-rose-600 font-medium">Unfollowers</p>
+                  <div className="bg-slate-50 rounded-xl p-3 text-center">
+                    <p className="text-xl font-bold text-slate-700">{following.length}</p>
+                    <p className="text-[11px] text-slate-500 font-medium">Following</p>
                   </div>
-                  <div className="bg-emerald-50 rounded-xl p-3 sm:p-4 text-center">
-                    <p className="text-xl sm:text-2xl font-bold text-slate-700">
-                      {previousSnapshot ? (currentFollowers.length - (previousSnapshot.count || previousSnapshot.followers.length)) : '—'}
-                    </p>
-                    <p className="text-xs text-emerald-600 font-medium">Net Change</p>
+                  <div className="bg-rose-50 rounded-xl p-3 text-center">
+                    <p className="text-xl font-bold text-rose-700">{dontFollowBack.length}</p>
+                    <p className="text-[11px] text-rose-600 font-medium">Don't Follow Back</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
-                    <p className="text-base sm:text-lg font-bold text-slate-700">
-                      {previousSnapshot ? new Date(previousSnapshot.timestamp).toLocaleDateString() : '—'}
-                    </p>
-                    <p className="text-xs text-slate-600 font-medium">Last Check</p>
+                  <div className="bg-amber-50 rounded-xl p-3 text-center">
+                    <p className="text-xl font-bold text-amber-700">{fans.length}</p>
+                    <p className="text-[11px] text-amber-600 font-medium">Fans (One-Way)</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-xl p-3 text-center col-span-2 sm:col-span-1">
+                    <p className="text-xl font-bold text-emerald-700">{mutuals.length}</p>
+                    <p className="text-[11px] text-emerald-600 font-medium">Mutual</p>
                   </div>
                 </div>
 
-                {/* Accuracy notice */}
-                {previousSnapshot && previousSnapshot.followers && previousSnapshot.followers.length >= 195 && (
+                {/* Accuracy note for large accounts */}
+                {(followers.length >= 950 || following.length >= 950) && (
                   <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-2">
                     <p className="text-amber-700 text-[11px]">
-                      <strong>Note:</strong> Previous snapshot had {previousSnapshot.followers.length} followers (near limit). Some unfollowers may be missed due to pagination. Accuracy improves with repeated checks.
+                      <strong>Note:</strong> This account has a large follower/following count. We fetched up to 1,000 from each list. Results may be partial for very large accounts.
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Unfollowers Section */}
-              {unfollowers.length > 0 && (
-                <div className="bg-white rounded-2xl border border-rose-200 p-6 shadow-sm">
-                  <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <UserMinus className="w-5 h-5 text-rose-600" />
-                    Unfollowers ({unfollowers.length})
-                  </h3>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {unfollowers.map((user, i) => (
-                      <FollowerCard key={i} user={user} badge="LEFT" badgeColor="bg-rose-100 text-rose-700" />
-                    ))}
-                  </div>
+              {/* Result Tabs */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="flex border-b border-slate-200">
+                  <button
+                    onClick={() => setActiveResultTab('not-following-back')}
+                    className={`flex-1 py-3 px-4 text-sm font-semibold transition-colors ${
+                      activeResultTab === 'not-following-back'
+                        ? 'text-rose-700 border-b-2 border-rose-600 bg-rose-50/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Don't Follow Back
+                    <span className={`ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs ${
+                      activeResultTab === 'not-following-back' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                    }`}>{dontFollowBack.length}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveResultTab('fans')}
+                    className={`flex-1 py-3 px-4 text-sm font-semibold transition-colors ${
+                      activeResultTab === 'fans'
+                        ? 'text-amber-700 border-b-2 border-amber-600 bg-amber-50/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Fans
+                    <span className={`ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs ${
+                      activeResultTab === 'fans' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                    }`}>{fans.length}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveResultTab('mutuals')}
+                    className={`flex-1 py-3 px-4 text-sm font-semibold transition-colors ${
+                      activeResultTab === 'mutuals'
+                        ? 'text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50/50'
+                        : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Mutual
+                    <span className={`ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs ${
+                      activeResultTab === 'mutuals' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                    }`}>{mutuals.length}</span>
+                  </button>
                 </div>
-              )}
 
-              {/* No unfollowers message */}
-              {previousSnapshot && unfollowers.length === 0 && (
-                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 text-center">
-                  <p className="text-emerald-700 text-sm">
-                    <strong>Good news!</strong> No one unfollowed since your last check on {new Date(previousSnapshot.timestamp).toLocaleString()}.
-                  </p>
-                </div>
-              )}
+                <div className="p-4">
+                  {activeResultTab === 'not-following-back' && dontFollowBack.length > 0 && (
+                    <p className="text-xs text-slate-500 mb-3">
+                      These {dontFollowBack.length} accounts are followed by @{input.trim()} but don't follow back.
+                    </p>
+                  )}
+                  {activeResultTab === 'fans' && fans.length > 0 && (
+                    <p className="text-xs text-slate-500 mb-3">
+                      These {fans.length} accounts follow @{input.trim()} but aren't followed back.
+                    </p>
+                  )}
+                  {activeResultTab === 'mutuals' && mutuals.length > 0 && (
+                    <p className="text-xs text-slate-500 mb-3">
+                      These {mutuals.length} accounts follow @{input.trim()} and are followed back (mutual connection).
+                    </p>
+                  )}
 
-              {/* First check message */}
-              {!previousSnapshot && (
-                <div className="bg-rose-50 rounded-2xl border border-rose-200 p-6 text-center">
-                  <p className="text-rose-700 text-sm">
-                    <strong>First snapshot captured ({currentFollowers.length} followers).</strong> Check again later to detect unfollowers.
-                  </p>
+                  {activeList.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-sm">
+                      No users in this category.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                      {activeList.map((user, i) => (
+                        <div key={user.username + i} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-slate-400 w-6 text-right shrink-0">#{i + 1}</span>
+                          <div className="flex-1">
+                            <FollowerCard user={user} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* Snapshot History */}
-              {snapshotHistory.length > 1 && (
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-slate-500" />
-                    Snapshot History ({snapshotHistory.length} checks)
-                  </h3>
-                  <div className="space-y-2">
-                    {[...snapshotHistory].reverse().map((snap, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg">
-                        <span className="text-sm text-slate-700">{new Date(snap.timestamp).toLocaleString()}</span>
-                        <span className="text-sm font-semibold text-slate-600">{snap.count || snap.followers.length} followers</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
           {/* Idle state */}
           {status === 'idle' && (
-            <EmptyStateBox message="Enter a username above to track unfollowers" />
+            <EmptyStateBox message="Enter a username to check who doesn't follow back" />
           )}
         </div>
       </section>

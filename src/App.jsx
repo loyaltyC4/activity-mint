@@ -455,7 +455,7 @@ export default function App() {
         {activeTab === 'post-viewer' && <PostViewerView />}
         {activeTab === 'hashtag-generator' && <HashtagGeneratorView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
         {activeTab === 'shadowban-checker' && <ShadowbanCheckerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
-        {activeTab === 'recent-follower' && <RecentFollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
+        {activeTab === 'recent-follower' && <RecentFollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} user={user} setAuthOpen={setAuthOpen} />}
         {activeTab === 'unfollower' && <UnfollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
         {activeTab === 'follower-export' && <FollowerExportView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
         {activeTab === 'instagram-comments' && <InstagramCommentsView />}

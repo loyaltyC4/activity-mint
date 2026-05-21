@@ -1004,18 +1004,29 @@ const SimpleToolPage = ({ title, subtitle, placeholder, gradient, children }) =>
 /* ─── Recent Follower View ───────────────────────────────────────────────── */
 
 const STORAGE_KEY_PREFIX = 'activitymint_followers_';
+const MAX_SNAPSHOTS = 5; // Keep last 5 snapshots for history
 
-const getStoredSnapshot = (username) => {
+const getStoredSnapshots = (username) => {
   try {
     const data = localStorage.getItem(`${STORAGE_KEY_PREFIX}${username.toLowerCase()}`);
-    return data ? JSON.parse(data) : null;
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    // Migrate old single-snapshot format to array
+    if (parsed && parsed.timestamp && parsed.followers) return [parsed];
+    if (Array.isArray(parsed)) return parsed;
+    return [];
   } catch {
-    return null;
+    return [];
   }
 };
 
+// Backward compat — returns most recent snapshot
+const getStoredSnapshot = (username) => {
+  const snaps = getStoredSnapshots(username);
+  return snaps.length > 0 ? snaps[snaps.length - 1] : null;
+};
+
 const normalizeFollower = (f) => ({
-  // username: actor returns 'username' (instaprism) — add aliases for resilience
   username: f.username || f.handle || f.login || f.user_name || f.userName || '',
   fullName: f.full_name || f.fullName || f.name || f.displayName || '',
   profilePicUrl: f.profile_pic_url || f.profilePicUrl || f.profilePicture || f.avatar || '',
@@ -1027,8 +1038,13 @@ const storeSnapshot = (username, followers) => {
   const snapshot = {
     timestamp: new Date().toISOString(),
     followers: followers.map(normalizeFollower),
+    count: followers.length,
   };
-  localStorage.setItem(`${STORAGE_KEY_PREFIX}${username.toLowerCase()}`, JSON.stringify(snapshot));
+  // Append to history, keep last N
+  const history = getStoredSnapshots(username);
+  history.push(snapshot);
+  const trimmed = history.slice(-MAX_SNAPSHOTS);
+  localStorage.setItem(`${STORAGE_KEY_PREFIX}${username.toLowerCase()}`, JSON.stringify(trimmed));
   return snapshot;
 };
 
@@ -1085,7 +1101,7 @@ const FollowerCard = ({ user, badge, badgeColor }) => (
   </div>
 );
 
-export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) => {
+export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab, user, setAuthOpen }) => {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [error, setError] = useState(null);
@@ -1093,6 +1109,10 @@ export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab }
   const [newFollowers, setNewFollowers] = useState([]);
   const [previousSnapshot, setPreviousSnapshot] = useState(null);
   const [fetchTime, setFetchTime] = useState(null);
+
+  // Gate: show only first 5 for guests, full list for signed-in users
+  const FREE_PREVIEW_LIMIT = 5;
+  const isSignedIn = !!user;
 
   const handleSearch = async () => {
     if (!input.trim()) return;
@@ -1107,28 +1127,37 @@ export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab }
       const prev = getStoredSnapshot(username);
       setPreviousSnapshot(prev);
 
-      // Fetch current followers from Apify
-      const items = await fetchFollowersList(username, 'followers', 200);
+      // Fetch current followers — higher limit, Instagram API returns most-recent first
+      const items = await fetchFollowersList(username, 'followers', 1000);
 
       if (!items || items.length === 0) {
         throw new Error('No followers found or account is private.');
       }
 
-      // Normalize the data (actor returns snake_case: full_name, is_verified, profile_pic_url)
+      // Normalize — PRESERVE ORIGINAL ORDER (most recent followers first from Instagram)
       const followers = items.map(normalizeFollower).filter(f => f.username);
 
-      setCurrentFollowers(followers);
+      // Deduplicate while preserving order
+      const seen = new Set();
+      const uniqueFollowers = followers.filter(f => {
+        const key = f.username.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setCurrentFollowers(uniqueFollowers);
       setFetchTime(new Date().toISOString());
 
       // Compare with previous snapshot to find new followers
       if (prev && prev.followers) {
         const prevUsernames = new Set(prev.followers.map(f => f.username.toLowerCase()));
-        const newOnes = followers.filter(f => !prevUsernames.has(f.username.toLowerCase()));
+        const newOnes = uniqueFollowers.filter(f => !prevUsernames.has(f.username.toLowerCase()));
         setNewFollowers(newOnes);
       }
 
-      // Store the new snapshot
-      storeSnapshot(username, followers);
+      // Store snapshot
+      storeSnapshot(username, uniqueFollowers);
       setStatus('success');
 
     } catch (err) {
@@ -1254,20 +1283,52 @@ export const RecentFollowerView = ({ searchQuery, setSearchQuery, setActiveTab }
                 </div>
               )}
 
-              {/* All Followers Preview */}
+              {/* All Followers — Ordered Most Recent First */}
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
                   <Users className="w-5 h-5 text-slate-600" />
-                  Recent Followers (first {Math.min(20, currentFollowers.length)})
+                  Followers — Most Recent First
                 </h3>
+                <p className="text-xs text-slate-400 mb-4">
+                  Instagram returns followers in order of when they followed. Position #1 = most recent.
+                </p>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {currentFollowers.slice(0, 20).map((user, i) => (
-                    <FollowerCard key={i} user={user} />
+                  {currentFollowers.slice(0, isSignedIn ? 50 : FREE_PREVIEW_LIMIT).map((u, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-slate-400 w-6 text-right shrink-0">#{i + 1}</span>
+                      <div className="flex-1"><FollowerCard user={u} badge={i < 3 ? 'RECENT' : undefined} badgeColor="bg-teal-100 text-teal-700" /></div>
+                    </div>
                   ))}
                 </div>
-                {currentFollowers.length > 20 && (
+
+                {/* Auth gate for full list */}
+                {!isSignedIn && currentFollowers.length > FREE_PREVIEW_LIMIT && (
+                  <div className="mt-4 relative">
+                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/90 to-transparent z-10 flex flex-col items-center justify-end pb-4">
+                      <p className="text-slate-600 text-sm font-semibold mb-2">
+                        Sign up free to see all {currentFollowers.length} followers
+                      </p>
+                      <button
+                        onClick={() => setAuthOpen?.(true)}
+                        className="bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-full hover:bg-emerald-700 transition-colors text-sm"
+                      >
+                        Sign Up Free
+                      </button>
+                    </div>
+                    <div className="opacity-20 pointer-events-none space-y-2">
+                      {currentFollowers.slice(FREE_PREVIEW_LIMIT, FREE_PREVIEW_LIMIT + 3).map((u, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-slate-400 w-6 text-right shrink-0">#{i + FREE_PREVIEW_LIMIT + 1}</span>
+                          <div className="flex-1"><FollowerCard user={u} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isSignedIn && currentFollowers.length > 50 && (
                   <p className="text-center text-slate-500 text-sm mt-4">
-                    + {currentFollowers.length - 20} more followers captured
+                    Showing top 50 of {currentFollowers.length} followers. Upgrade to Premium for full list.
                   </p>
                 )}
               </div>
@@ -1294,6 +1355,8 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
   const [unfollowers, setUnfollowers] = useState([]);
   const [previousSnapshot, setPreviousSnapshot] = useState(null);
   const [fetchTime, setFetchTime] = useState(null);
+  const [snapshotHistory, setSnapshotHistory] = useState([]);
+  const [fetchProgress, setFetchProgress] = useState('');
 
   const handleSearch = async () => {
     if (!input.trim()) return;
@@ -1302,40 +1365,57 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
     setStatus('loading');
     setError(null);
     setUnfollowers([]);
+    setFetchProgress('Loading previous snapshots...');
 
     try {
-      // Get previous snapshot for comparison
-      const prev = getStoredSnapshot(username);
+      // Get ALL previous snapshots for history + most recent for comparison
+      const allSnaps = getStoredSnapshots(username);
+      setSnapshotHistory(allSnaps);
+      const prev = allSnaps.length > 0 ? allSnaps[allSnaps.length - 1] : null;
       setPreviousSnapshot(prev);
 
-      // Fetch current followers from Apify
-      const items = await fetchFollowersList(username, 'followers', 200);
+      // Fetch current followers — use higher limit for accuracy
+      setFetchProgress('Fetching followers (this may take 30-90 seconds)...');
+      const items = await fetchFollowersList(username, 'followers', 1000);
 
       if (!items || items.length === 0) {
         throw new Error('No followers found or account is private.');
       }
 
-      // Normalize the data (actor returns snake_case: full_name, is_verified, profile_pic_url)
+      // Normalize — preserve original order from Instagram API (most recent first)
       const followers = items.map(normalizeFollower).filter(f => f.username);
 
-      setCurrentFollowers(followers);
+      // Deduplicate by username (scraper can return dupes across pages)
+      const seen = new Set();
+      const uniqueFollowers = followers.filter(f => {
+        const key = f.username.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setCurrentFollowers(uniqueFollowers);
       setFetchTime(new Date().toISOString());
 
       // Compare with previous snapshot to find unfollowers
       if (prev && prev.followers) {
-        const currentUsernames = new Set(followers.map(f => f.username.toLowerCase()));
+        const currentUsernames = new Set(uniqueFollowers.map(f => f.username.toLowerCase()));
         const lostOnes = prev.followers.filter(f => !currentUsernames.has(f.username.toLowerCase()));
+        // Also check: if previous snapshot had fewer followers than we fetched now,
+        // some "unfollowers" might just be from pagination limits — flag uncertainty
         setUnfollowers(lostOnes);
       }
 
-      // Store the new snapshot
-      storeSnapshot(username, followers);
+      // Store snapshot with deduped list
+      storeSnapshot(username, uniqueFollowers);
       setStatus('success');
+      setFetchProgress('');
 
     } catch (err) {
       console.error('Fetch error:', err);
       setError(err.message || 'Failed to fetch followers. The account may be private.');
       setStatus('error');
+      setFetchProgress('');
     }
   };
 
@@ -1375,7 +1455,7 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
             <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
               <Loader2 className="w-10 h-10 text-rose-600 animate-spin mx-auto mb-4" />
               <p className="text-slate-700 font-semibold mb-2">Fetching followers for @{input.trim()}</p>
-              <p className="text-slate-500 text-sm">This may take 30-60 seconds for large accounts...</p>
+              <p className="text-slate-500 text-sm">{fetchProgress || 'This may take 30-90 seconds for large accounts...'}</p>
             </div>
           )}
 
@@ -1404,7 +1484,7 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
                   <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
                     <p className="text-xl sm:text-2xl font-bold text-slate-700">{currentFollowers.length}</p>
                     <p className="text-xs text-slate-600 font-medium">Current Followers</p>
@@ -1413,13 +1493,28 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
                     <p className="text-xl sm:text-2xl font-bold text-rose-700">{unfollowers.length}</p>
                     <p className="text-xs text-rose-600 font-medium">Unfollowers</p>
                   </div>
+                  <div className="bg-emerald-50 rounded-xl p-3 sm:p-4 text-center">
+                    <p className="text-xl sm:text-2xl font-bold text-slate-700">
+                      {previousSnapshot ? (currentFollowers.length - (previousSnapshot.count || previousSnapshot.followers.length)) : '—'}
+                    </p>
+                    <p className="text-xs text-emerald-600 font-medium">Net Change</p>
+                  </div>
                   <div className="bg-slate-50 rounded-xl p-3 sm:p-4 text-center">
-                    <p className="text-base sm:text-2xl font-bold text-slate-700">
+                    <p className="text-base sm:text-lg font-bold text-slate-700">
                       {previousSnapshot ? new Date(previousSnapshot.timestamp).toLocaleDateString() : '—'}
                     </p>
                     <p className="text-xs text-slate-600 font-medium">Last Check</p>
                   </div>
                 </div>
+
+                {/* Accuracy notice */}
+                {previousSnapshot && previousSnapshot.followers && previousSnapshot.followers.length >= 195 && (
+                  <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                    <p className="text-amber-700 text-[11px]">
+                      <strong>Note:</strong> Previous snapshot had {previousSnapshot.followers.length} followers (near limit). Some unfollowers may be missed due to pagination. Accuracy improves with repeated checks.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Unfollowers Section */}
@@ -1429,7 +1524,7 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
                     <UserMinus className="w-5 h-5 text-rose-600" />
                     Unfollowers ({unfollowers.length})
                   </h3>
-                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
                     {unfollowers.map((user, i) => (
                       <FollowerCard key={i} user={user} badge="LEFT" badgeColor="bg-rose-100 text-rose-700" />
                     ))}
@@ -1450,8 +1545,26 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
               {!previousSnapshot && (
                 <div className="bg-rose-50 rounded-2xl border border-rose-200 p-6 text-center">
                   <p className="text-rose-700 text-sm">
-                    <strong>First snapshot captured!</strong> Check again later to detect unfollowers.
+                    <strong>First snapshot captured ({currentFollowers.length} followers).</strong> Check again later to detect unfollowers.
                   </p>
+                </div>
+              )}
+
+              {/* Snapshot History */}
+              {snapshotHistory.length > 1 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                  <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-slate-500" />
+                    Snapshot History ({snapshotHistory.length} checks)
+                  </h3>
+                  <div className="space-y-2">
+                    {[...snapshotHistory].reverse().map((snap, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm text-slate-700">{new Date(snap.timestamp).toLocaleString()}</span>
+                        <span className="text-sm font-semibold text-slate-600">{snap.count || snap.followers.length} followers</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

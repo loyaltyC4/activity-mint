@@ -681,103 +681,227 @@ const StoriesTab = ({ profile, stories, tier }) => (
 /* ═══════════════════════════════════════════════════════════════════════════
    TAB 4 — AI Insights
    ═══════════════════════════════════════════════════════════════════════════ */
-const InsightsTab = ({ profile, posts, tier, avgEngagement }) => (
-  <AccessGate tier={tier} feature="report.ai-insights">
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* AI modules grid */}
-      <div>
-        <SectionHeader icon={<Brain className="w-5 h-5 text-purple-500" />} title="AI-Powered Insights" badge="Premium" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[
-            {
-              title: 'Personality Profile (MBTI)',
-              icon: <Brain className="w-5 h-5 text-purple-500" />,
-              description: 'AI estimates MBTI type based on posting patterns, content themes, and engagement style.',
-              result: 'ENFP — The Campaigner',
-              confidence: 78,
-              color: 'purple',
-            },
-            {
-              title: 'Emotional Tone',
-              icon: <Heart className="w-5 h-5 text-rose-500" />,
-              description: 'Dominant emotional themes across captions, comments, and story activity.',
-              result: 'Positive & Energetic',
-              confidence: 85,
-              color: 'rose',
-            },
-            {
-              title: 'Interest Archetype',
-              icon: <Target className="w-5 h-5 text-indigo-500" />,
-              description: 'Primary content categories and interest clusters.',
-              result: 'Lifestyle Creator',
-              confidence: 91,
-              color: 'indigo',
-            },
-            {
-              title: 'Engagement Pattern',
-              icon: <Activity className="w-5 h-5 text-emerald-500" />,
-              description: 'When and how this account engages with others.',
-              result: 'Evening Active, High Reply Rate',
-              confidence: 73,
-              color: 'emerald',
-            },
-            {
-              title: 'Relationship Indicators',
-              icon: <Users className="w-5 h-5 text-amber-500" />,
-              description: 'Detected close connections and interaction patterns.',
-              result: '3 Strong Ties Detected',
-              confidence: 67,
-              color: 'amber',
-            },
-            {
-              title: 'Growth Trajectory',
-              icon: <TrendingUp className="w-5 h-5 text-teal-500" />,
-              description: 'Predicted follower growth based on current engagement velocity.',
-              result: '+2.4K in next 30 days',
-              confidence: 62,
-              color: 'teal',
-            },
-          ].map((mod, i) => (
-            <div key={i} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-xl bg-${mod.color}-50 flex items-center justify-center`}>
-                  {mod.icon}
+// ─── AI Insight Generator: analyzes real scraped data ────────────────────────
+function generateInsights(profile, posts, avgEngagement) {
+  const totalLikes = posts.reduce((s, p) => s + (p.likesCount || 0), 0);
+  const totalComments = posts.reduce((s, p) => s + (p.commentsCount || 0), 0);
+  const captions = posts.map(p => (p.caption || '').toLowerCase()).filter(Boolean);
+  const allText = captions.join(' ');
+  const hashtags = allText.match(/#\w+/g) || [];
+  const mentions = allText.match(/@\w+/g) || [];
+  const uniqueHashtags = [...new Set(hashtags)];
+  const uniqueMentions = [...new Set(mentions)];
+
+  // Posting time analysis
+  const hours = posts.map(p => p.timestamp ? new Date(p.timestamp).getHours() : null).filter(h => h !== null);
+  const avgHour = hours.length > 0 ? Math.round(hours.reduce((a, b) => a + b, 0) / hours.length) : null;
+  const peakTime = avgHour !== null ? (avgHour < 6 ? 'Night Owl (12am-6am)' : avgHour < 12 ? 'Morning Active (6am-12pm)' : avgHour < 18 ? 'Afternoon Active (12pm-6pm)' : 'Evening Active (6pm-12am)') : 'Unknown';
+
+  // Content theme detection
+  const themeMap = {
+    fitness: ['fitness','gym','workout','health','fit','training','yoga','running'],
+    travel: ['travel','wanderlust','adventure','explore','vacation','trip','nature','beach'],
+    food: ['food','foodie','recipe','cooking','yummy','delicious','restaurant','chef'],
+    fashion: ['fashion','style','outfit','ootd','streetstyle','clothing','model'],
+    tech: ['tech','coding','developer','programming','startup','ai','software'],
+    lifestyle: ['lifestyle','life','daily','mood','vibes','aesthetic','inspo'],
+    business: ['business','entrepreneur','hustle','money','success','marketing','ceo'],
+    art: ['art','artist','creative','design','illustration','photography','photo'],
+    music: ['music','song','singer','rapper','producer','hiphop','beats'],
+  };
+  const themeScores = {};
+  for (const [theme, keywords] of Object.entries(themeMap)) {
+    themeScores[theme] = keywords.reduce((score, kw) => score + (allText.split(kw).length - 1), 0);
+  }
+  const topThemes = Object.entries(themeScores).filter(([,v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  // Emotional tone
+  const positiveWords = ['love','happy','amazing','beautiful','grateful','excited','best','great','awesome','blessed','joy','wonderful','fantastic','incredible','proud'];
+  const negativeWords = ['sad','angry','frustrated','hate','disappointed','terrible','worst','annoying','tired','stressed','awful','horrible','miserable'];
+  const posScore = positiveWords.reduce((s, w) => s + (allText.split(w).length - 1), 0);
+  const negScore = negativeWords.reduce((s, w) => s + (allText.split(w).length - 1), 0);
+  const totalEmotional = posScore + negScore;
+  const emotionRatio = totalEmotional > 0 ? posScore / totalEmotional : 0.5;
+  const emotionalTone = emotionRatio > 0.75 ? 'Positive & Uplifting' : emotionRatio > 0.55 ? 'Mostly Positive' : emotionRatio > 0.4 ? 'Balanced / Neutral' : 'Reflective & Introspective';
+
+  // MBTI estimation
+  const eScore = (profile.followingCount || 0) > 500 ? 60 : 40;
+  const nScore = uniqueHashtags.length > 15 ? 65 : 40;
+  const fScore = emotionRatio > 0.5 ? 60 : 40;
+  const pScore = posts.length > 5 && hours.length > 0 ? (new Set(hours.map(h => Math.floor(h / 6)))).size > 2 ? 60 : 40 : 50;
+  const mbti = `${eScore > 50 ? 'E' : 'I'}${nScore > 50 ? 'N' : 'S'}${fScore > 50 ? 'F' : 'T'}${pScore > 50 ? 'P' : 'J'}`;
+  const mbtiNames = { ENFP:'Campaigner', ENFJ:'Protagonist', ENTP:'Debater', ENTJ:'Commander', INFP:'Mediator', INFJ:'Advocate', INTP:'Logician', INTJ:'Architect', ESFP:'Entertainer', ESFJ:'Consul', ESTP:'Entrepreneur', ESTJ:'Executive', ISFP:'Adventurer', ISFJ:'Defender', ISTP:'Virtuoso', ISTJ:'Logistician' };
+  const mbtiConf = Math.min(95, 45 + posts.length * 2 + uniqueHashtags.length);
+
+  // Growth trajectory
+  const followersCount = profile.followersCount || profile.followers || 0;
+  const postsCount = profile.postsCount || posts.length;
+  const growthRate = avgEngagement > 3 ? 0.08 : avgEngagement > 1 ? 0.04 : 0.015;
+  const predicted30d = Math.round(followersCount * growthRate);
+
+  // Relationship detection
+  const mentionCounts = {};
+  mentions.forEach(m => { mentionCounts[m] = (mentionCounts[m] || 0) + 1; });
+  const strongTies = Object.entries(mentionCounts).filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]);
+
+  return [
+    {
+      title: 'Personality Profile (MBTI)',
+      icon: <Brain className="w-5 h-5 text-purple-500" />,
+      description: `Estimated from ${posts.length} posts, ${uniqueHashtags.length} hashtags, and engagement patterns.`,
+      result: `${mbti} — The ${mbtiNames[mbti] || 'Analyst'}`,
+      confidence: Math.min(95, mbtiConf),
+      color: 'purple',
+      detail: `E/I: ${eScore > 50 ? 'Extroverted' : 'Introverted'} (follows ${profile.followingCount || '?'}) · N/S: ${nScore > 50 ? 'Intuitive' : 'Sensing'} (${uniqueHashtags.length} tags) · F/T: ${fScore > 50 ? 'Feeling' : 'Thinking'} (${Math.round(emotionRatio * 100)}% pos) · P/J: ${pScore > 50 ? 'Perceiving' : 'Judging'}`,
+    },
+    {
+      title: 'Emotional Tone',
+      icon: <Heart className="w-5 h-5 text-rose-500" />,
+      description: `Analyzed ${captions.length} captions for emotional signals.`,
+      result: emotionalTone,
+      confidence: Math.min(95, 50 + captions.length * 3),
+      color: 'rose',
+      detail: `Positive: ${posScore} · Negative: ${negScore} · Ratio: ${Math.round(emotionRatio * 100)}% positive`,
+    },
+    {
+      title: 'Interest Archetype',
+      icon: <Target className="w-5 h-5 text-indigo-500" />,
+      description: `Mapped from ${uniqueHashtags.length} hashtags and caption themes.`,
+      result: topThemes.length > 0 ? topThemes.map(([t]) => t.charAt(0).toUpperCase() + t.slice(1)).join(' + ') : 'General Creator',
+      confidence: Math.min(95, 40 + uniqueHashtags.length * 2),
+      color: 'indigo',
+      detail: topThemes.map(([t, s]) => `${t}: ${s} signals`).join(' · ') || 'Not enough hashtag data',
+    },
+    {
+      title: 'Engagement Pattern',
+      icon: <Activity className="w-5 h-5 text-emerald-500" />,
+      description: `Timing from ${hours.length} timestamped posts.`,
+      result: `${peakTime}, ${avgEngagement > 3 ? 'High' : avgEngagement > 1 ? 'Moderate' : 'Low'} Engagement`,
+      confidence: Math.min(95, 40 + hours.length * 5),
+      color: 'emerald',
+      detail: `Avg likes: ${posts.length > 0 ? Math.round(totalLikes / posts.length) : 0}/post · Avg comments: ${posts.length > 0 ? Math.round(totalComments / posts.length) : 0}/post · Rate: ${pct(avgEngagement)}`,
+    },
+    {
+      title: 'Relationship Indicators',
+      icon: <Users className="w-5 h-5 text-amber-500" />,
+      description: `From ${uniqueMentions.length} unique @mentions across posts.`,
+      result: strongTies.length > 0 ? `${strongTies.length} Strong Tie${strongTies.length > 1 ? 's' : ''}: ${strongTies.slice(0, 3).map(([m]) => m).join(', ')}` : `${uniqueMentions.length} connections found`,
+      confidence: Math.min(95, 35 + uniqueMentions.length * 4),
+      color: 'amber',
+      detail: strongTies.length > 0 ? strongTies.map(([m, c]) => `${m} (${c}x)`).join(' · ') : 'No repeated mentions yet',
+    },
+    {
+      title: 'Growth Trajectory',
+      icon: <TrendingUp className="w-5 h-5 text-teal-500" />,
+      description: `From ${pct(avgEngagement)} engagement and ${followersCount.toLocaleString()} followers.`,
+      result: `+${predicted30d.toLocaleString()} in next 30 days (est.)`,
+      confidence: Math.min(90, 40 + Math.min(30, posts.length * 2)),
+      color: 'teal',
+      detail: `Current: ${followersCount.toLocaleString()} · Growth: ~${(growthRate * 100).toFixed(1)}%/mo · ${postsCount} posts`,
+    },
+  ];
+}
+
+const InsightsTab = ({ profile, posts, tier, avgEngagement }) => {
+  const modules = generateInsights(profile, posts, avgEngagement);
+  const captions = posts.map(p => (p.caption || '')).filter(Boolean);
+  const allText = captions.join(' ').toLowerCase();
+  const hashtags = [...new Set((allText.match(/#\w+/g) || []))];
+  const totalLikes = posts.reduce((s, p) => s + (p.likesCount || 0), 0);
+  const totalComments = posts.reduce((s, p) => s + (p.commentsCount || 0), 0);
+
+  return (
+    <AccessGate tier={tier} feature="report.ai-insights">
+      <div className="space-y-8 animate-in fade-in duration-300">
+        {/* Data quality banner */}
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+          <Brain className="w-5 h-5 text-purple-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-purple-800 font-semibold text-sm">AI Analysis based on {posts.length} posts</p>
+            <p className="text-purple-600 text-xs mt-0.5">
+              {posts.length < 5 ? 'Limited posts — some predictions may be less reliable.' : 'Good data volume for accurate predictions.'}
+            </p>
+          </div>
+        </div>
+
+        {/* AI modules grid */}
+        <div>
+          <SectionHeader icon={<Brain className="w-5 h-5 text-purple-500" />} title="AI-Powered Insights" badge="Premium" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {modules.map((mod, i) => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-xl bg-${mod.color}-50 flex items-center justify-center`}>
+                    {mod.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">{mod.title}</h4>
+                    <p className="text-[11px] text-slate-400">{mod.description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">{mod.title}</h4>
-                  <p className="text-[11px] text-slate-400">{mod.description}</p>
+                <div className={`bg-${mod.color}-50 rounded-lg p-3 mb-2`}>
+                  <p className={`font-bold text-${mod.color}-700 text-sm`}>{mod.result}</p>
+                </div>
+                {mod.detail && (
+                  <p className="text-[10px] text-slate-400 mb-2 leading-relaxed">{mod.detail}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full bg-${mod.color}-400 rounded-full`} style={{ width: `${mod.confidence}%` }} />
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-500">{mod.confidence}%</span>
                 </div>
               </div>
-              <div className={`bg-${mod.color}-50 rounded-lg p-3 mb-3`}>
-                <p className={`font-bold text-${mod.color}-700 text-sm`}>{mod.result}</p>
+            ))}
+          </div>
+        </div>
+
+        {/* Data-driven content summary */}
+        <div>
+          <SectionHeader icon={<FileText className="w-5 h-5 text-indigo-500" />} title="Content Intelligence Summary" />
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-indigo-700">{posts.length}</p>
+                <p className="text-xs text-indigo-500">Posts Analyzed</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full bg-${mod.color}-400 rounded-full`}
-                    style={{ width: `${mod.confidence}%` }}
-                  />
-                </div>
-                <span className="text-[10px] font-semibold text-slate-500">{mod.confidence}%</span>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-rose-600">{totalLikes.toLocaleString()}</p>
+                <p className="text-xs text-rose-500">Total Likes</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-amber-600">{totalComments.toLocaleString()}</p>
+                <p className="text-xs text-amber-500">Total Comments</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-emerald-600">{hashtags.length}</p>
+                <p className="text-xs text-emerald-500">Unique Hashtags</p>
               </div>
             </div>
-          ))}
+            <p className="text-slate-700 leading-relaxed text-sm">
+              Based on <strong>{posts.length}</strong> posts, <strong>@{profile.username}</strong>{' '}
+              {avgEngagement > 3 ? 'has exceptional audience engagement.' : avgEngagement > 1 ? 'shows healthy engagement with a growing audience.' : 'is building their audience.'}{' '}
+              Engagement rate: <strong>{pct(avgEngagement)}</strong> with{' '}
+              <strong>{posts.length > 0 ? Math.round(totalLikes / posts.length) : 0}</strong> likes
+              and <strong>{posts.length > 0 ? Math.round(totalComments / posts.length) : 0}</strong> comments per post.
+              {hashtags.length > 5 && ` Content spans ${hashtags.length} unique hashtags.`}
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Content summary */}
-      <div>
-        <SectionHeader icon={<FileText className="w-5 h-5 text-indigo-500" />} title="Content Intelligence Summary" />
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
-          <p className="text-slate-700 leading-relaxed text-sm">
-            Based on analysis of {posts.length} recent posts, <strong>@{profile.username}</strong> shows
-            a consistent content strategy focused on lifestyle and personal branding. The account maintains
-            a {avgEngagement > 3 ? 'strong' : avgEngagement > 1 ? 'healthy' : 'developing'} engagement rate
-            of <strong>{pct(avgEngagement)}</strong>, indicating {avgEngagement > 3 ? 'highly active' : 'growing'} audience
-            interaction. Posting frequency is regular with peak activity in evening hours.
-          </p>
-        </div>
+        {/* Top hashtags */}
+        {hashtags.length > 0 && (
+          <div>
+            <SectionHeader icon={<Target className="w-5 h-5 text-indigo-500" />} title="Top Hashtags" />
+            <div className="flex flex-wrap gap-2">
+              {hashtags.slice(0, 20).map((tag, i) => (
+                <span key={i} className="bg-indigo-50 text-indigo-700 text-xs font-medium px-3 py-1.5 rounded-full border border-indigo-100">{tag}</span>
+              ))}
+              {hashtags.length > 20 && <span className="text-slate-400 text-xs px-3 py-1.5">+{hashtags.length - 20} more</span>}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  </AccessGate>
-);
+    </AccessGate>
+  );
+};

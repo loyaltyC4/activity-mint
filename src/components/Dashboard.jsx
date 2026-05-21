@@ -93,6 +93,298 @@ const SectionHeader = ({ icon, title, badge, children }) => (
   </div>
 );
 
+/* ─── Minting Loader ───────────────────────────────────────────────────── */
+const MINT_STEPS = [
+  'Fetching profile data...',
+  'Loading recent posts...',
+  'Analyzing engagement...',
+  'Scanning followers...',
+  'Building insights...',
+];
+const MintingLoader = () => {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setStep(s => (s + 1) % MINT_STEPS.length), 2200);
+    return () => clearInterval(iv);
+  }, []);
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center min-h-[60vh]">
+      <style>{`
+        @keyframes mintFloat { 0%,100%{transform:translateY(0) scale(1);opacity:.7} 50%{transform:translateY(-28px) scale(1.15);opacity:1} }
+        @keyframes mintDot { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+        .mint-bubble { animation: mintFloat 2.4s ease-in-out infinite; }
+        .mint-dot { animation: mintDot 1.4s ease-in-out infinite; }
+      `}</style>
+      <div className="flex gap-3 mb-6">
+        {[0,1,2,3,4].map(i => (
+          <div key={i} className="mint-bubble rounded-full"
+            style={{
+              width: [18,26,20,24,16][i], height: [18,26,20,24,16][i],
+              background: `linear-gradient(135deg, ${['#818cf8','#6366f1','#a78bfa','#7c3aed','#c084fc'][i]}, ${['#6366f1','#4f46e5','#7c3aed','#5b21b6','#a855f7'][i]})`,
+              animationDelay: `${i * 0.35}s`,
+            }}
+          />
+        ))}
+      </div>
+      <h2 className="text-2xl font-bold text-slate-800 mb-2">
+        Minting<span className="inline-flex ml-1">{[0,1,2].map(i => (
+          <span key={i} className="mint-dot text-indigo-500 text-3xl leading-none" style={{ animationDelay: `${i * 0.3}s` }}>.</span>
+        ))}</span>
+      </h2>
+      <p className="text-sm text-slate-500 h-5 transition-opacity duration-500">{MINT_STEPS[step]}</p>
+    </div>
+  );
+};
+
+/* ─── Account Health Score ─────────────────────────────────────────────── */
+function calcHealthScore(profile, posts, avgEngagement) {
+  if (!profile) return { grade: '--', score: 0, color: 'slate' };
+  const fc = profile.followersCount || 0;
+  // ER benchmark by tier
+  let benchmark = 6;
+  if (fc >= 500000) benchmark = 1.2;
+  else if (fc >= 100000) benchmark = 1.8;
+  else if (fc >= 50000) benchmark = 2.4;
+  else if (fc >= 10000) benchmark = 3.5;
+  const erScore = Math.min((avgEngagement / benchmark) * 40, 40); // max 40 pts
+  // Follower/following ratio (healthy > 1.5)
+  const ratio = fc / Math.max(profile.followsCount || profile.followingCount || 1, 1);
+  const ratioScore = Math.min(ratio / 1.5 * 20, 20); // max 20 pts
+  // Posting consistency (any posts = some points)
+  const postCount = posts?.length || 0;
+  const consistencyScore = Math.min(postCount / 12 * 20, 20); // max 20 pts
+  // Profile completeness
+  const hasProfilePic = profile.profilePicUrl ? 5 : 0;
+  const hasBio = (profile.biography || profile.bio || '').length > 10 ? 5 : 0;
+  const profileScore = hasProfilePic + hasBio + (profile.verified ? 10 : 0); // max 20
+  const total = Math.round(erScore + ratioScore + consistencyScore + profileScore);
+  const clamped = Math.min(total, 100);
+  let grade, color;
+  if (clamped >= 90) { grade = 'A+'; color = '#10b981'; }
+  else if (clamped >= 80) { grade = 'A'; color = '#10b981'; }
+  else if (clamped >= 70) { grade = 'B+'; color = '#22c55e'; }
+  else if (clamped >= 60) { grade = 'B'; color = '#84cc16'; }
+  else if (clamped >= 50) { grade = 'C+'; color = '#eab308'; }
+  else if (clamped >= 40) { grade = 'C'; color = '#f59e0b'; }
+  else if (clamped >= 30) { grade = 'D'; color = '#f97316'; }
+  else { grade = 'F'; color = '#ef4444'; }
+  return { grade, score: clamped, color, erScore: Math.round(erScore), ratioScore: Math.round(ratioScore), consistencyScore: Math.round(consistencyScore), profileScore: Math.round(profileScore) };
+}
+
+const HealthScoreCard = ({ profile, posts, avgEngagement }) => {
+  const h = calcHealthScore(profile, posts, avgEngagement);
+  const r = 54, circ = 2 * Math.PI * r;
+  const offset = circ - (h.score / 100) * circ;
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5 hover:shadow-lg transition-all">
+      <div className="flex items-center gap-6">
+        <div className="relative w-32 h-32 flex-shrink-0">
+          <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+            <circle cx="60" cy="60" r={r} fill="none" stroke="#e2e8f0" strokeWidth="10" />
+            <circle cx="60" cy="60" r={r} fill="none" stroke={h.color} strokeWidth="10"
+              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+              className="transition-all duration-1000" />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-3xl font-black" style={{ color: h.color }}>{h.grade}</span>
+            <span className="text-xs text-slate-400">{h.score}/100</span>
+          </div>
+        </div>
+        <div className="flex-1 grid grid-cols-2 gap-3">
+          {[
+            ['Engagement', h.erScore, 40, '📊'],
+            ['Ratio', h.ratioScore, 20, '⚖️'],
+            ['Consistency', h.consistencyScore, 20, '📅'],
+            ['Profile', h.profileScore, 20, '✨'],
+          ].map(([label, val, max, emoji]) => (
+            <div key={label} className="text-sm">
+              <div className="flex justify-between text-slate-500 mb-1">
+                <span>{emoji} {label}</span><span className="font-medium text-slate-700">{val}/{max}</span>
+              </div>
+              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(val/max)*100}%`, background: h.color }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Tracking (localStorage snapshots) ────────────────────────────────── */
+function saveSnapshot(username, profile, avgEngagement) {
+  if (!username || !profile) return;
+  const key = `am_track_${username}`;
+  const history = JSON.parse(localStorage.getItem(key) || '[]');
+  const now = Date.now();
+  // Don't save more than once per hour
+  if (history.length > 0 && now - history[history.length - 1].ts < 3600000) return;
+  history.push({
+    ts: now,
+    followers: profile.followersCount || 0,
+    following: profile.followsCount || profile.followingCount || 0,
+    posts: profile.postsCount || 0,
+    er: avgEngagement || 0,
+  });
+  // Keep max 30
+  if (history.length > 30) history.splice(0, history.length - 30);
+  localStorage.setItem(key, JSON.stringify(history));
+}
+
+function getSnapshots(username) {
+  if (!username) return [];
+  return JSON.parse(localStorage.getItem(`am_track_${username}`) || '[]');
+}
+
+const TrackingSection = ({ username, profile }) => {
+  const snaps = getSnapshots(username);
+  if (snaps.length < 2) return null;
+  const latest = snaps[snaps.length - 1];
+  const prev = snaps[snaps.length - 2];
+  const delta = (curr, old) => {
+    const d = curr - old;
+    if (d === 0) return <span className="text-slate-400">—</span>;
+    return <span className={d > 0 ? 'text-emerald-600' : 'text-red-500'}>{d > 0 ? '+' : ''}{fmt(d)}</span>;
+  };
+  // Mini sparkline SVG
+  const sparkline = (field) => {
+    const vals = snaps.map(s => s[field]);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const range = max - min || 1;
+    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * 60},${30 - ((v - min) / range) * 28}`).join(' ');
+    return (
+      <svg viewBox="0 0 60 32" className="w-16 h-6 inline-block ml-2">
+        <polyline points={pts} fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  };
+  return (
+    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 mb-4 border border-indigo-100">
+      <div className="flex items-center gap-2 mb-3">
+        <TrendingUp className="w-4 h-4 text-indigo-600" />
+        <span className="font-semibold text-sm text-indigo-900">Tracking History</span>
+        <span className="text-xs text-slate-400 ml-auto">{snaps.length} snapshots</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        {[
+          ['Followers', 'followers'],
+          ['Following', 'following'],
+          ['Posts', 'posts'],
+          ['ER%', 'er'],
+        ].map(([label, field]) => (
+          <div key={field} className="bg-white/70 rounded-lg p-2.5">
+            <div className="text-slate-500 text-xs mb-1">{label}</div>
+            <div className="flex items-center gap-1">
+              {delta(latest[field], prev[field])}
+              {sparkline(field)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Compare Accounts Tab ─────────────────────────────────────────────── */
+const CompareTab = ({ tier }) => {
+  const [usernameA, setUsernameA] = useState('');
+  const [usernameB, setUsernameB] = useState('');
+  const [profileA, setProfileA] = useState(null);
+  const [profileB, setProfileB] = useState(null);
+  const [comparing, setComparing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleCompare = async () => {
+    if (!usernameA.trim() || !usernameB.trim()) return;
+    setComparing(true); setError(null); setProfileA(null); setProfileB(null);
+    try {
+      const [a, b] = await Promise.all([
+        fetchInstagramProfile(usernameA.trim().replace('@', '')),
+        fetchInstagramProfile(usernameB.trim().replace('@', '')),
+      ]);
+      setProfileA(a?.[0] || null);
+      setProfileB(b?.[0] || null);
+      if (!a?.[0] || !b?.[0]) setError('Could not fetch one or both profiles.');
+    } catch (e) { setError(e.message); }
+    setComparing(false);
+  };
+
+  const metrics = profileA && profileB ? [
+    { label: 'Followers', a: profileA.followersCount || 0, b: profileB.followersCount || 0, icon: '👥' },
+    { label: 'Following', a: profileA.followsCount || profileA.followingCount || 0, b: profileB.followsCount || profileB.followingCount || 0, icon: '➡️', lower: true },
+    { label: 'Posts', a: profileA.postsCount || 0, b: profileB.postsCount || 0, icon: '📸' },
+    { label: 'Engagement', a: profileA.followersCount ? ((profileA.avgLikes || 0) / profileA.followersCount * 100) : 0, b: profileB.followersCount ? ((profileB.avgLikes || 0) / profileB.followersCount * 100) : 0, icon: '💬', pct: true },
+  ] : [];
+
+  return (
+    <AccessGate tier={tier} required="standard">
+      <div className="space-y-5">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-indigo-500" /> Compare Accounts</h3>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <input value={usernameA} onChange={e => setUsernameA(e.target.value)} placeholder="@username_1" className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
+            <span className="text-slate-400 self-center font-bold">VS</span>
+            <input value={usernameB} onChange={e => setUsernameB(e.target.value)} placeholder="@username_2" className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
+            <button onClick={handleCompare} disabled={comparing || !usernameA.trim() || !usernameB.trim()}
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-medium text-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors min-h-[44px]">
+              {comparing ? 'Comparing...' : 'Compare'}
+            </button>
+          </div>
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+        </div>
+        {profileA && profileB && (
+          <div className="space-y-3">
+            {/* Headers */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-white rounded-xl border p-4">
+                {profileA.profilePicUrl && <img src={proxyImg(profileA.profilePicUrl)} className="w-14 h-14 rounded-full mx-auto mb-2 object-cover" alt="" />}
+                <p className="font-bold text-sm">@{profileA.username}</p>
+              </div>
+              <div className="flex items-center justify-center text-2xl font-black text-slate-300">VS</div>
+              <div className="bg-white rounded-xl border p-4">
+                {profileB.profilePicUrl && <img src={proxyImg(profileB.profilePicUrl)} className="w-14 h-14 rounded-full mx-auto mb-2 object-cover" alt="" />}
+                <p className="font-bold text-sm">@{profileB.username}</p>
+              </div>
+            </div>
+            {/* Metric comparisons */}
+            {metrics.map(m => {
+              const winner = m.lower ? (m.a < m.b ? 'a' : m.a > m.b ? 'b' : 'tie') : (m.a > m.b ? 'a' : m.a < m.b ? 'b' : 'tie');
+              const maxVal = Math.max(m.a, m.b) || 1;
+              return (
+                <div key={m.label} className="bg-white rounded-xl border p-4">
+                  <div className="text-center text-sm font-medium text-slate-500 mb-3">{m.icon} {m.label}</div>
+                  <div className="grid grid-cols-3 gap-3 items-center">
+                    <div className="text-right">
+                      <span className={`text-lg font-bold ${winner === 'a' ? 'text-emerald-600' : 'text-slate-700'}`}>
+                        {m.pct ? pct(m.a) : fmt(m.a)}
+                      </span>
+                      {winner === 'a' && <span className="ml-1 text-xs">👑</span>}
+                      <div className="h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-700 ml-auto" style={{ width: `${(m.a / maxVal) * 100}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-center text-slate-300 text-xs font-bold">vs</div>
+                    <div>
+                      <span className={`text-lg font-bold ${winner === 'b' ? 'text-emerald-600' : 'text-slate-700'}`}>
+                        {m.pct ? pct(m.b) : fmt(m.b)}
+                      </span>
+                      {winner === 'b' && <span className="ml-1 text-xs">👑</span>}
+                      <div className="h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                        <div className="h-full bg-purple-500 rounded-full transition-all duration-700" style={{ width: `${(m.b / maxVal) * 100}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </AccessGate>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════════════════════
    DASHBOARD — Main Component
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -217,6 +509,16 @@ export default function Dashboard() {
     setProfileLoading(false);
   }, []);
 
+  // Save tracking snapshot when profile data loads
+  useEffect(() => {
+    if (profile && selectedAccount) {
+      const er = profile.followers > 0 && posts.length > 0
+        ? posts.reduce((s, p) => s + (p.likesCount || 0) + (p.commentsCount || 0), 0) / posts.length / profile.followers * 100
+        : 0;
+      saveSnapshot(selectedAccount.username, profile, er);
+    }
+  }, [profile, selectedAccount, posts]);
+
   useEffect(() => {
     if (!selectedAccount) { setProfile(null); setPosts([]); setStories([]); setFollowers([]); setFollowing([]); return; }
     loadProfileData(selectedAccount.username);
@@ -243,6 +545,7 @@ export default function Dashboard() {
     { id: 'ties', icon: <Users className="w-4 h-4" />, label: 'Ties & Trails' },
     { id: 'stories', icon: <MonitorPlay className="w-4 h-4" />, label: 'Stories' },
     { id: 'insights', icon: <Brain className="w-4 h-4" />, label: 'Deep Insights' },
+    { id: 'compare', icon: <BarChart2 className="w-4 h-4" />, label: 'Compare' },
   ];
 
   /* ═══ Engagement metrics computed from posts ═══════════════════════════ */
@@ -346,24 +649,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Loading state ───────────────────────────────────────────────── */}
-      {profileLoading && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="animate-pulse space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-slate-200" />
-              <div className="space-y-3 flex-1">
-                <div className="h-5 bg-slate-200 rounded w-1/4" />
-                <div className="h-4 bg-slate-100 rounded w-1/3" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              {[1,2,3,4].map(i => <div key={i} className="h-20 sm:h-24 bg-slate-100 rounded-xl" />)}
-            </div>
-            <div className="h-48 sm:h-64 bg-slate-100 rounded-xl" />
-          </div>
-        </div>
-      )}
+      {/* ── Minting Loading Animation ──────────────────────────────────── */}
+      {profileLoading && <MintingLoader />}
 
       {/* ── Profile + Report ────────────────────────────────────────────── */}
       {selectedAccount && profile && !profileLoading && (
@@ -417,6 +704,12 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* ── Health Score ──────────────────────────────────────────── */}
+          <HealthScoreCard profile={profile} posts={posts} avgEngagement={avgEngagement} />
+
+          {/* ── Tracking History ──────────────────────────────────────── */}
+          <TrackingSection username={selectedAccount} profile={profile} />
+
           {/* Report tabs — horizontal scroll on mobile */}
           <div className="bg-white rounded-t-2xl border border-b-0 border-slate-200 px-2 sm:px-4 overflow-x-auto scrollbar-hide">
             <div className="flex gap-0 sm:gap-1 min-w-max">
@@ -449,6 +742,9 @@ export default function Dashboard() {
             )}
             {reportTab === 'insights' && (
               <InsightsTab profile={profile} posts={posts} tier={tier} avgEngagement={avgEngagement} followers={followers} following={following} />
+            )}
+            {reportTab === 'compare' && (
+              <CompareTab tier={tier} />
             )}
           </div>
         </div>
@@ -737,6 +1033,62 @@ const TiesTab = ({ profile, posts, tier, followers, following }) => {
           </div>
         </div>
       )}
+
+      {/* ── Follower Demographics (Inferred) ─────────────────────────────── */}
+      {followers.length > 0 && (
+        <AccessGate tier={tier} required="standard">
+          <SectionHeader icon={<Target className="w-5 h-5 text-purple-500" />} title="Follower Demographics" badge="Inferred">
+            <FollowerDemographics followers={followers} />
+          </SectionHeader>
+        </AccessGate>
+      )}
+    </div>
+  );
+};
+
+/* ─── Follower Demographics Component ──────────────────────────────────── */
+const FollowerDemographics = ({ followers }) => {
+  // Analyze follower quality
+  const total = followers.length;
+  let withPic = 0, withPosts = 0, suspected = 0, business = 0;
+  followers.forEach(f => {
+    if (f.profile_pic_url || f.profilePicUrl) withPic++;
+    const pc = f.edge_owner_to_timeline_media?.count || f.postsCount || f.mediaCount || 0;
+    if (pc > 0) withPosts++;
+    // Suspected bot heuristics: no pic + no posts + generic username patterns
+    const uname = (f.username || '').toLowerCase();
+    const isGeneric = /^\w+\d{4,}$/.test(uname) || /^[a-z]{2,4}\.\w+\.\d+/.test(uname);
+    if (!f.profile_pic_url && !f.profilePicUrl && pc === 0 && isGeneric) suspected++;
+    // Business indicator: has "official", "shop", "store", "brand" in username/fullName
+    const fullName = (f.full_name || f.fullName || '').toLowerCase();
+    if (/shop|store|brand|official|agency|studio|media|marketing/.test(uname + ' ' + fullName)) business++;
+  });
+  const quality = total > 0 ? Math.round(((withPic + withPosts) / (2 * total)) * 100) : 0;
+  const botPct = total > 0 ? Math.round((suspected / total) * 100) : 0;
+  const personalPct = total > 0 ? Math.round(((total - business) / total) * 100) : 0;
+  const businessPct = 100 - personalPct;
+
+  const DonutChart = ({ pct: val, color, label }) => {
+    const r = 28, circ = 2 * Math.PI * r;
+    return (
+      <div className="flex flex-col items-center">
+        <svg viewBox="0 0 68 68" className="w-16 h-16 -rotate-90">
+          <circle cx="34" cy="34" r={r} fill="none" stroke="#e2e8f0" strokeWidth="6" />
+          <circle cx="34" cy="34" r={r} fill="none" stroke={color} strokeWidth="6"
+            strokeDasharray={circ} strokeDashoffset={circ - (val / 100) * circ} strokeLinecap="round" />
+        </svg>
+        <span className="text-lg font-bold mt-1" style={{ color }}>{val}%</span>
+        <span className="text-[10px] text-slate-500">{label}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+      <DonutChart pct={quality} color="#10b981" label="Quality Score" />
+      <DonutChart pct={botPct} color={botPct > 20 ? '#ef4444' : '#f59e0b'} label="Suspected Bots" />
+      <DonutChart pct={personalPct} color="#6366f1" label="Personal" />
+      <DonutChart pct={businessPct} color="#8b5cf6" label="Business" />
     </div>
   );
 };
@@ -896,6 +1248,26 @@ function generateInsights(profile, posts, avgEngagement) {
     captions, allText,
   };
 }
+
+/* ─── Look Deeper Button ───────────────────────────────────────────────── */
+const LookDeeperButton = ({ children }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+        <Search className="w-3.5 h-3.5" />
+        {open ? 'Show Less' : 'Look Deeper'} 🔍
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="mt-2 p-3 bg-indigo-50 rounded-lg text-xs text-slate-700 leading-relaxed border border-indigo-100 animate-in slide-in-from-top-1 duration-200">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const InsightsTab = ({ profile, posts, tier, avgEngagement, followers, following }) => {
   const insights = generateInsights(profile, posts, avgEngagement);

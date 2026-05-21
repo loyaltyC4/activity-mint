@@ -18,6 +18,10 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 import AccessGate from './components/AccessGate';
 import MintingLoader from './components/MintingLoader';
 import { fetchInstagramProfile } from './lib/apify';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 /* ─── Lazy-loaded components for code-splitting ────────────────────────── */
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -134,98 +138,165 @@ const Logo = ({ onClick }) => (
 );
 
 const FeatureCard = ({ icon, title, description }) => (
-  <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all duration-300 group">
-    <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">{icon}</div>
-    <h3 className="text-xl font-bold text-slate-900 mb-3">{title}</h3>
-    <p className="text-slate-500 leading-relaxed text-sm">{description}</p>
-  </div>
+  <Card className="group hover:shadow-2xl hover:border-primary/20 hover:-translate-y-1 transition-all duration-500 overflow-hidden relative">
+    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    <CardContent className="p-8 relative">
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/50 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-sm">
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold text-foreground mb-3 group-hover:text-primary transition-colors">{title}</h3>
+      <p className="text-muted-foreground leading-relaxed text-sm">{description}</p>
+    </CardContent>
+  </Card>
 );
 
 const UseCaseCard = ({ title, description, icon, bgGradient }) => (
-  <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200 transition-all duration-300 flex flex-col sm:flex-row items-center gap-8 overflow-hidden group">
-    <div className="sm:w-3/5 relative z-10">
-      <h3 className="text-xl font-bold text-slate-900 mb-3">{title}</h3>
-      <p className="text-slate-500 text-sm leading-relaxed">{description}</p>
-    </div>
-    <div className="sm:w-2/5 flex justify-center relative mt-4 sm:mt-0">
-      <div className={`absolute inset-0 opacity-40 blur-2xl rounded-full ${bgGradient} group-hover:scale-125 transition-transform duration-700`}></div>
-      <div className={`absolute inset-4 opacity-60 rounded-full ${bgGradient} group-hover:rotate-12 transition-transform duration-700`}></div>
-      <div className="relative z-10 w-32 h-32 flex items-center justify-center transform group-hover:-translate-y-2 transition-transform duration-500">{icon}</div>
-    </div>
-  </div>
+  <Card className="group hover:shadow-2xl hover:border-primary/10 transition-all duration-500 overflow-hidden">
+    <CardContent className="p-8 flex flex-col sm:flex-row items-center gap-8">
+      <div className="sm:w-3/5 relative z-10">
+        <h3 className="text-xl font-bold text-foreground mb-3 group-hover:text-primary transition-colors duration-300">{title}</h3>
+        <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
+      </div>
+      <div className="sm:w-2/5 flex justify-center relative mt-4 sm:mt-0">
+        <div className={`absolute inset-0 opacity-30 blur-3xl rounded-full ${bgGradient} group-hover:scale-150 group-hover:opacity-50 transition-all duration-700`}></div>
+        <div className={`absolute inset-4 opacity-50 rounded-full ${bgGradient} group-hover:rotate-12 group-hover:scale-110 transition-all duration-700`}></div>
+        <div className="relative z-10 w-32 h-32 flex items-center justify-center transform group-hover:-translate-y-3 group-hover:scale-110 transition-all duration-500">{icon}</div>
+      </div>
+    </CardContent>
+  </Card>
 );
 
 const ToolkitCard = ({ title, icon, description, items, bgIcon }) => {
-  const bgIconMap = { glasses: <Search className="w-64 h-64 text-emerald-900" />, footprints: <Activity className="w-64 h-64 text-emerald-900" />, cloud: <Download className="w-64 h-64 text-emerald-900" />, eye: <Eye className="w-64 h-64 text-emerald-900" />, target: <Target className="w-64 h-64 text-emerald-900" /> };
+  const bgIconMap = { glasses: <Search className="w-64 h-64 text-primary/80" />, footprints: <Activity className="w-64 h-64 text-primary/80" />, cloud: <Download className="w-64 h-64 text-primary/80" />, eye: <Eye className="w-64 h-64 text-primary/80" />, target: <Target className="w-64 h-64 text-primary/80" /> };
   return (
-    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-200 transition-all duration-300 relative overflow-hidden flex flex-col h-full group cursor-default">
-      <div className="absolute -bottom-16 -right-12 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none transform -rotate-12">{bgIconMap[bgIcon] || bgIconMap.footprints}</div>
-      <div className="relative z-10 flex flex-col h-full">
-        <div className="flex items-center gap-3 mb-3"><div className="text-emerald-600">{icon}</div><h3 className="text-xl font-bold text-slate-800">{title}</h3></div>
-        <p className="text-sm text-slate-500 mb-8 leading-relaxed">{description}</p>
-        <ul className="space-y-4 mt-auto">
+    <Card className="group hover:shadow-2xl hover:border-primary/20 hover:-translate-y-1 transition-all duration-500 relative overflow-hidden flex flex-col h-full">
+      <div className="absolute -bottom-16 -right-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity pointer-events-none transform -rotate-12 group-hover:rotate-0 duration-700">{bgIconMap[bgIcon] || bgIconMap.footprints}</div>
+      <CardContent className="p-8 relative z-10 flex flex-col h-full">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">{icon}</div>
+          <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">{title}</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed">{description}</p>
+        <ul className="space-y-3 mt-auto">
           {items.map((item, idx) => (
-            <li key={idx} className="flex items-center gap-3 text-sm text-slate-700 font-medium hover:text-emerald-600 transition-colors cursor-pointer group/item">
-              <div className="text-slate-400 group-hover/item:text-emerald-500 transition-colors">{item.icon}</div>
+            <li key={idx} className="flex items-center gap-3 text-sm text-foreground font-medium hover:text-primary transition-colors cursor-pointer group/item p-2 rounded-lg hover:bg-primary/5">
+              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground group-hover/item:text-primary group-hover/item:bg-primary/10 transition-all">{item.icon}</div>
               {item.text}
             </li>
           ))}
         </ul>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
 const PricingCard = ({ title, price, interval, subtext, features, highlighted = false }) => (
-  <div className={`bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 transition-all duration-300 flex flex-col h-full ${highlighted ? 'border-2 border-emerald-500 shadow-2xl' : 'border border-slate-200 shadow-lg hover:shadow-xl hover:border-emerald-200'}`}>
-    <h3 className="text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4">{title}</h3>
-    <div className="mb-4 sm:mb-6"><span className="text-3xl sm:text-4xl font-extrabold text-slate-900">{price}</span><span className="text-slate-500 font-medium text-sm sm:text-base">{interval}</span></div>
-    {subtext && <p className="text-xs sm:text-sm text-slate-400 mb-4 sm:mb-6 -mt-2 sm:-mt-4">{subtext}</p>}
-    <button className={`w-full py-3 min-h-[48px] rounded-full font-semibold transition-colors mb-6 sm:mb-8 text-sm sm:text-base ${highlighted ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:shadow-lg hover:shadow-emerald-500/30' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>Subscribe</button>
-    <div className="text-left space-y-3 sm:space-y-4 flex-1">
-      <p className="font-semibold text-xs sm:text-sm text-slate-900 border-b border-slate-100 pb-2">Included Features</p>
-      {features.map((f, idx) => (
-        <div key={idx} className="flex items-start gap-2 sm:gap-3">
-          {f.included ? <Check className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0 mt-0.5" /> : <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 shrink-0 mt-0.5" />}
-          <span className={`text-xs sm:text-sm leading-snug ${f.included ? 'text-slate-700' : 'text-slate-400'}`}>
-            {f.name}
-            {f.isNew && <span className="ml-1.5 inline-block text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">New</span>}
-          </span>
-        </div>
-      ))}
-    </div>
-  </div>
+  <Card className={cn(
+    "group relative overflow-hidden transition-all duration-500 flex flex-col h-full",
+    highlighted
+      ? "border-2 border-primary shadow-2xl shadow-primary/10 scale-[1.02]"
+      : "hover:shadow-xl hover:border-primary/20 hover:-translate-y-1"
+  )}>
+    {highlighted && (
+      <div className="absolute top-0 right-0">
+        <Badge className="rounded-none rounded-bl-lg bg-gradient-to-r from-primary to-teal-600 text-white border-0">
+          Most Popular
+        </Badge>
+      </div>
+    )}
+    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    <CardContent className="p-6 sm:p-8 relative flex flex-col h-full">
+      <h3 className="text-lg font-bold text-foreground mb-4">{title}</h3>
+      <div className="mb-6">
+        <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{price}</span>
+        <span className="text-muted-foreground font-medium ml-1">{interval}</span>
+      </div>
+      {subtext && <p className="text-sm text-muted-foreground mb-6 -mt-4">{subtext}</p>}
+      <Button
+        className={cn(
+          "w-full py-6 rounded-full font-semibold text-base mb-8 transition-all",
+          highlighted
+            ? "bg-gradient-to-r from-primary to-teal-600 hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.02]"
+            : "bg-muted text-foreground hover:bg-muted/80"
+        )}
+      >
+        Subscribe
+      </Button>
+      <div className="text-left space-y-4 flex-1">
+        <p className="font-semibold text-sm text-foreground border-b border-border pb-2">Included Features</p>
+        {features.map((f, idx) => (
+          <div key={idx} className="flex items-start gap-3 group/feature">
+            {f.included ? (
+              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <Check className="w-3 h-3 text-primary" />
+              </div>
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                <X className="w-3 h-3 text-muted-foreground" />
+              </div>
+            )}
+            <span className={cn("text-sm leading-snug", f.included ? "text-foreground" : "text-muted-foreground")}>
+              {f.name}
+              {f.isNew && <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0 font-bold text-primary bg-primary/10">New</Badge>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
 );
 
 const BlogCard = ({ image, title, date, excerpt }) => (
-  <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all duration-300 flex flex-col group cursor-pointer">
+  <Card className="group overflow-hidden hover:shadow-2xl hover:border-primary/20 hover:-translate-y-1 transition-all duration-500 flex flex-col cursor-pointer">
     <div className="h-48 overflow-hidden relative">
-      <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors z-10"></div>
-      <img src={image} alt={title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
+      <img src={image} alt={title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+      <Badge variant="secondary" className="absolute top-4 left-4 z-20 bg-background/90 backdrop-blur-sm">
+        {date}
+      </Badge>
     </div>
-    <div className="p-6 flex flex-col flex-1">
-      <h3 className="text-lg font-bold text-slate-900 mb-3 line-clamp-3 group-hover:text-emerald-600 transition-colors">{title}</h3>
-      <p className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">{date}</p>
-      <p className="text-slate-500 text-sm leading-relaxed line-clamp-4 mt-auto">{excerpt}</p>
-    </div>
-  </div>
+    <CardContent className="p-6 flex flex-col flex-1">
+      <h3 className="text-lg font-bold text-foreground mb-3 line-clamp-2 group-hover:text-primary transition-colors duration-300">{title}</h3>
+      <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 mt-auto">{excerpt}</p>
+      <div className="flex items-center gap-2 mt-4 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <span>Read More</span>
+        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+      </div>
+    </CardContent>
+  </Card>
 );
 
 const DropdownItem = ({ icon, title, onClick }) => (
-  <button onClick={onClick} className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition-colors">
-    <div className="text-emerald-500">{icon}</div>
+  <button onClick={onClick} className="flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all duration-200 group">
+    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">{icon}</div>
     <span className="text-sm font-medium">{title}</span>
   </button>
 );
 
 const FaqItem = ({ q, a, isOpen, onToggle }) => (
-  <div>
+  <Card className={cn(
+    "overflow-hidden transition-all duration-300",
+    isOpen ? "border-primary/20 shadow-md" : "hover:border-primary/10"
+  )}>
     <button onClick={onToggle} className="w-full flex items-center justify-between px-6 py-5 text-left gap-4 group">
-      <span className={`font-medium text-base transition-colors ${isOpen ? 'text-emerald-600' : 'text-slate-800 group-hover:text-emerald-600'}`}>{q}</span>
-      <ChevronDown className={`w-5 h-5 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-500' : 'text-slate-400'}`} />
+      <span className={cn(
+        "font-medium text-base transition-colors",
+        isOpen ? "text-primary" : "text-foreground group-hover:text-primary"
+      )}>{q}</span>
+      <div className={cn(
+        "w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0",
+        isOpen ? "bg-primary text-white rotate-180" : "bg-muted text-muted-foreground"
+      )}>
+        <ChevronDown className="w-4 h-4" />
+      </div>
     </button>
-    {isOpen && <div className="px-6 pb-5 text-slate-500 text-sm leading-relaxed pr-12 -mt-1">{a}</div>}
-  </div>
+    <div className={cn(
+      "overflow-hidden transition-all duration-300",
+      isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+    )}>
+      <div className="px-6 pb-5 text-muted-foreground text-sm leading-relaxed pr-12 border-t border-border/50 pt-4">{a}</div>
+    </div>
+  </Card>
 );
 
 /* ─── Auth Modal ────────────────────────────────────────────────────────── */
@@ -583,60 +654,75 @@ export default function App() {
 const DemoResultCard = ({ result, onSignUp, onDismiss }) => {
   const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n;
   return (
-    <div className="max-w-2xl mx-auto mt-8 bg-white rounded-2xl border border-emerald-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 flex items-center justify-between">
-        <span className="text-white text-sm font-semibold flex items-center gap-2 min-w-0"><ShieldCheck className="w-4 h-4 shrink-0" /> <span className="truncate">Preview Report — @{result.username}</span></span>
-        <button onClick={onDismiss} className="text-white/70 hover:text-white shrink-0 ml-2"><X className="w-4 h-4" /></button>
-      </div>
-      <div className="p-4 sm:p-6">
-        <div className="flex items-center gap-3 mb-5">
+    <Card className="max-w-2xl mx-auto mt-8 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 border-primary/20 shadow-2xl shadow-primary/10">
+      <CardHeader className="bg-gradient-to-r from-primary to-teal-600 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-white text-sm font-semibold flex items-center gap-2 min-w-0">
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span className="truncate">Preview Report — @{result.username}</span>
+          </span>
+          <Button variant="ghost" size="icon" onClick={onDismiss} className="text-white/70 hover:text-white hover:bg-white/10 h-8 w-8 shrink-0">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex items-center gap-4 mb-6">
           {result.profilePicUrl ? (
-            <img src={proxyImageUrl(result.profilePicUrl)} alt={result.username} className="w-14 h-14 rounded-full border-2 border-emerald-200 shrink-0 object-cover" />
+            <img src={proxyImageUrl(result.profilePicUrl)} alt={result.username} className="w-16 h-16 rounded-full border-2 border-primary/20 shrink-0 object-cover ring-4 ring-primary/5" />
           ) : (
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold shrink-0">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold shrink-0 ring-4 ring-primary/5">
               {result.username.charAt(0).toUpperCase()}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5 truncate">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2 truncate">
               <span className="truncate">@{result.username}</span>
-              {result.isVerified && <ShieldCheck className="w-4 h-4 text-blue-500 shrink-0" />}
+              {result.isVerified && <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0" />}
             </h3>
-            {result.fullName && <p className="text-slate-600 text-sm truncate">{result.fullName}</p>}
-            <p className="text-slate-400 text-xs">Instagram Public Profile</p>
+            {result.fullName && <p className="text-muted-foreground text-sm truncate">{result.fullName}</p>}
+            <p className="text-muted-foreground/60 text-xs mt-0.5">Instagram Public Profile</p>
           </div>
-          <div className="shrink-0 bg-emerald-50 text-emerald-600 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-200">FOUND</div>
+          <Badge className="shrink-0 bg-primary/10 text-primary border-primary/20">FOUND</Badge>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-5">
-          {[['Followers', fmt(result.followers), false], ['Following', fmt(result.following), false], ['Posts', fmt(result.posts), false]].map(([label, val, locked]) => (
-            <div key={label} className="text-center bg-slate-50 rounded-xl p-3 sm:p-4">
-              <p className="text-xs text-slate-400 mb-1">{label}</p>
-              <p className="font-bold text-slate-800 text-base sm:text-lg">{val}</p>
-            </div>
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {[['Followers', fmt(result.followers)], ['Following', fmt(result.following)], ['Posts', fmt(result.posts)]].map(([label, val]) => (
+            <Card key={label} className="text-center border-border/50 bg-muted/30">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1 font-medium">{label}</p>
+                <p className="font-bold text-foreground text-xl">{val}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-          {[['Engagement Rate', result.engagement + '%', true], ['Recent Likes', fmt(result.recentLikes), true], ['New Followings (30d)', '••••', true], ['Story Activity', '••••', true]].map(([label, val, locked]) => (
-            <div key={label} className={`relative rounded-xl p-4 border ${locked ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200'}`}>
-              <p className="text-xs text-slate-400 mb-1">{label}</p>
-              {locked ? (
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-slate-800">{val === '••••' ? <span className="blur-sm select-none">12.4K</span> : val}</p>
-                  {val === '••••' && <Lock className="w-3.5 h-3.5 text-slate-300" />}
-                </div>
-              ) : <p className="font-bold text-slate-800">{val}</p>}
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          {[['Engagement Rate', result.engagement + '%', false], ['Recent Likes', fmt(result.recentLikes), false], ['New Followings (30d)', '••••', true], ['Story Activity', '••••', true]].map(([label, val, locked]) => (
+            <Card key={label} className={cn("border-border/50", locked ? "bg-muted/20" : "bg-card")}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1 font-medium">{label}</p>
+                {locked ? (
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-foreground"><span className="blur-sm select-none">12.4K</span></p>
+                    <Lock className="w-3.5 h-3.5 text-muted-foreground/50" />
+                  </div>
+                ) : <p className="font-bold text-foreground">{val}</p>}
+              </CardContent>
+            </Card>
           ))}
         </div>
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100 text-center">
-          <p className="text-slate-700 font-semibold mb-1">Unlock Full Analytics Report</p>
-          <p className="text-slate-500 text-xs mb-4">See full timeline, AI insights, recent follows, likes, and activity patterns for @{result.username}</p>
-          <button onClick={onSignUp} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold px-8 py-2.5 rounded-full hover:shadow-lg hover:shadow-indigo-500/25 transition-all text-sm">
-            Create Free Account →
-          </button>
-        </div>
-      </div>
-    </div>
+        <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-200/50 dark:border-indigo-800/30">
+          <CardContent className="p-6 text-center">
+            <Sparkles className="w-8 h-8 text-indigo-500 mx-auto mb-3" />
+            <p className="text-foreground font-bold text-lg mb-2">Unlock Full Analytics Report</p>
+            <p className="text-muted-foreground text-sm mb-5">See full timeline, AI insights, recent follows, likes, and activity patterns for @{result.username}</p>
+            <Button onClick={onSignUp} className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-8 py-6 rounded-full hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+              Create Free Account
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+      </CardContent>
+    </Card>
   );
 };
 

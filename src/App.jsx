@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import {
   Activity, Search, ShieldCheck, UserX, BarChart2, Brain, ThumbsUp,
@@ -16,18 +16,45 @@ import { useI18n } from './lib/i18n';
 import { canAccess } from './lib/tiers';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import AccessGate from './components/AccessGate';
-import {
-  BlogPageView, AffiliateView, ToolkitPageView,
-  ThreadsDownloaderView, CelebritiesView, HashtagGeneratorView,
-  ShadowbanCheckerView, RecentFollowerView, UnfollowerView,
-  FollowerExportView, InstagramCommentsView, FacebookPostsView,
-  TikTokView, LinkedInPostsView, LinkedInProfileView, YouTubeTranscriptView,
-} from './views';
-import { StoryViewerView, PostViewerView } from './apify-views';
+import MintingLoader from './components/MintingLoader';
 import { fetchInstagramProfile } from './lib/apify';
-import Dashboard from './components/Dashboard';
-import { HighlightsViewerView, LinksViewerView, RepostsViewerView, LikeViewerView } from './pages/NewTools';
-import { ActivityTrackerPage, AISentimentPage, FollowerGrowthPage, CompetitorAnalysisPage } from './pages/AnalyticsPages';
+
+/* ─── Lazy-loaded components for code-splitting ────────────────────────── */
+const Dashboard = lazy(() => import('./components/Dashboard'));
+
+// Views (2550 lines) - split by feature
+const BlogPageView = lazy(() => import('./views').then(m => ({ default: m.BlogPageView })));
+const AffiliateView = lazy(() => import('./views').then(m => ({ default: m.AffiliateView })));
+const ToolkitPageView = lazy(() => import('./views').then(m => ({ default: m.ToolkitPageView })));
+const ThreadsDownloaderView = lazy(() => import('./views').then(m => ({ default: m.ThreadsDownloaderView })));
+const CelebritiesView = lazy(() => import('./views').then(m => ({ default: m.CelebritiesView })));
+const HashtagGeneratorView = lazy(() => import('./views').then(m => ({ default: m.HashtagGeneratorView })));
+const ShadowbanCheckerView = lazy(() => import('./views').then(m => ({ default: m.ShadowbanCheckerView })));
+const RecentFollowerView = lazy(() => import('./views').then(m => ({ default: m.RecentFollowerView })));
+const UnfollowerView = lazy(() => import('./views').then(m => ({ default: m.UnfollowerView })));
+const FollowerExportView = lazy(() => import('./views').then(m => ({ default: m.FollowerExportView })));
+const InstagramCommentsView = lazy(() => import('./views').then(m => ({ default: m.InstagramCommentsView })));
+const FacebookPostsView = lazy(() => import('./views').then(m => ({ default: m.FacebookPostsView })));
+const TikTokView = lazy(() => import('./views').then(m => ({ default: m.TikTokView })));
+const LinkedInPostsView = lazy(() => import('./views').then(m => ({ default: m.LinkedInPostsView })));
+const LinkedInProfileView = lazy(() => import('./views').then(m => ({ default: m.LinkedInProfileView })));
+const YouTubeTranscriptView = lazy(() => import('./views').then(m => ({ default: m.YouTubeTranscriptView })));
+
+// Apify views
+const StoryViewerView = lazy(() => import('./apify-views').then(m => ({ default: m.StoryViewerView })));
+const PostViewerView = lazy(() => import('./apify-views').then(m => ({ default: m.PostViewerView })));
+
+// New tools pages
+const HighlightsViewerView = lazy(() => import('./pages/NewTools').then(m => ({ default: m.HighlightsViewerView })));
+const LinksViewerView = lazy(() => import('./pages/NewTools').then(m => ({ default: m.LinksViewerView })));
+const RepostsViewerView = lazy(() => import('./pages/NewTools').then(m => ({ default: m.RepostsViewerView })));
+const LikeViewerView = lazy(() => import('./pages/NewTools').then(m => ({ default: m.LikeViewerView })));
+
+// Analytics pages
+const ActivityTrackerPage = lazy(() => import('./pages/AnalyticsPages').then(m => ({ default: m.ActivityTrackerPage })));
+const AISentimentPage = lazy(() => import('./pages/AnalyticsPages').then(m => ({ default: m.AISentimentPage })));
+const FollowerGrowthPage = lazy(() => import('./pages/AnalyticsPages').then(m => ({ default: m.FollowerGrowthPage })));
+const CompetitorAnalysisPage = lazy(() => import('./pages/AnalyticsPages').then(m => ({ default: m.CompetitorAnalysisPage })));
 
 /* ─── Helper: Proxy Instagram CDN images to bypass CORS ─────────────────── */
 const proxyImageUrl = (url) => {
@@ -469,36 +496,41 @@ export default function App() {
       </nav>
 
       <main className="pt-16">
+        {/* Non-lazy views render immediately */}
         {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} demoResult={demoResult} setDemoResult={setDemoResult} searchError={searchError} setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
-        {activeTab === 'dashboard' && (user ? <Dashboard /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
         {activeTab === 'pricing' && <PricingView />}
-        {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
         {activeTab === 'help-center' && <HelpCenterView />}
-        {activeTab === 'affiliate' && <AffiliateView />}
-        {activeTab === 'toolkit' && <ToolkitPageView setActiveTab={setActiveTab} />}
-        {activeTab === 'threads-downloader' && <ThreadsDownloaderView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
-        {activeTab === 'celebrities' && <CelebritiesView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
-        {activeTab === 'story-viewer' && <StoryViewerView />}
-        {activeTab === 'post-viewer' && <PostViewerView />}
-        {activeTab === 'hashtag-generator' && <HashtagGeneratorView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
-        {activeTab === 'shadowban-checker' && <ShadowbanCheckerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
-        {activeTab === 'recent-follower' && <RecentFollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} user={user} setAuthOpen={setAuthOpen} />}
-        {activeTab === 'unfollower' && <UnfollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
-        {activeTab === 'follower-export' && <FollowerExportView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
-        {activeTab === 'instagram-comments' && <InstagramCommentsView />}
-        {activeTab === 'facebook-posts' && <FacebookPostsView />}
-        {activeTab === 'tiktok' && <TikTokView />}
-        {activeTab === 'linkedin-posts' && <LinkedInPostsView />}
-        {activeTab === 'linkedin-profile' && <LinkedInProfileView isAdmin={user?.email?.endsWith('@activitymint.com')} />}
-        {activeTab === 'youtube-transcript' && <YouTubeTranscriptView />}
-        {activeTab === 'highlights-viewer' && <HighlightsViewerView />}
-        {activeTab === 'links-viewer' && <LinksViewerView />}
-        {activeTab === 'reposts-viewer' && <RepostsViewerView />}
-        {activeTab === 'like-viewer' && <LikeViewerView />}
-        {activeTab === 'activity-tracker' && <ActivityTrackerPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
-        {activeTab === 'ai-sentiment' && <AISentimentPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
-        {activeTab === 'follower-growth' && <FollowerGrowthPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
-        {activeTab === 'competitor-analysis' && <CompetitorAnalysisPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+
+        {/* Lazy-loaded views wrapped in Suspense for code-splitting */}
+        <Suspense fallback={<MintingLoader />}>
+          {activeTab === 'dashboard' && (user ? <Dashboard /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
+          {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
+          {activeTab === 'affiliate' && <AffiliateView />}
+          {activeTab === 'toolkit' && <ToolkitPageView setActiveTab={setActiveTab} />}
+          {activeTab === 'threads-downloader' && <ThreadsDownloaderView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
+          {activeTab === 'celebrities' && <CelebritiesView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
+          {activeTab === 'story-viewer' && <StoryViewerView />}
+          {activeTab === 'post-viewer' && <PostViewerView />}
+          {activeTab === 'hashtag-generator' && <HashtagGeneratorView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
+          {activeTab === 'shadowban-checker' && <ShadowbanCheckerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />}
+          {activeTab === 'recent-follower' && <RecentFollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} user={user} setAuthOpen={setAuthOpen} />}
+          {activeTab === 'unfollower' && <UnfollowerView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
+          {activeTab === 'follower-export' && <FollowerExportView searchQuery={searchQuery} setSearchQuery={setSearchQuery} setActiveTab={setActiveTab} />}
+          {activeTab === 'instagram-comments' && <InstagramCommentsView />}
+          {activeTab === 'facebook-posts' && <FacebookPostsView />}
+          {activeTab === 'tiktok' && <TikTokView />}
+          {activeTab === 'linkedin-posts' && <LinkedInPostsView />}
+          {activeTab === 'linkedin-profile' && <LinkedInProfileView isAdmin={user?.email?.endsWith('@activitymint.com')} />}
+          {activeTab === 'youtube-transcript' && <YouTubeTranscriptView />}
+          {activeTab === 'highlights-viewer' && <HighlightsViewerView />}
+          {activeTab === 'links-viewer' && <LinksViewerView />}
+          {activeTab === 'reposts-viewer' && <RepostsViewerView />}
+          {activeTab === 'like-viewer' && <LikeViewerView />}
+          {activeTab === 'activity-tracker' && <ActivityTrackerPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+          {activeTab === 'ai-sentiment' && <AISentimentPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+          {activeTab === 'follower-growth' && <FollowerGrowthPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+          {activeTab === 'competitor-analysis' && <CompetitorAnalysisPage setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+        </Suspense>
       </main>
 
       <footer className="bg-white border-t border-slate-100 pt-16 pb-8">

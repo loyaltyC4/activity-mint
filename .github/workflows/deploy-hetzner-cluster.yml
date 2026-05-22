@@ -17,6 +17,7 @@ on:
           - status
           - restart
           - logs
+          - diagnostics
 
 jobs:
   deploy:
@@ -139,4 +140,22 @@ jobs:
           # ── LOGS ───────────────────────────────────────────────────────────
           if [ "$ACTION" = "logs" ]; then
             ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml logs --tail=100"
+          fi
+
+          # ── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ──
+          if [ "$ACTION" = "diagnostics" ]; then
+            for w in 1 2 3 4 5; do
+              echo "=========================================="
+              echo "=== WORKER_${w} DIAGNOSTICS ==="
+              echo "=========================================="
+              echo "--- URL + page state from worker logs ---"
+              ssh_run "docker logs am_worker_${w} 2>&1 | grep -E 'url=|page title|body snippet|WARN|ERROR' | tail -10"
+              echo ""
+              echo "--- HTML form inputs from /app/profile/last_login_failure.html ---"
+              ssh_run "ls -la /opt/activitymint/profiles/profile_${w}/last_login_failure.html 2>/dev/null && grep -oE '<input[^>]+>' /opt/activitymint/profiles/profile_${w}/last_login_failure.html | head -10 || echo '(no HTML dump found)'"
+              echo ""
+              echo "--- Form-related HTML around inputs ---"
+              ssh_run "grep -oE '(<form|<input|aria-label=\"[^\"]+\")' /opt/activitymint/profiles/profile_${w}/last_login_failure.html 2>/dev/null | head -20 || echo '(no HTML)'"
+              echo ""
+            done
           fi

@@ -223,8 +223,34 @@ async function ensureLoggedIn(page, creds, log) {
 
   if (!outcome) {
     log.warn(`no recognised state after credential submit for ${username}`);
-    await sleep(2000);
+    // Capture page state so we can see what Instagram is showing
+    try {
+      const url = page.url();
+      const title = await page.title().catch(() => '');
+      const body = await page.locator('body').innerText({ timeout: 4000 }).catch(() => '');
+      log.warn(`post-submit url=${url}`);
+      log.warn(`post-submit title=${title}`);
+      log.warn(`post-submit body=${(body||'').replace(/\s+/g,' ').slice(0,600)}`);
+      await page.screenshot({ path: `/app/profile/last_login_failure.png`, fullPage: false }).catch(() => {});
+      const fs = require('fs');
+      const html = await page.content().catch(() => '');
+      if (html) fs.writeFileSync(`/app/profile/last_login_failure.html`, html);
+    } catch (err) {
+      log.warn(`unknown-state capture failed: ${err.message}`);
+    }
+    // URL-based recovery: if the URL has changed away from /accounts/login,
+    // try a stronger isLoggedIn check after a small grace period.
+    await sleep(2500);
     if (await isLoggedIn(page, log)) return { ok: true };
+    // If we redirected away from the login form but didn't reach home, still surface the state
+    const afterUrl = page.url();
+    if (!afterUrl.includes('/accounts/login')) {
+      log.warn(`post-submit landed at ${afterUrl} but isLoggedIn() = false`);
+      // Try dismissing any post-login interstitials and recheck once
+      await dismissDialogs(page, log);
+      await sleep(1500);
+      if (await isLoggedIn(page, log)) return { ok: true };
+    }
     return { ok: false, reason: 'unknown_state_after_login' };
   }
 

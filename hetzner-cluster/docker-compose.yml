@@ -1,0 +1,167 @@
+# Activity Mint — 5-worker isolated Instagram scraping cluster
+#
+# Each worker container holds exactly ONE Instagram account + ONE proxy IP
+# + ONE Chrome profile. Containers cannot see each other (separate networks).
+# The orchestrator on port 3001 is the only entrypoint Vercel talks to.
+#
+# Launch all 5 workers + orchestrator + redis with:
+#   docker compose up -d
+#
+# All sensitive values (account passwords, 2FA secrets, proxy creds) MUST
+# be set in /opt/activitymint/.env on the Hetzner host. NEVER commit .env.
+
+version: "3.9"
+
+x-worker-base: &worker-base
+  build: ./worker
+  restart: unless-stopped
+  shm_size: "2gb"               # Chromium needs shared memory
+  environment:
+    PROXY_USER: ${PROXY_USER}
+    PROXY_PASS: ${PROXY_PASS}
+    PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+    SCRAPER_SECRET: ${SCRAPER_SECRET}
+    PORT: 3010
+
+services:
+  # ── Orchestrator (port 3001, only externally-exposed service) ───────────
+  orchestrator:
+    build: ./orchestrator
+    container_name: am_orchestrator
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      WORKER_HOSTS: "worker_1:3010,worker_2:3010,worker_3:3010,worker_4:3010,worker_5:3010"
+      REDIS_URL: "redis://redis:6379"
+      ROUTING_STRATEGY: "sticky"  # sticky | round_robin
+    depends_on:
+      - redis
+      - worker_1
+      - worker_2
+      - worker_3
+      - worker_4
+      - worker_5
+    networks:
+      - am_public
+
+  # ── Worker 1: nezaretci_01 + 168.158.21.28 + profile_1 ────────────────
+  worker_1:
+    <<: *worker-base
+    container_name: am_worker_1
+    environment:
+      WORKER_ID: worker_1
+      IG_USERNAME: ${IG_USER_1}
+      IG_PASSWORD: ${IG_PASS_1}
+      IG_2FA_SECRET: ${IG_2FA_1}
+      PROXY_HOST: 168.158.21.28
+      PROXY_USER: ${PROXY_USER}
+      PROXY_PASS: ${PROXY_PASS}
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      PORT: 3010
+    volumes:
+      - /opt/activitymint/profiles/profile_1:/app/profile
+    networks:
+      - am_public
+
+  # ── Worker 2: qyzdartoby + 165.254.99.133 + profile_2 ─────────────────
+  worker_2:
+    <<: *worker-base
+    container_name: am_worker_2
+    environment:
+      WORKER_ID: worker_2
+      IG_USERNAME: ${IG_USER_2}
+      IG_PASSWORD: ${IG_PASS_2}
+      IG_2FA_SECRET: ${IG_2FA_2}
+      PROXY_HOST: 165.254.99.133
+      PROXY_USER: ${PROXY_USER}
+      PROXY_PASS: ${PROXY_PASS}
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      PORT: 3010
+    volumes:
+      - /opt/activitymint/profiles/profile_2:/app/profile
+    networks:
+      - am_public
+
+  # ── Worker 3: nigar.fan.3 + 65.195.109.107 + profile_3 ────────────────
+  worker_3:
+    <<: *worker-base
+    container_name: am_worker_3
+    environment:
+      WORKER_ID: worker_3
+      IG_USERNAME: ${IG_USER_3}
+      IG_PASSWORD: ${IG_PASS_3}
+      IG_2FA_SECRET: ${IG_2FA_3}
+      PROXY_HOST: 65.195.109.107
+      PROXY_USER: ${PROXY_USER}
+      PROXY_PASS: ${PROXY_PASS}
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      PORT: 3010
+    volumes:
+      - /opt/activitymint/profiles/profile_3:/app/profile
+    networks:
+      - am_public
+
+  # ── Worker 4: monicabokova_6dpevc + 161.77.140.110 + profile_4 ────────
+  worker_4:
+    <<: *worker-base
+    container_name: am_worker_4
+    environment:
+      WORKER_ID: worker_4
+      IG_USERNAME: ${IG_USER_4}
+      IG_PASSWORD: ${IG_PASS_4}
+      IG_2FA_SECRET: ${IG_2FA_4}
+      PROXY_HOST: 161.77.140.110
+      PROXY_USER: ${PROXY_USER}
+      PROXY_PASS: ${PROXY_PASS}
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      PORT: 3010
+    volumes:
+      - /opt/activitymint/profiles/profile_4:/app/profile
+    networks:
+      - am_public
+
+  # ── Worker 5: asimaliyev410 + 77.47.158.43 + profile_5 ────────────────
+  worker_5:
+    <<: *worker-base
+    container_name: am_worker_5
+    environment:
+      WORKER_ID: worker_5
+      IG_USERNAME: ${IG_USER_5}
+      IG_PASSWORD: ${IG_PASS_5}
+      IG_2FA_SECRET: ${IG_2FA_5}
+      PROXY_HOST: 77.47.158.43
+      PROXY_USER: ${PROXY_USER}
+      PROXY_PASS: ${PROXY_PASS}
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      PORT: 3010
+    volumes:
+      - /opt/activitymint/profiles/profile_5:/app/profile
+    networks:
+      - am_public
+
+  # ── Redis for shared job state + sticky routing cache ─────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: am_redis
+    restart: unless-stopped
+    networks:
+      - am_public
+    volumes:
+      - redis_data:/data
+
+# NOTE: Workers share am_public to reach redis + be reachable by orchestrator,
+# but they're firewalled from the public internet (only orchestrator has a
+# port mapping). Each worker only knows its own credentials via env vars.
+networks:
+  am_public:
+    driver: bridge
+
+volumes:
+  redis_data:

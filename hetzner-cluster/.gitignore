@@ -1,0 +1,17 @@
+# NEVER commit the real .env (Instagram passwords, 2FA secrets, proxy creds)
+.env
+.env.local
+.env.production
+
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Logs
+logs/
+*.log
+
+# Local profile dirs (only on Hetzner host, never in repo)
+profiles/

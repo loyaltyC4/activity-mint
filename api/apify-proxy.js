@@ -15,6 +15,34 @@ const SCRAPER_SERVICE_URL = process.env.SCRAPER_SERVICE_URL;
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET;
 const BASE = 'https://api.apify.com/v2';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Proxy pool — 5 residential IPs, round-robin rotation
+// Each IP is paired with a dedicated Chrome profile on the Hetzner server
+// ─────────────────────────────────────────────────────────────────────────────
+const PROXY_POOL = [
+  { host: '168.158.21.28',   profile: 'profile_1' },
+  { host: '165.254.99.133',  profile: 'profile_2' },
+  { host: '65.195.109.107',  profile: 'profile_3' },
+  { host: '161.77.140.110',  profile: 'profile_4' },
+  { host: '77.47.158.43',    profile: 'profile_5' },
+];
+const PROXY_PORT_HTTP  = 50100;
+const PROXY_PORT_SOCKS = 50101;
+const PROXY_USER       = 'slyvesterchiko1';
+const PROXY_PASS       = 'BfkeoNCVTY';
+
+// Simple round-robin counter (resets per cold-start, fine for Vercel serverless)
+let _proxyIdx = 0;
+function pickProxy() {
+  const entry = PROXY_POOL[_proxyIdx % PROXY_POOL.length];
+  _proxyIdx++;
+  return {
+    ...entry,
+    httpUrl:   `http://${PROXY_USER}:${PROXY_PASS}@${entry.host}:${PROXY_PORT_HTTP}`,
+    socks5Url: `socks5://${PROXY_USER}:${PROXY_PASS}@${entry.host}:${PROXY_PORT_SOCKS}`,
+  };
+}
+
 if (!APIFY_TOKEN) console.error('APIFY_TOKEN environment variable is not configured');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -26,11 +54,19 @@ async function callScraperService(action, payload) {
   if (!SCRAPER_SERVICE_URL) {
     throw new Error('SCRAPER_SERVICE_URL is not configured. Set it to your Hetzner scraper URL (e.g. http://IP:3001) in Vercel env vars.');
   }
+
+  // Pick a proxy + profile for this request (round-robin across 5 residential IPs)
+  const proxy = pickProxy();
+
   const res = await fetch(`${SCRAPER_SERVICE_URL}/scrape`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(SCRAPER_SECRET ? { 'X-Secret': SCRAPER_SECRET } : {}),
+      // Tell the scraper which proxy + Chrome profile to use for this request
+      'X-Proxy-Url':    proxy.httpUrl,
+      'X-Proxy-Socks':  proxy.socks5Url,
+      'X-Profile-Id':   proxy.profile,
     },
     body: JSON.stringify({ action, payload }),
   });

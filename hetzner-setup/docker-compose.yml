@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  scraper:
+    image: cloakbrowser/scraper:latest   # replace with your actual image
+    container_name: activitymint_scraper
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      # Mount each profile directory so Chrome state persists across restarts
+      - /opt/activitymint/profiles/profile_1:/app/profiles/profile_1
+      - /opt/activitymint/profiles/profile_2:/app/profiles/profile_2
+      - /opt/activitymint/profiles/profile_3:/app/profiles/profile_3
+      - /opt/activitymint/profiles/profile_4:/app/profiles/profile_4
+      - /opt/activitymint/profiles/profile_5:/app/profiles/profile_5
+      # Mount proxy config so the scraper can read it
+      - /opt/activitymint/proxies.json:/app/proxies.json:ro
+    environment:
+      # Auth secret that Vercel sends in X-Secret header
+      - SCRAPER_SECRET=${SCRAPER_SECRET}
+      # Proxy rotation strategy: round-robin | least-used | random
+      - PROXY_STRATEGY=round-robin
+      # Path inside container to the proxy list
+      - PROXY_CONFIG=/app/proxies.json
+      # Number of parallel browser workers (one per proxy/profile)
+      - WORKER_COUNT=5
+      # Instagram session warmup: login once per profile and save cookies
+      - WARMUP_ON_START=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: redis for job queue if your scraper supports it
+  redis:
+    image: redis:7-alpine
+    container_name: activitymint_redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

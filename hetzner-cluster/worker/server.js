@@ -24,7 +24,12 @@
 'use strict';
 
 const express = require('express');
-const { launchPersistentContext } = require('cloakbrowser');
+// cloakbrowser is an ESM-only package; load it via dynamic import() from CJS
+let cloakbrowserModule = null;
+async function getCloakbrowser() {
+  if (!cloakbrowserModule) cloakbrowserModule = await import('cloakbrowser');
+  return cloakbrowserModule;
+}
 
 const { ensureLoggedIn, isLoggedIn } = require('./scrapers/login');
 const { scrapeProfile } = require('./scrapers/profile');
@@ -108,6 +113,7 @@ async function bootBrowser() {
     const proxyUrl = `http://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_HTTP_PORT}`;
     log.info(`launching CloakBrowser (proxy=${PROXY_HOST}:${PROXY_HTTP_PORT}, profileDir=${PROFILE_DIR})`);
     try {
+      const { launchPersistentContext } = await getCloakbrowser();
       const ctx = await launchPersistentContext({
         userDataDir: PROFILE_DIR,
         headless: true,

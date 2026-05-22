@@ -26,7 +26,8 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 # Pre-download CloakBrowser's patched Chromium binary at build time
 # (so the first request after `docker compose up -d` isn't a 200MB cold download)
-RUN node -e "require('cloakbrowser').ensureBinary().then(() => console.log('CloakBrowser binary ready')).catch(err => { console.error('ensureBinary failed:', err); process.exit(1); })"
+# cloakbrowser is ESM-only — must use dynamic import(), not require()
+RUN node -e "import('cloakbrowser').then(m => m.ensureBinary()).then(() => console.log('CloakBrowser binary ready')).catch(err => { console.error('ensureBinary failed:', err); process.exit(1); })"
 
 # App source
 COPY . .

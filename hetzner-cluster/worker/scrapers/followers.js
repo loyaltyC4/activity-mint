@@ -3,7 +3,7 @@
  *
  * Approach:
  *  1. Navigate to /{username}/
- *  2. Click the "followers" or "following" link in the header
+ *  2. Click the "followers" or "following" element in the header (multi-selector race)
  *  3. Wait for the modal to mount; locate its scroll container
  *  4. Scroll-paginate until we've gathered `limit` entries (or no growth)
  *  5. Extract each row's username / fullName / avatar / verified / private
@@ -13,32 +13,73 @@
 
 'use strict';
 
+const fs = require('fs');
 const { humanDelay, sleep, randInt, isBlockedSignal } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
 
 /**
- * Open the followers/following modal by clicking the header link.
- * Returns the dialog/role=dialog locator on success, else null.
+ * Open the followers/following modal by clicking the header element.
+ * IG has cycled through several markup shapes for this element:
+ *   - <a href="/{u}/followers/">  (older)
+ *   - <a role="link" href="/{u}/followers/"> (current)
+ *   - <button> ... </button> with JS-handled SPA click (sometimes)
+ *   - text-only span inside a clickable parent
+ * Tries each in order, then falls back to a getByRole('link', { name: /followers/i }).
+ * Returns the dialog locator on success, else null.
  */
 async function openModal(page, username, mode, log) {
-  // The link is an <a> whose href ends with /followers/ or /following/
   const hrefTail = mode === 'followers' ? '/followers/' : '/following/';
-  const link = page.locator(`a[href$="${hrefTail}"]`).first();
-  try {
-    await link.waitFor({ state: 'visible', timeout: 15000 });
-  } catch (err) {
-    log.warn(`${mode} link not visible for ${username}: ${err.message}`);
+  const candidates = [
+    page.locator(`a[href$="${hrefTail}"]`).first(),
+    page.locator(`a[role="link"][href$="${hrefTail}"]`).first(),
+    page.locator(`a[href*="${hrefTail}"]`).first(),
+    page.getByRole('link', { name: new RegExp(`^[\\d,.kKmMbB]+\\s+${mode}\\b`, 'i') }).first(),
+    page.getByRole('button', { name: new RegExp(`^[\\d,.kKmMbB]+\\s+${mode}\\b`, 'i') }).first(),
+    page.locator(`a:has-text("${mode}")`).first(),
+  ];
+
+  let clicked = false;
+  for (let i = 0; i < candidates.length; i++) {
+    const cand = candidates[i];
+    try {
+      const visible = await cand.isVisible({ timeout: 1500 }).catch(() => false);
+      if (!visible) continue;
+      await cand.click({ timeout: 3000 });
+      log.info(`${mode} link clicked via candidate #${i}`);
+      clicked = true;
+      break;
+    } catch (err) {
+      log.warn(`${mode} candidate #${i} click failed: ${err.message}`);
+    }
+  }
+
+  if (!clicked) {
+    // Capture what the profile page looks like so we can update selectors next time
+    try {
+      const url = page.url();
+      const title = await page.title().catch(() => '');
+      const body = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
+      log.warn(`${mode} link not found. url=${url} title=${title}`);
+      log.warn(`body snippet: ${(body||'').replace(/\s+/g,' ').slice(0,400)}`);
+      await page.screenshot({ path: `/app/profile/last_${mode}_failure.png`, fullPage: false }).catch(() => {});
+      const html = await page.content().catch(() => '');
+      if (html) fs.writeFileSync(`/app/profile/last_${mode}_failure.html`, html);
+    } catch (_) {}
     return null;
   }
-  await link.click().catch((err) => log.warn(`${mode} link click failed: ${err.message}`));
 
-  // Wait for the dialog
+  // Wait for the dialog. IG uses role=dialog reliably for this modal.
   const dialog = page.locator('div[role="dialog"]').last();
   try {
     await dialog.waitFor({ state: 'visible', timeout: 15000 });
   } catch (err) {
     log.warn(`${mode} dialog never appeared: ${err.message}`);
+    try {
+      await page.screenshot({ path: `/app/profile/last_${mode}_failure.png`, fullPage: false }).catch(() => {});
+      const html = await page.content().catch(() => '');
+      if (html) fs.writeFileSync(`/app/profile/last_${mode}_failure.html`, html);
+    } catch (_) {}
     return null;
   }
   return dialog;
@@ -67,8 +108,7 @@ async function findScrollContainer(page, dialog) {
 }
 
 /**
- * Extract user rows currently in the DOM. We look at <a href="/{u}/"> anchors
- * within the dialog that contain an <img alt="..."> profile pic.
+ * Extract user rows currently in the DOM.
  */
 async function extractRows(dialog) {
   return dialog.evaluate((root) => {
@@ -79,11 +119,9 @@ async function extractRows(dialog) {
       const m = href.match(/^\/([A-Za-z0-9._]{1,30})\/?$/);
       if (!m) continue;
       const uname = m[1];
-      // Skip non-username paths like /explore/, /reels/, /direct/, etc.
       if (['explore', 'reels', 'direct', 'accounts', 'p', 'tv'].includes(uname)) continue;
       if (seen.has(uname)) continue;
 
-      // Find the row container (the closest ancestor that also holds the avatar img)
       let row = a;
       for (let i = 0; i < 6 && row.parentElement; i++) {
         if (row.parentElement.querySelector('img')) { row = row.parentElement; break; }
@@ -92,28 +130,25 @@ async function extractRows(dialog) {
       const img = row.querySelector('img');
       const profilePicUrl = img ? (img.getAttribute('src') || null) : null;
 
-      // Full name: usually a span within the row that ISN'T the username
       let fullName = null;
       const spans = row.querySelectorAll('span');
       for (const sp of spans) {
         const txt = (sp.innerText || '').trim();
         if (!txt) continue;
         if (txt === uname) continue;
-        if (txt.toLowerCase().startsWith('follow')) continue; // skip "Follow" button labels
+        if (txt.toLowerCase().startsWith('follow')) continue;
         if (txt.length > 80) continue;
-        // Prefer the first non-username text span
         fullName = txt;
         break;
       }
 
-      // Verified badge presence
       const isVerified = !!row.querySelector('svg[aria-label="Verified"], svg[aria-label="verified"]');
 
       seen.set(uname, {
         username: uname,
         fullName,
         profilePicUrl,
-        isPrivate: false, // we can only know this from a deeper fetch; default false
+        isPrivate: false,
         isVerified,
       });
     }
@@ -136,7 +171,6 @@ async function collectByScrolling(page, dialog, scrollHandle, limit, log) {
       log.info(`collected limit reached: ${collected.size} >= ${limit}`);
       break;
     }
-    // Scroll
     const grew = await page.evaluate((el) => {
       if (!el) return false;
       const before = el.scrollHeight;
@@ -144,7 +178,6 @@ async function collectByScrolling(page, dialog, scrollHandle, limit, log) {
       return el.scrollHeight !== before || el.scrollTop > 0;
     }, scrollHandle).catch(() => false);
     await sleep(500 + randInt(50, 250));
-    // Determine if new content appeared in the next pass
     const sizeBefore = collected.size;
     const newRows = await extractRows(dialog).catch(() => []);
     for (const r of newRows) {
@@ -173,7 +206,7 @@ async function scrapeList(page, payload, mode, log) {
   const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
   log.info(`scrape ${mode} -> ${username} (limit=${limit})`);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await humanDelay(800, 1500);
+  await humanDelay(1200, 2200);  // give SPA chunks time to hydrate
 
   const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
   if (isBlockedSignal(bodyText)) {
@@ -196,7 +229,6 @@ async function scrapeList(page, payload, mode, log) {
 
   const rows = await collectByScrolling(page, dialog, scrollHandle, limit, log);
 
-  // Re-check for late-appearing block signal
   const after = await page.locator('body').innerText({ timeout: 1000 }).catch(() => '');
   if (isBlockedSignal(after) && rows.length === 0) {
     const err = new Error('blocked_signal_during_scroll');

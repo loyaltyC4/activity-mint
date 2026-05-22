@@ -1,72 +1,43 @@
 // Vercel Serverless Function: Apify Actor Proxy + CloakBrowser Scraper Router
 //
 // Routes:
-//   - followers, following, stories, profile → CloakBrowser scraper service (Hetzner)
+//   - followers, following, stories, profile → CloakBrowser scraper cluster (Hetzner orchestrator)
 //   - profile-with-posts → scraper profile + Apify profile for latestPosts
 //   - comments, facebook, tiktok, linkedin, youtube → Apify actors
 //
+// The Hetzner orchestrator on :3001 is responsible for picking which of the 5
+// workers handles each scrape (sticky-by-username with least-loaded fallback).
+// Each worker is pre-paired with its own Instagram account + dedicated SOCKS5
+// proxy + persistent CloakBrowser profile — this function does NOT pick proxies
+// or profiles anymore; the orchestrator owns that decision.
+//
 // Env vars (Vercel Settings → Environment Variables):
 //   APIFY_TOKEN          — your Apify API token
-//   SCRAPER_SERVICE_URL  — Hetzner URL of the CloakBrowser service (e.g. http://IP:3001)
-//   SCRAPER_SECRET       — shared secret for CloakBrowser service auth
+//   SCRAPER_SERVICE_URL  — Hetzner orchestrator URL (e.g. http://46.224.227.199:3001)
+//   SCRAPER_SECRET       — shared secret for orchestrator auth (X-Secret header)
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const SCRAPER_SERVICE_URL = process.env.SCRAPER_SERVICE_URL;
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET;
 const BASE = 'https://api.apify.com/v2';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Proxy pool — 5 residential IPs, round-robin rotation
-// Each IP is paired with a dedicated Chrome profile on the Hetzner server
-// ─────────────────────────────────────────────────────────────────────────────
-const PROXY_POOL = [
-  { host: '168.158.21.28',   profile: 'profile_1' },
-  { host: '165.254.99.133',  profile: 'profile_2' },
-  { host: '65.195.109.107',  profile: 'profile_3' },
-  { host: '161.77.140.110',  profile: 'profile_4' },
-  { host: '77.47.158.43',    profile: 'profile_5' },
-];
-const PROXY_PORT_HTTP  = 50100;
-const PROXY_PORT_SOCKS = 50101;
-const PROXY_USER       = 'slyvesterchiko1';
-const PROXY_PASS       = 'BfkeoNCVTY';
-
-// Simple round-robin counter (resets per cold-start, fine for Vercel serverless)
-let _proxyIdx = 0;
-function pickProxy() {
-  const entry = PROXY_POOL[_proxyIdx % PROXY_POOL.length];
-  _proxyIdx++;
-  return {
-    ...entry,
-    httpUrl:   `http://${PROXY_USER}:${PROXY_PASS}@${entry.host}:${PROXY_PORT_HTTP}`,
-    socks5Url: `socks5://${PROXY_USER}:${PROXY_PASS}@${entry.host}:${PROXY_PORT_SOCKS}`,
-  };
-}
-
 if (!APIFY_TOKEN) console.error('APIFY_TOKEN environment variable is not configured');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CloakBrowser scraper service proxy (for stories, following, followers)
+// CloakBrowser scraper service proxy (for stories, following, followers, profile)
 // ─────────────────────────────────────────────────────────────────────────────
 async function callScraperService(action, payload) {
   if (!SCRAPER_SERVICE_URL) {
-    throw new Error('SCRAPER_SERVICE_URL is not configured. Set it to your Hetzner scraper URL (e.g. http://IP:3001) in Vercel env vars.');
+    throw new Error('SCRAPER_SERVICE_URL is not configured. Set it to your Hetzner orchestrator URL (e.g. http://IP:3001) in Vercel env vars.');
   }
-
-  // Pick a proxy + profile for this request (round-robin across 5 residential IPs)
-  const proxy = pickProxy();
 
   const res = await fetch(`${SCRAPER_SERVICE_URL}/scrape`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(SCRAPER_SECRET ? { 'X-Secret': SCRAPER_SECRET } : {}),
-      // Tell the scraper which proxy + Chrome profile to use for this request
-      'X-Proxy-Url':    proxy.httpUrl,
-      'X-Proxy-Socks':  proxy.socks5Url,
-      'X-Profile-Id':   proxy.profile,
     },
     body: JSON.stringify({ action, payload }),
   });
@@ -144,8 +115,8 @@ export default async function handler(req, res) {
   try {
     let run, completed, items;
 
-    // ── ROUTED TO CLOAKBROWSER SERVICE ──────────────────────────────────────
-    // These actors don't work reliably on Apify, so we use our own scraper.
+    // ── ROUTED TO CLOAKBROWSER CLUSTER ──────────────────────────────────────
+    // These actors don't work reliably on Apify, so we use our own 5-worker cluster.
 
     if (action === 'followers') {
       const { username, limit = 200 } = payload;
@@ -171,7 +142,7 @@ export default async function handler(req, res) {
     if (action === 'profile') {
       const { username } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
-      // Try scraper service first (fast, ~7s, free)
+      // Try scraper cluster first (fast, ~7s, free)
       if (SCRAPER_SERVICE_URL) {
         try {
           const scraperItems = await callScraperService('profile', { username });
@@ -188,7 +159,7 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true, items });
           }
         } catch (scraperErr) {
-          console.warn(`[profile] Scraper service failed, falling back to Apify: ${scraperErr.message}`);
+          console.warn(`[profile] Scraper cluster failed, falling back to Apify: ${scraperErr.message}`);
         }
       }
       // Fallback to Apify (slower ~60s, includes latestPosts)

@@ -1,10 +1,21 @@
 /**
- * Activity Mint Worker — Express + Playwright (persistent Chromium profile).
+ * Activity Mint Worker — Express + CloakBrowser (persistent stealth Chromium profile).
  *
- * Runs ONE Instagram account behind ONE proxy IP.
+ * Runs ONE Instagram account behind ONE proxy IP with a persistent CloakBrowser profile.
+ *
+ * CloakBrowser features in use (set in launchPersistentContext options below):
+ *   - geoip: true       → auto-detects timezone + locale from the proxy exit IP,
+ *                         and auto-injects --fingerprint-webrtc-ip so WebRTC can't
+ *                         leak the host IP through the SOCKS/HTTPS tunnel.
+ *   - humanize: true    → mouse Bezier curves, per-character typing delays,
+ *                         realistic scroll easing on every Playwright call.
+ *   - persistent userDataDir → cookies/localStorage survive restarts (no incognito).
+ *   - Source-level Chromium patches (canvas, WebGL, audio, fonts, CDP input, etc.)
+ *     come built-in — no `--disable-blink-features=AutomationControlled` workaround
+ *     needed; that flag was just a hint, the real signals are patched at the binary.
  *
  * Lifecycle:
- *   - On boot: launch Chromium with persistent context at /app/profile, log in if needed.
+ *   - On boot: launch CloakBrowser with persistent context at /app/profile, log in if needed.
  *   - On each /scrape: serialise scrape jobs (single browser, single account).
  *   - On block: set state.blocked = true; return HTTP 429 until restart.
  *   - On crash: tear down browser, recreate on next request.
@@ -13,7 +24,7 @@
 'use strict';
 
 const express = require('express');
-const { chromium } = require('playwright');
+const { launchPersistentContext } = require('cloakbrowser');
 
 const { ensureLoggedIn, isLoggedIn } = require('./scrapers/login');
 const { scrapeProfile } = require('./scrapers/profile');
@@ -68,7 +79,7 @@ const state = {
   blockedReason: null, // string
 };
 
-let browserContext = null;        // Playwright BrowserContext (persistent)
+let browserContext = null;        // CloakBrowser BrowserContext (persistent)
 let workPage = null;              // single re-used Page
 let bootPromise = null;           // promise for the in-flight boot
 let lastResetDayUTC = currentUTCDay();
@@ -94,24 +105,21 @@ setInterval(maybeResetCounter, 60 * 1000).unref();
 async function bootBrowser() {
   if (bootPromise) return bootPromise;
   bootPromise = (async () => {
-    log.info(`launching Chromium (proxy=${PROXY_HOST}:${PROXY_HTTP_PORT}, profileDir=${PROFILE_DIR})`);
+    const proxyUrl = `http://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_HTTP_PORT}`;
+    log.info(`launching CloakBrowser (proxy=${PROXY_HOST}:${PROXY_HTTP_PORT}, profileDir=${PROFILE_DIR})`);
     try {
-      const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
+      const ctx = await launchPersistentContext({
+        userDataDir: PROFILE_DIR,
         headless: true,
-        proxy: {
-          server: `http://${PROXY_HOST}:${PROXY_HTTP_PORT}`,
-          username: PROXY_USER,
-          password: PROXY_PASS,
-        },
+        proxy: proxyUrl,
+        // CloakBrowser-specific:
+        geoip: true,        // auto timezone+locale from proxy exit IP, auto WebRTC IP spoof
+        humanize: true,     // bezier mouse, per-character typing, realistic scroll
+        // Standard Playwright options (passed straight through):
         viewport: { width: 1366, height: 800 },
         deviceScaleFactor: 1,
-        locale: 'en-US',
-        timezoneId: 'Europe/London',
-        userAgent:
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         args: [
           '--no-sandbox',
-          '--disable-blink-features=AutomationControlled',
           '--disable-dev-shm-usage',
         ],
       });
@@ -214,7 +222,6 @@ async function pump() {
 const app = express();
 app.use(express.json({ limit: '256kb' }));
 
-// Per-request log line (no bodies — they can include usernames but never creds)
 app.use((req, _res, next) => {
   log.info(`HTTP ${req.method} ${req.path}`);
   next();

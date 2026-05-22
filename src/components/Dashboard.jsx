@@ -26,6 +26,7 @@ import {
 import { saveSnapshotDB, getSnapshotsDB, migrateLocalSnapshots, saveSnapshotLocal } from '../lib/tracking';
 import { getCompetitors, addCompetitor, removeCompetitor, saveCompetitorSnapshot } from '../lib/competitors';
 import { getDigestPreferences, upsertDigestPreferences } from '../lib/digest';
+import AudienceInsights from './AudienceInsights';
 
 /* ─── shadcn/ui components ──────────────────────────────────────────────── */
 import { Button } from '@/components/ui/button';
@@ -968,6 +969,15 @@ export default function Dashboard() {
 
           {/* ── Health Score ──────────────────────────────────────────── */}
           <HealthScoreCard profile={profile} posts={posts} avgEngagement={avgEngagement} />
+
+          {/* ── Audience Insights with AI Suggestions ─────────────────── */}
+          <AudienceInsights
+            followers={followers}
+            posts={posts}
+            profile={profile}
+            onRefresh={handleRefresh}
+            isLoading={profileLoading}
+          />
 
           {/* ── Tracking History ──────────────────────────────────────── */}
           <TrackingSection username={selectedAccount?.username || selectedAccount} profile={profile} userId={user?.id} />

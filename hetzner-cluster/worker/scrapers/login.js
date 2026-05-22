@@ -24,19 +24,37 @@ const {
 
 const IG_HOME = 'https://www.instagram.com/';
 
+// Instagram has migrated the login form field names over time:
+//   - 2023 → name="username" / name="password"
+//   - 2026 → name="email"    / name="pass"   (current as of May 2026)
+// We probe both so the worker survives the next migration too.
+const USERNAME_SELECTORS = [
+  'input[name="email"]',                                  // current 2026
+  'input[name="username"]',                               // legacy
+  'input[aria-label="Phone number, username, or email"]', // older variant
+  'input[aria-label*="username" i]',
+  'input[aria-label*="email" i]',
+  'input[type="text"][autocomplete*="username" i]',
+];
+const PASSWORD_SELECTORS = [
+  'input[name="pass"]',                                   // current 2026
+  'input[name="password"]',                               // legacy
+  'input[type="password"]',                               // last resort
+];
+
 /**
  * Test whether the current page is a logged-in Instagram homepage.
- * We use a few signals: presence of nav, absence of login form, /accounts/login redirect.
  */
 async function isLoggedIn(page, log) {
-  // If the URL bounced to /accounts/login or /accounts/onetap then we're not logged in
   const url = page.url();
   if (url.includes('/accounts/login') || url.includes('/accounts/emailsignup')) {
     return false;
   }
-  // Look for the username/password fields — if present we are NOT logged in
-  const loginForm = await safeWaitForSelector(page, 'input[name="username"]', { timeout: 3000 });
-  if (loginForm) return false;
+  // Look for either of the username inputs — if present we are NOT logged in
+  for (const sel of USERNAME_SELECTORS) {
+    const found = await safeWaitForSelector(page, sel, { timeout: 1500 });
+    if (found) return false;
+  }
   // Otherwise look for the home feed nav indicators
   const navHome = await page.locator('a[href="/"]').first().isVisible({ timeout: 2000 }).catch(() => false);
   const svgHome = await page.locator('svg[aria-label="Home"]').first().isVisible({ timeout: 2000 }).catch(() => false);
@@ -44,14 +62,9 @@ async function isLoggedIn(page, log) {
 }
 
 /**
- * Dismiss common interstitials shown after login or on first load:
- *  - "Save your login info?"  → "Not now"
- *  - "Turn on notifications?" → "Not Now"
- *  - Cookie banner            → "Allow all" or "Decline"
+ * Dismiss common interstitials shown after login or on first load.
  */
 async function dismissDialogs(page, log) {
-  // Cookie banner (EU/GDPR) — try FIRST and repeatedly; residential proxies
-  // get hit with this aggressively and it can sit on top of the login form.
   const cookieLabels = [
     'Allow all cookies',
     'Accept all',
@@ -68,18 +81,41 @@ async function dismissDialogs(page, log) {
     await humanDelay(400, 800);
   }
 
-  // Then the various "save info / turn on notifications" prompts
   for (let i = 0; i < 4; i++) {
     const clicked = await clickByText(page, [
       'Not now',
       'Not Now',
-      'Save info', // sometimes Instagram inverts the prompt
+      'Save info',
       'Cancel',
       'Maybe later',
     ], 2000);
     if (!clicked) break;
     await humanDelay(400, 900);
   }
+}
+
+async function findUserField(page, timeoutMs = 10000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    for (const sel of USERNAME_SELECTORS) {
+      const loc = await safeWaitForSelector(page, sel, { timeout: 800 });
+      if (loc) return { selector: sel, locator: loc };
+    }
+    await sleep(250);
+  }
+  return null;
+}
+
+async function findPassField(page, timeoutMs = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    for (const sel of PASSWORD_SELECTORS) {
+      const loc = await safeWaitForSelector(page, sel, { timeout: 600 });
+      if (loc) return { selector: sel, locator: loc };
+    }
+    await sleep(200);
+  }
+  return null;
 }
 
 /**
@@ -103,7 +139,6 @@ async function ensureLoggedIn(page, creds, log) {
     return { ok: true };
   }
 
-  // We're not logged in; navigate to the login page explicitly
   log.info(`not logged in — performing login flow for ${username}`);
   try {
     await page.goto('https://www.instagram.com/accounts/login/', {
@@ -116,43 +151,28 @@ async function ensureLoggedIn(page, creds, log) {
   await humanDelay(800, 1500);
   await dismissDialogs(page, log);
 
-  // Quick pre-check for an obvious block
+  // Quick pre-check for an obvious block / proxy 429
   const bodyText = await page.locator('body').innerText({ timeout: 5000 }).catch(() => '');
-  if (isBlockedSignal(bodyText)) {
-    log.warn(`block signal on login page for ${username}`);
+  if (isBlockedSignal(bodyText) || /HTTP ERROR 429|page isn’t working|page isn't working/i.test(bodyText)) {
+    log.warn(`block signal on login page for ${username}: ${bodyText.slice(0, 120)}`);
     return { ok: false, blocked: true, reason: 'block_signal_on_login_page' };
   }
 
-  // ─── Fill credentials ───
-  // Try several known selectors — Instagram experiments with form layout
-  let userField = await safeWaitForSelector(page, 'input[name="username"]', { timeout: 8000 });
-  if (!userField) {
-    userField = await safeWaitForSelector(page, 'input[aria-label="Phone number, username, or email"]', { timeout: 3000 });
-  }
-  if (!userField) {
-    userField = await safeWaitForSelector(page, 'input[aria-label*="username" i]', { timeout: 3000 });
-  }
-  if (!userField) {
-    userField = await safeWaitForSelector(page, 'input[type="text"][autocomplete="username"]', { timeout: 3000 });
-  }
-  if (!userField) {
-    // ─── Diagnostics: capture what the page looks like so we can fix selectors ───
+  // ─── Find username field (multi-selector race) ───
+  const userFound = await findUserField(page, 10000);
+  if (!userFound) {
     const url = page.url();
     const title = await page.title().catch(() => '');
-    const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
     const snippet = (bodyText || '').replace(/\s+/g, ' ').slice(0, 800);
     log.warn(`username field not found. url=${url}`);
     log.warn(`page title: ${title}`);
     log.warn(`body snippet: ${snippet}`);
-    // Save a screenshot to the persistent profile dir
     try {
-      const path = `/app/profile/last_login_failure.png`;
-      await page.screenshot({ path, fullPage: false });
-      log.warn(`screenshot saved to ${path}`);
+      await page.screenshot({ path: `/app/profile/last_login_failure.png`, fullPage: false });
+      log.warn(`screenshot saved to /app/profile/last_login_failure.png`);
     } catch (err) {
       log.warn(`screenshot failed: ${err.message}`);
     }
-    // Save the HTML too
     try {
       const fs = require('fs');
       const html = await page.content();
@@ -163,18 +183,25 @@ async function ensureLoggedIn(page, creds, log) {
     }
     return { ok: false, reason: 'username_input_not_found' };
   }
-  await userField.click();
+  log.info(`username field matched selector: ${userFound.selector}`);
+  await userFound.locator.click();
   await humanDelay();
-  await humanType(userField, username);
+  await humanType(userFound.locator, username);
 
-  const passField = page.locator('input[name="password"]').first();
-  await passField.click();
+  // ─── Find password field ───
+  const passFound = await findPassField(page, 5000);
+  if (!passFound) {
+    log.warn(`password field not found for ${username}`);
+    return { ok: false, reason: 'password_input_not_found' };
+  }
+  log.info(`password field matched selector: ${passFound.selector}`);
+  await passFound.locator.click();
   await humanDelay();
-  await humanType(passField, password);
+  await humanType(passFound.locator, password);
   await humanDelay(200, 500);
 
   // Submit. Pressing Enter is more natural than clicking a button.
-  await passField.press('Enter');
+  await passFound.locator.press('Enter');
 
   // ─── Post-submit: 2FA, suspicious login, captcha, or success ───
   const outcome = await raceSelectors(
@@ -196,13 +223,11 @@ async function ensureLoggedIn(page, creds, log) {
 
   if (!outcome) {
     log.warn(`no recognised state after credential submit for ${username}`);
-    // Maybe the page is slow — re-check login state once more
     await sleep(2000);
     if (await isLoggedIn(page, log)) return { ok: true };
     return { ok: false, reason: 'unknown_state_after_login' };
   }
 
-  // Block signals
   if (
     outcome.selector.includes('please wait') ||
     outcome.selector.includes('unusual login') ||
@@ -233,7 +258,6 @@ async function ensureLoggedIn(page, creds, log) {
       return { ok: false, reason: 'totp_generation_failed' };
     }
 
-    // Find the actual input (may be one of several selectors)
     const codeInput = await raceSelectors(
       page,
       [
@@ -252,13 +276,11 @@ async function ensureLoggedIn(page, creds, log) {
     await humanType(codeInput.locator, code);
     await humanDelay(200, 500);
 
-    // Submit — try confirm button, fallback to Enter
     const confirmed = await clickByText(page, ['Confirm', 'Submit', 'Verify', 'Next'], 2500);
     if (!confirmed) {
       await codeInput.locator.press('Enter');
     }
 
-    // Wait for either home, another challenge, or block
     const post2fa = await raceSelectors(
       page,
       [
@@ -289,7 +311,6 @@ async function ensureLoggedIn(page, creds, log) {
       log.warn(`incorrect 2FA code for ${username} (clock drift?)`);
       return { ok: false, reason: 'incorrect_2fa_code' };
     }
-    // else — we landed on the home feed; dismiss any remaining dialogs
     await humanDelay(500, 1200);
     await dismissDialogs(page, log);
     if (await isLoggedIn(page, log)) {

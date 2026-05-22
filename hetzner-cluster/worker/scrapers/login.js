@@ -186,7 +186,10 @@ async function ensureLoggedIn(page, creds, log) {
   log.info(`username field matched selector: ${userFound.selector}`);
   await userFound.locator.click();
   await humanDelay();
-  await humanType(userFound.locator, username);
+  // Use locator.fill() — single-shot, atomic. Avoids the race that scrambles
+  // characters when humanize wrapping happens per .type(ch) call.
+  await userFound.locator.fill(username);
+  await humanDelay(150, 400);
 
   // ─── Find password field ───
   const passFound = await findPassField(page, 5000);
@@ -197,7 +200,7 @@ async function ensureLoggedIn(page, creds, log) {
   log.info(`password field matched selector: ${passFound.selector}`);
   await passFound.locator.click();
   await humanDelay();
-  await humanType(passFound.locator, password);
+  await passFound.locator.fill(password);
   await humanDelay(200, 500);
 
   // Submit. Pressing Enter is more natural than clicking a button.
@@ -299,7 +302,7 @@ async function ensureLoggedIn(page, creds, log) {
     }
     await codeInput.locator.click();
     await humanDelay();
-    await humanType(codeInput.locator, code);
+    await codeInput.locator.fill(code);
     await humanDelay(200, 500);
 
     const confirmed = await clickByText(page, ['Confirm', 'Submit', 'Verify', 'Next'], 2500);

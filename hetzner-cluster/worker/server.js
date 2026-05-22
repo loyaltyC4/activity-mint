@@ -120,7 +120,11 @@ async function bootBrowser() {
         proxy: proxyUrl,
         // CloakBrowser-specific:
         geoip: true,        // auto timezone+locale from proxy exit IP, auto WebRTC IP spoof
-        humanize: true,     // bezier mouse, per-character typing, realistic scroll
+        // humanize is intentionally NOT enabled — when combined with per-char
+        // locator.type() calls it can interleave keystrokes and scramble the
+        // typed value (saw "orqyzdatby" instead of "qyzdartoby"). The login
+        // flow already adds its own jitter via humanType in scrapers/utils.js,
+        // which is sufficient for stealth typing on Instagram.
         // Standard Playwright options (passed straight through):
         viewport: { width: 1366, height: 800 },
         deviceScaleFactor: 1,

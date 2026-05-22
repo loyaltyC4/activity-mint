@@ -175,12 +175,12 @@ const MintingLoader = () => {
           />
         ))}
       </div>
-      <h2 className="text-2xl font-bold text-slate-800 mb-2">
+      <h2 className="text-2xl font-bold text-foreground mb-2">
         Minting<span className="inline-flex ml-1">{[0,1,2].map(i => (
           <span key={i} className="mint-dot text-indigo-500 text-3xl leading-none" style={{ animationDelay: `${i * 0.3}s` }}>.</span>
         ))}</span>
       </h2>
-      <p className="text-sm text-slate-500 h-5 transition-opacity duration-500">{MINT_STEPS[step]}</p>
+      <p className="text-sm text-muted-foreground h-5 transition-opacity duration-500">{MINT_STEPS[step]}</p>
     </div>
   );
 };
@@ -812,9 +812,9 @@ export default function Dashboard() {
 
   /* ═══ RENDER ═══════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-50">
+    <div className="min-h-[calc(100vh-64px)] bg-muted/30">
       {/* ── Top bar: account selector + add + refresh + day range ──────── */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-background border-b border-border">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center gap-2 sm:gap-4 flex-wrap">
           {/* Account pills - horizontal scroll on mobile */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1 min-w-0 scrollbar-hide">
@@ -822,11 +822,12 @@ export default function Dashboard() {
               <button
                 key={acc.id}
                 onClick={() => setSelectedAccount(acc)}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all min-h-[36px] ${
+                className={cn(
+                  "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all min-h-[36px]",
                   selectedAccount?.id === acc.id
-                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                    : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                }`}
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
+                )}
               >
                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                   {acc.username.charAt(0).toUpperCase()}
@@ -834,7 +835,7 @@ export default function Dashboard() {
                 <span className="max-w-[80px] sm:max-w-none truncate">@{acc.username}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleRemoveAccount(acc.id); }}
-                  className="text-slate-300 hover:text-red-400 ml-0.5 p-0.5"
+                  className="text-muted-foreground/50 hover:text-destructive ml-0.5 p-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -844,51 +845,54 @@ export default function Dashboard() {
           {/* Controls row */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* Add input */}
-            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 px-2 sm:px-3 py-1.5">
-              <Search className="w-4 h-4 text-slate-400 mr-1.5" />
+            <div className="flex items-center bg-muted rounded-lg border border-border px-2 sm:px-3 py-1.5">
+              <Search className="w-4 h-4 text-muted-foreground mr-1.5" />
               <input
                 type="text"
                 value={addInput}
                 onChange={e => { setAddInput(e.target.value); setAddError(''); }}
                 onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
                 placeholder="Add @username"
-                className="bg-transparent border-none outline-none text-sm text-slate-700 w-24 sm:w-32"
+                className="bg-transparent border-none outline-none text-sm text-foreground w-24 sm:w-32 placeholder:text-muted-foreground"
               />
             </div>
-            <button
+            <Button
               onClick={handleAddAccount}
               disabled={addLoading}
-              className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-3 sm:px-4 py-1.5 rounded-lg transition-colors flex items-center gap-1 min-h-[36px]"
+              size="sm"
+              className="bg-primary hover:bg-primary/90"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">{addLoading ? '...' : 'Add'}</span>
-            </button>
+            </Button>
             {/* Refresh */}
-            <button
+            <Button
               onClick={handleRefresh}
               disabled={profileLoading}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 min-h-[36px] text-sm"
+              variant="outline"
+              size="sm"
               title="Refresh data"
             >
-              <RefreshCw className={`w-4 h-4 ${profileLoading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
+              <RefreshCw className={cn("w-4 h-4", profileLoading && "animate-spin")} />
+              <span className="hidden sm:inline ml-1.5">Refresh</span>
+            </Button>
             {/* Day range picker */}
-            <select
-              value={dayRange}
-              onChange={e => setDayRange(Number(e.target.value))}
-              className="bg-white border border-slate-200 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-slate-600 min-h-[36px] outline-none"
-            >
-              <option value={7}>7 days</option>
-              <option value={14}>14 days</option>
-              <option value={30}>30 days</option>
-              <option value={90}>90 days</option>
-            </select>
+            <Select value={String(dayRange)} onValueChange={v => setDayRange(Number(v))}>
+              <SelectTrigger className="w-[100px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 days</SelectItem>
+                <SelectItem value="14">14 days</SelectItem>
+                <SelectItem value="30">30 days</SelectItem>
+                <SelectItem value="90">90 days</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         {addError && (
           <div className="max-w-7xl mx-auto px-4 pb-2">
-            <p className="text-red-500 text-xs">{addError}</p>
+            <p className="text-destructive text-xs">{addError}</p>
           </div>
         )}
       </div>
@@ -896,11 +900,11 @@ export default function Dashboard() {
       {/* ── Empty state ─────────────────────────────────────────────────── */}
       {!selectedAccount && !accountsLoading && (
         <div className="max-w-lg mx-auto text-center py-20 sm:py-32 px-4">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-6">
-            <Users className="w-8 h-8 text-indigo-400" />
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Start Tracking</h2>
-          <p className="text-slate-500 mb-8 text-sm sm:text-base">Add an Instagram username above to start generating insights and analytics reports.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-3">Start Tracking</h2>
+          <p className="text-muted-foreground mb-8 text-sm sm:text-base">Add an Instagram username above to start generating insights and analytics reports.</p>
         </div>
       )}
 
@@ -912,52 +916,55 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
 
           {/* Profile header — mobile responsive */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 mb-4 sm:mb-6">
-            <div className="flex items-start gap-3 sm:gap-6">
-              {profile.profilePicUrl ? (
-                <img
-                  src={proxyImg(profile.profilePicUrl)}
-                  alt={profile.username}
-                  className="w-14 h-14 sm:w-20 sm:h-20 rounded-full border-2 border-indigo-100 object-cover shrink-0"
-                />
-              ) : (
-                <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-lg sm:text-2xl font-bold shrink-0">
-                  {profile.username.charAt(0).toUpperCase()}
+          <Card className="mb-4 sm:mb-6">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start gap-3 sm:gap-6">
+                {profile.profilePicUrl ? (
+                  <Avatar className="w-14 h-14 sm:w-20 sm:h-20 border-2 border-primary/20">
+                    <AvatarImage src={proxyImg(profile.profilePicUrl)} alt={profile.username} />
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-lg sm:text-2xl font-bold">
+                      {profile.username.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-lg sm:text-2xl font-bold shrink-0">
+                    {profile.username.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h1 className="text-base sm:text-xl font-bold text-foreground truncate">@{profile.username}</h1>
+                    {profile.isVerified && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-600 text-[10px] shrink-0">✓ Verified</Badge>
+                    )}
+                  </div>
+                  {profile.fullName && <p className="text-xs sm:text-sm text-muted-foreground mb-1">{profile.fullName}</p>}
+                  {profile.category && <Badge variant="outline" className="text-[10px] text-primary mb-1">{profile.category}</Badge>}
+                  {profile.bio && <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 hidden sm:block mt-1">{profile.bio}</p>}
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">@{profile.username}</h1>
-                  {profile.isVerified && (
-                    <span className="bg-blue-100 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">✓ Verified</span>
-                  )}
-                </div>
-                {profile.fullName && <p className="text-xs sm:text-sm text-slate-500 mb-1">{profile.fullName}</p>}
-                {profile.category && <p className="text-[10px] sm:text-xs text-indigo-500 font-medium mb-1">{profile.category}</p>}
-                {profile.bio && <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 hidden sm:block">{profile.bio}</p>}
               </div>
-            </div>
-            {/* Stats row — always visible */}
-            <div className="flex gap-4 sm:gap-8 mt-3 sm:mt-4 pt-3 border-t border-slate-100">
-              {[
-                { label: 'Posts', value: fmt(profile.posts) },
-                { label: 'Followers', value: fmt(profile.followers) },
-                { label: 'Following', value: fmt(profile.following) },
-                { label: 'Eng. Rate', value: pct(avgEngagement) },
-              ].map((s, i) => (
-                <div key={i} className="text-center flex-1">
-                  <p className="text-lg sm:text-2xl font-bold text-slate-900">{s.value}</p>
-                  <p className="text-[10px] sm:text-xs text-slate-500">{s.label}</p>
-                </div>
-              ))}
-            </div>
-            {/* Last refresh */}
-            {lastRefresh && (
-              <p className="text-[10px] text-slate-400 mt-2 text-right">
-                Last updated: {new Date(lastRefresh).toLocaleString()}
-              </p>
-            )}
-          </div>
+              {/* Stats row — always visible */}
+              <div className="flex gap-4 sm:gap-8 mt-3 sm:mt-4 pt-3 border-t border-border">
+                {[
+                  { label: 'Posts', value: fmt(profile.posts) },
+                  { label: 'Followers', value: fmt(profile.followers) },
+                  { label: 'Following', value: fmt(profile.following) },
+                  { label: 'Eng. Rate', value: pct(avgEngagement) },
+                ].map((s, i) => (
+                  <div key={i} className="text-center flex-1">
+                    <p className="text-lg sm:text-2xl font-bold text-foreground">{s.value}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Last refresh */}
+              {lastRefresh && (
+                <p className="text-[10px] text-muted-foreground/60 mt-2 text-right">
+                  Last updated: {new Date(lastRefresh).toLocaleString()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Health Score ──────────────────────────────────────────── */}
           <HealthScoreCard profile={profile} posts={posts} avgEngagement={avgEngagement} />

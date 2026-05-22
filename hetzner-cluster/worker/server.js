@@ -23,6 +23,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const express = require('express');
 // cloakbrowser is an ESM-only package; load it via dynamic import() from CJS
 let cloakbrowserModule = null;
@@ -30,6 +31,19 @@ async function getCloakbrowser() {
   if (!cloakbrowserModule) cloakbrowserModule = await import('cloakbrowser');
   return cloakbrowserModule;
 }
+
+// Clear any stale Chromium singleton-lock symlinks from a previous container
+// shutdown that didn't release the persistent profile dir cleanly. Without
+// this, the next launch fails with "profile appears to be in use by another
+// Chromium process". Safe to run unconditionally on startup — this process is
+// the only one that will touch the profile dir until we launch Chromium.
+function clearStaleProfileLocks(dir) {
+  const locks = ['SingletonLock', 'SingletonSocket', 'SingletonCookie'];
+  for (const f of locks) {
+    try { fs.unlinkSync(`${dir}/${f}`); } catch (_) {}
+  }
+}
+clearStaleProfileLocks('/app/profile');
 
 const { ensureLoggedIn, isLoggedIn } = require('./scrapers/login');
 const { scrapeProfile } = require('./scrapers/profile');

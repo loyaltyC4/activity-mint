@@ -1,0 +1,142 @@
+name: Deploy Hetzner Cluster
+
+# Triggered manually via workflow_dispatch. Runs on a GitHub-hosted runner
+# (unrestricted outbound network) and SSHs into the Hetzner server to deploy
+# the 5-worker scraping cluster.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'What to do'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - status
+          - restart
+          - logs
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+
+      - name: Run remote ${{ inputs.action }}
+        env:
+          HETZNER_HOST: 46.224.227.199
+          HETZNER_USER: root
+          HETZNER_PASSWORD: ${{ secrets.HETZNER_SSH_PASSWORD }}
+          SCRAPER_SECRET: ${{ secrets.SCRAPER_SECRET }}
+          PROXY_USER: ${{ secrets.PROXY_USER }}
+          PROXY_PASS: ${{ secrets.PROXY_PASS }}
+          IG_USER_1: ${{ secrets.IG_USER_1 }}
+          IG_PASS_1: ${{ secrets.IG_PASS_1 }}
+          IG_2FA_1: ${{ secrets.IG_2FA_1 }}
+          IG_USER_2: ${{ secrets.IG_USER_2 }}
+          IG_PASS_2: ${{ secrets.IG_PASS_2 }}
+          IG_2FA_2: ${{ secrets.IG_2FA_2 }}
+          IG_USER_3: ${{ secrets.IG_USER_3 }}
+          IG_PASS_3: ${{ secrets.IG_PASS_3 }}
+          IG_2FA_3: ${{ secrets.IG_2FA_3 }}
+          IG_USER_4: ${{ secrets.IG_USER_4 }}
+          IG_PASS_4: ${{ secrets.IG_PASS_4 }}
+          IG_2FA_4: ${{ secrets.IG_2FA_4 }}
+          IG_USER_5: ${{ secrets.IG_USER_5 }}
+          IG_PASS_5: ${{ secrets.IG_PASS_5 }}
+          IG_2FA_5: ${{ secrets.IG_2FA_5 }}
+        run: |
+          set -e
+          ACTION="${{ inputs.action }}"
+
+          # Build the .env content (this stays in the runner's memory, never logged)
+          ENV_CONTENT=$(cat <<EOF
+          SCRAPER_SECRET=$SCRAPER_SECRET
+          PROXY_USER=$PROXY_USER
+          PROXY_PASS=$PROXY_PASS
+          PROXY_HTTP_PORT=50100
+          IG_USER_1=$IG_USER_1
+          IG_PASS_1=$IG_PASS_1
+          IG_2FA_1=$IG_2FA_1
+          IG_USER_2=$IG_USER_2
+          IG_PASS_2=$IG_PASS_2
+          IG_2FA_2=$IG_2FA_2
+          IG_USER_3=$IG_USER_3
+          IG_PASS_3=$IG_PASS_3
+          IG_2FA_3=$IG_2FA_3
+          IG_USER_4=$IG_USER_4
+          IG_PASS_4=$IG_PASS_4
+          IG_2FA_4=$IG_2FA_4
+          IG_USER_5=$IG_USER_5
+          IG_PASS_5=$IG_PASS_5
+          IG_2FA_5=$IG_2FA_5
+          EOF
+          )
+
+          # Generic SSH wrapper: each block prints its own progress
+          ssh_run() {
+            sshpass -p "$HETZNER_PASSWORD" ssh \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o LogLevel=ERROR \
+              "$HETZNER_USER@$HETZNER_HOST" \
+              "$@"
+          }
+
+          # ── DEPLOY ─────────────────────────────────────────────────────────
+          if [ "$ACTION" = "deploy" ]; then
+            echo "==> Verifying SSH connection..."
+            ssh_run "echo OK && uname -a && (docker --version || echo 'docker not installed')"
+
+            echo "==> Installing docker (if missing) + docker compose plugin..."
+            ssh_run "command -v docker >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq docker.io docker-compose-v2 git curl openssl)"
+
+            echo "==> Cloning/updating repo..."
+            ssh_run "mkdir -p /opt/activitymint && cd /opt/activitymint && (
+              if [ -d .git ]; then
+                git fetch --all && git reset --hard origin/main
+              else
+                git clone https://github.com/loyaltyC4/activity-mint.git .
+              fi
+            )"
+
+            echo "==> Writing .env on Hetzner (transferred via stdin, never logged)..."
+            echo "$ENV_CONTENT" | sshpass -p "$HETZNER_PASSWORD" ssh \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o LogLevel=ERROR \
+              "$HETZNER_USER@$HETZNER_HOST" \
+              "cat > /opt/activitymint/.env && chmod 600 /opt/activitymint/.env && echo '.env written ('$(wc -l < /opt/activitymint/.env)' lines)'"
+
+            echo "==> Stopping any existing scraper on port 3001 (old single-container service)..."
+            ssh_run "docker ps --filter 'publish=3001' -q | xargs -r docker stop"
+            ssh_run "docker ps -a --filter 'publish=3001' -q | xargs -r docker rm"
+
+            echo "==> Running deploy.sh..."
+            ssh_run "cd /opt/activitymint && bash hetzner-cluster/deploy.sh 2>&1 | tail -80"
+
+            echo "==> Final health check..."
+            sleep 10
+            ssh_run "source /opt/activitymint/.env && curl -s -H \"X-Secret: \$SCRAPER_SECRET\" http://localhost:3001/health | python3 -m json.tool 2>&1 | head -100"
+          fi
+
+          # ── STATUS ─────────────────────────────────────────────────────────
+          if [ "$ACTION" = "status" ]; then
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml ps"
+            echo "==> Worker health:"
+            ssh_run "source /opt/activitymint/.env && curl -s -H \"X-Secret: \$SCRAPER_SECRET\" http://localhost:3001/health | python3 -m json.tool"
+          fi
+
+          # ── RESTART ────────────────────────────────────────────────────────
+          if [ "$ACTION" = "restart" ]; then
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env restart"
+          fi
+
+          # ── LOGS ───────────────────────────────────────────────────────────
+          if [ "$ACTION" = "logs" ]; then
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml logs --tail=100"
+          fi

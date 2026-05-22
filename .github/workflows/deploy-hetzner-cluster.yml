@@ -18,6 +18,7 @@ on:
           - restart
           - logs
           - diagnostics
+          - smoke
 
 jobs:
   deploy:
@@ -140,6 +141,18 @@ jobs:
           # ── LOGS ───────────────────────────────────────────────────────────
           if [ "$ACTION" = "logs" ]; then
             ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml logs --tail=100"
+          fi
+
+          # ── SMOKE — end-to-end real scrape through the orchestrator ──────
+          if [ "$ACTION" = "smoke" ]; then
+            echo "==> /health from inside the box"
+            ssh_run "source /opt/activitymint/.env && curl -s -H \"X-Secret: \$SCRAPER_SECRET\" http://localhost:3001/health | python3 -m json.tool"
+            echo ""
+            echo "==> Real scrape: profile @instagram"
+            ssh_run "source /opt/activitymint/.env && curl -s -X POST -H \"X-Secret: \$SCRAPER_SECRET\" -H 'Content-Type: application/json' --max-time 120 -d '{\"action\":\"profile\",\"payload\":{\"username\":\"instagram\"}}' http://localhost:3001/scrape | python3 -m json.tool | head -100"
+            echo ""
+            echo "==> Real scrape: followers @instagram limit=10"
+            ssh_run "source /opt/activitymint/.env && curl -s -X POST -H \"X-Secret: \$SCRAPER_SECRET\" -H 'Content-Type: application/json' --max-time 180 -d '{\"action\":\"followers\",\"payload\":{\"username\":\"instagram\",\"limit\":10}}' http://localhost:3001/scrape | python3 -m json.tool | head -100"
           fi
 
           # ── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ──

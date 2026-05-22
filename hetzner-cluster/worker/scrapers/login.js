@@ -50,18 +50,36 @@ async function isLoggedIn(page, log) {
  *  - Cookie banner            → "Allow all" or "Decline"
  */
 async function dismissDialogs(page, log) {
+  // Cookie banner (EU/GDPR) — try FIRST and repeatedly; residential proxies
+  // get hit with this aggressively and it can sit on top of the login form.
+  const cookieLabels = [
+    'Allow all cookies',
+    'Accept all',
+    'Allow essential and optional cookies',
+    'Only allow essential cookies',
+    'Decline optional cookies',
+    'Decline',
+    'Reject',
+    'Accept',
+  ];
+  for (let i = 0; i < 3; i++) {
+    const clicked = await clickByText(page, cookieLabels, 1500);
+    if (!clicked) break;
+    await humanDelay(400, 800);
+  }
+
+  // Then the various "save info / turn on notifications" prompts
   for (let i = 0; i < 4; i++) {
     const clicked = await clickByText(page, [
       'Not now',
       'Not Now',
       'Save info', // sometimes Instagram inverts the prompt
       'Cancel',
+      'Maybe later',
     ], 2000);
     if (!clicked) break;
     await humanDelay(400, 900);
   }
-  // Cookie banner (EU) is one of these; clicking either dismisses it
-  await clickByText(page, ['Allow all cookies', 'Only allow essential cookies', 'Decline optional cookies'], 1500).catch(() => {});
 }
 
 /**
@@ -106,8 +124,43 @@ async function ensureLoggedIn(page, creds, log) {
   }
 
   // ─── Fill credentials ───
-  const userField = await safeWaitForSelector(page, 'input[name="username"]', { timeout: 15000 });
+  // Try several known selectors — Instagram experiments with form layout
+  let userField = await safeWaitForSelector(page, 'input[name="username"]', { timeout: 8000 });
   if (!userField) {
+    userField = await safeWaitForSelector(page, 'input[aria-label="Phone number, username, or email"]', { timeout: 3000 });
+  }
+  if (!userField) {
+    userField = await safeWaitForSelector(page, 'input[aria-label*="username" i]', { timeout: 3000 });
+  }
+  if (!userField) {
+    userField = await safeWaitForSelector(page, 'input[type="text"][autocomplete="username"]', { timeout: 3000 });
+  }
+  if (!userField) {
+    // ─── Diagnostics: capture what the page looks like so we can fix selectors ───
+    const url = page.url();
+    const title = await page.title().catch(() => '');
+    const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
+    const snippet = (bodyText || '').replace(/\s+/g, ' ').slice(0, 800);
+    log.warn(`username field not found. url=${url}`);
+    log.warn(`page title: ${title}`);
+    log.warn(`body snippet: ${snippet}`);
+    // Save a screenshot to the persistent profile dir
+    try {
+      const path = `/app/profile/last_login_failure.png`;
+      await page.screenshot({ path, fullPage: false });
+      log.warn(`screenshot saved to ${path}`);
+    } catch (err) {
+      log.warn(`screenshot failed: ${err.message}`);
+    }
+    // Save the HTML too
+    try {
+      const fs = require('fs');
+      const html = await page.content();
+      fs.writeFileSync(`/app/profile/last_login_failure.html`, html);
+      log.warn(`html dump saved to /app/profile/last_login_failure.html`);
+    } catch (err) {
+      log.warn(`html dump failed: ${err.message}`);
+    }
     return { ok: false, reason: 'username_input_not_found' };
   }
   await userField.click();

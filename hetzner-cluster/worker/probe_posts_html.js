@@ -45,6 +45,57 @@ const PROXY_PORT = process.env.PROXY_HTTP_PORT || '50100';
   const html = await page.content();
   console.log(`[probe] html length=${html.length}`);
 
+  // NEW: ALSO call web_profile_info API from page context and dump shape
+  const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(TARGET)}`;
+  console.log(`\n[probe] calling API ${apiUrl}`);
+  const apiData = await page.evaluate(async (u) => {
+    try {
+      const r = await fetch(u, {
+        headers: {
+          'x-ig-app-id': '936619743392459',
+          'accept': 'application/json',
+          'sec-fetch-site': 'same-origin',
+        },
+        credentials: 'include',
+      });
+      const ct = r.headers.get('content-type') || '';
+      const status = r.status;
+      let body;
+      try { body = await r.json(); } catch (e) { body = { __parse_err: e.message }; }
+      return { status, ct, body };
+    } catch (e) {
+      return { __err: e.message };
+    }
+  }, apiUrl).catch((e) => ({ __err: e.message }));
+  console.log(`[probe] API status=${apiData?.status} ct=${apiData?.ct}`);
+  if (apiData?.body) {
+    const b = apiData.body;
+    console.log(`[probe] body top keys: ${Object.keys(b).join(', ')}`);
+    if (b.data) console.log(`[probe] body.data keys: ${Object.keys(b.data).join(', ')}`);
+    if (b.data?.user) {
+      const u = b.data.user;
+      console.log(`[probe] body.data.user keys: ${Object.keys(u).join(', ')}`);
+      // Look for any *_media or posts-like keys
+      const mediaLike = Object.keys(u).filter(k => /media|post|reel|timeline/i.test(k));
+      console.log(`[probe] media-like keys: ${mediaLike.join(', ')}`);
+      for (const k of mediaLike) {
+        const v = u[k];
+        if (v && typeof v === 'object') {
+          console.log(`  ${k}: keys=[${Object.keys(v).join(',')}] count=${v.count} edgesLen=${(v.edges||[]).length}`);
+          if (v.edges && v.edges[0]) {
+            console.log(`    first edge node keys: ${Object.keys(v.edges[0].node || {}).join(',').slice(0, 400)}`);
+          }
+        }
+      }
+    } else if (b.user) {
+      console.log(`[probe] body.user keys: ${Object.keys(b.user).join(', ')}`);
+    } else {
+      console.log(`[probe] body sample: ${JSON.stringify(b).slice(0, 800)}`);
+    }
+    // Save full response to file for deeper inspection
+    fs.writeFileSync('/app/profile/probe_api_response.json', JSON.stringify(b, null, 2).slice(0, 50000));
+  }
+
   // Anchor scan: count occurrences of every known/likely posts-edges anchor.
   const anchors = [
     'edge_owner_to_timeline_media',

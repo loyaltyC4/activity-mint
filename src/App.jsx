@@ -509,6 +509,7 @@ export default function App() {
                     {/* Instagram */}
                     <div className="px-3 pt-2 pb-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Instagram</span></div>
                     <DropdownItem icon={<MonitorPlay className="w-4 h-4" />} title="Story Viewer" onClick={() => setActiveTab('story-viewer')} />
+                    <DropdownItem icon={<LayoutGrid className="w-4 h-4" />} title="Post Viewer" onClick={() => setActiveTab('post-viewer')} />
                     <DropdownItem icon={<Star className="w-4 h-4" />} title="Highlights Viewer" onClick={() => setActiveTab('highlights-viewer')} />
                     <DropdownItem icon={<Heart className="w-4 h-4" />} title="Like Viewer" onClick={() => setActiveTab('like-viewer')} />
                     <DropdownItem icon={<Link2 className="w-4 h-4" />} title="Links Viewer" onClick={() => setActiveTab('links-viewer')} />
@@ -611,7 +612,7 @@ export default function App() {
 
         {/* Lazy-loaded views wrapped in Suspense for code-splitting */}
         <Suspense fallback={<MintingLoader />}>
-          {activeTab === 'dashboard' && (user ? (shouldUseDashboardV2() ? <DashboardV2 /> : <Dashboard />) : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
+          {activeTab === 'dashboard' && (user ? (shouldUseDashboardV2() ? <DashboardV2 setActiveTab={setActiveTab} /> : <Dashboard />) : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
           {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
           {activeTab === 'affiliate' && <AffiliateView />}
           {activeTab === 'toolkit' && <ToolkitPageView setActiveTab={setActiveTab} />}

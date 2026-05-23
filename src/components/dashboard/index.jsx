@@ -15,6 +15,7 @@ import React, { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useTier } from '../../context/TierContext'
 import DashboardLayout from './DashboardLayout'
+import { NavigationContext } from './NavigationContext'
 
 // Pane IDs match the spark-insights design nav structure (10 panes / 3 groups)
 export const PANES = {
@@ -33,20 +34,26 @@ export const PANES = {
   settings:    { group: 'You',      label: 'Settings' },
 }
 
-export default function DashboardV2() {
+export default function DashboardV2({ setActiveTab }) {
   const { user } = useAuth()
   const { tier } = useTier()
   const [activePane, setActivePane] = useState('pulse')
   const [timeRange, setTimeRange] = useState('7d')
 
+  // setActiveTab navigates the parent App's tab router — panes use it via
+  // useNavigation() to deep-link to live tool pages (story-viewer etc.)
+  const nav = { setActiveTab: setActiveTab || (() => {}) }
+
   return (
-    <DashboardLayout
-      user={user}
-      tier={tier}
-      activePane={activePane}
-      onPaneChange={setActivePane}
-      timeRange={timeRange}
-      onTimeRangeChange={setTimeRange}
-    />
+    <NavigationContext.Provider value={nav}>
+      <DashboardLayout
+        user={user}
+        tier={tier}
+        activePane={activePane}
+        onPaneChange={setActivePane}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+      />
+    </NavigationContext.Provider>
   )
 }

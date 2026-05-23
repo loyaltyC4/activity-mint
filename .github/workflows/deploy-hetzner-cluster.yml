@@ -21,6 +21,7 @@ on:
           - smoke
           - test_each
           - test_proxies
+          - bisect_login
 
 jobs:
   deploy:
@@ -143,6 +144,77 @@ jobs:
           # ── LOGS ───────────────────────────────────────────────────────────
           if [ "$ACTION" = "logs" ]; then
             ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml logs --tail=100"
+          fi
+
+          # ── BISECT_LOGIN — A/B test: is the FAILING account or the FAILING proxy at fault? ──
+          # We run TWO one-off worker containers in parallel using the existing worker
+          # image (already built on the host):
+          #   A) FAILING ACCOUNT (nezaretci_01) + HEALTHY PROXY (65.195.109.107)
+          #      → if this logs in, the account is fine; the proxy is the issue → buy proxies
+          #      → if this fails, the account is bad → buy accounts
+          #   B) HEALTHY ACCOUNT (nigar.fan.3) + FAILING PROXY (168.158.21.28)
+          #      → if this logs in, the proxy is fine for logins; account 1 is bad → buy accounts
+          #      → if this fails, the proxy is bad → buy proxies
+          # Together these resolve which to replace.
+          if [ "$ACTION" = "bisect_login" ]; then
+            ssh_run "source /opt/activitymint/.env && \
+              docker rm -f am_bisect_a am_bisect_b 2>/dev/null; \
+              rm -rf /tmp/bisect_a /tmp/bisect_b; \
+              mkdir -p /tmp/bisect_a /tmp/bisect_b && chmod 755 /tmp/bisect_a /tmp/bisect_b"
+            echo "==> A: account=nezaretci_01 (acct 1, FAILING) + proxy=65.195.109.107 (proxy 3, HEALTHY)"
+            ssh_run "source /opt/activitymint/.env && docker run -d \
+              --name am_bisect_a \
+              --network hetzner-cluster_am_public \
+              -e WORKER_ID=bisect_a \
+              -e IG_USERNAME='$IG_USER_1' \
+              -e IG_PASSWORD='$IG_PASS_1' \
+              -e IG_2FA_SECRET='$IG_2FA_1' \
+              -e PROXY_HOST=65.195.109.107 \
+              -e PROXY_USER='\$PROXY_USER' \
+              -e PROXY_PASS='\$PROXY_PASS' \
+              -e PROXY_HTTP_PORT=50100 \
+              -e SCRAPER_SECRET='\$SCRAPER_SECRET' \
+              -e PORT=3010 \
+              -v /tmp/bisect_a:/app/profile \
+              hetzner-cluster-worker_1 || echo 'A failed to start'"
+            echo "==> B: account=nigar.fan.3 (acct 3, HEALTHY) + proxy=168.158.21.28 (proxy 1, FAILING)"
+            ssh_run "source /opt/activitymint/.env && docker run -d \
+              --name am_bisect_b \
+              --network hetzner-cluster_am_public \
+              -e WORKER_ID=bisect_b \
+              -e IG_USERNAME='$IG_USER_3' \
+              -e IG_PASSWORD='$IG_PASS_3' \
+              -e IG_2FA_SECRET='$IG_2FA_3' \
+              -e PROXY_HOST=168.158.21.28 \
+              -e PROXY_USER='\$PROXY_USER' \
+              -e PROXY_PASS='\$PROXY_PASS' \
+              -e PROXY_HTTP_PORT=50100 \
+              -e SCRAPER_SECRET='\$SCRAPER_SECRET' \
+              -e PORT=3010 \
+              -v /tmp/bisect_b:/app/profile \
+              hetzner-cluster-worker_1 || echo 'B failed to start'"
+            echo ""
+            echo "Waiting 70s for both to attempt login..."
+            sleep 70
+            echo ""
+            echo "════════════════════════════════════════════════════════════"
+            echo "  A (failing acct + healthy proxy)"
+            echo "════════════════════════════════════════════════════════════"
+            ssh_run "docker exec am_bisect_a curl -s --max-time 5 http://localhost:3010/health | python3 -m json.tool 2>/dev/null || echo '(unreachable)'"
+            echo ""
+            echo "Last 25 log lines:"
+            ssh_run "docker logs --tail 25 am_bisect_a 2>&1"
+            echo ""
+            echo "════════════════════════════════════════════════════════════"
+            echo "  B (healthy acct + failing proxy)"
+            echo "════════════════════════════════════════════════════════════"
+            ssh_run "docker exec am_bisect_b curl -s --max-time 5 http://localhost:3010/health | python3 -m json.tool 2>/dev/null || echo '(unreachable)'"
+            echo ""
+            echo "Last 25 log lines:"
+            ssh_run "docker logs --tail 25 am_bisect_b 2>&1"
+            echo ""
+            echo "==> cleaning up bisect containers"
+            ssh_run "docker rm -f am_bisect_a am_bisect_b 2>/dev/null; rm -rf /tmp/bisect_a /tmp/bisect_b"
           fi
 
           # ── TEST_PROXIES — verify each proxy independently of Instagram ──

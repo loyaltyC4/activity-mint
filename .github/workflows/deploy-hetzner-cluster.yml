@@ -23,6 +23,7 @@ on:
           - test_proxies
           - bisect_login
           - reset_worker_1
+          - test_tiktok_login
 
 jobs:
   deploy:
@@ -55,6 +56,11 @@ jobs:
           IG_USER_5: ${{ secrets.IG_USER_5 }}
           IG_PASS_5: ${{ secrets.IG_PASS_5 }}
           IG_2FA_5: ${{ secrets.IG_2FA_5 }}
+          TT_USERNAME:   ${{ secrets.TT_USERNAME }}
+          TT_PASSWORD:   ${{ secrets.TT_PASSWORD }}
+          TT_EMAIL:      ${{ secrets.TT_EMAIL }}
+          TT_EMAIL_PASS: ${{ secrets.TT_EMAIL_PASS }}
+          TT_PROXY_HOST: ${{ secrets.TT_PROXY_HOST }}
         run: |
           set -e
           ACTION="${{ inputs.action }}"
@@ -304,6 +310,49 @@ jobs:
             echo ""
             echo "==> Worker_1 recent log lines (login flow):"
             ssh_run "docker logs --tail 40 am_worker_1 2>&1"
+          fi
+
+          # ── TEST_TIKTOK_LOGIN — one-off CloakBrowser probe of TikTok login ──
+          # Spins up a one-shot container based on the existing worker image,
+          # mounts probe_tiktok.js into it, and runs it with TikTok credentials
+          # and a chosen residential proxy. Captures screenshots + HTML of the
+          # initial login page and the post-submit page. Prints final OUTCOME
+          # line so we can read it from the workflow log.
+          if [ "$ACTION" = "test_tiktok_login" ]; then
+            echo "==> Pulling latest repo so probe_tiktok.js is on disk..."
+            ssh_run "cd /opt/activitymint && git fetch --all && git reset --hard origin/main"
+
+            ssh_run "docker rm -f am_tt_probe 2>/dev/null; rm -rf /tmp/tt_probe; mkdir -p /tmp/tt_probe && chmod 755 /tmp/tt_probe"
+
+            echo "==> Launching TikTok login probe..."
+            ssh_run "docker run --name am_tt_probe --network hetzner-cluster_am_public \
+              -e TT_USERNAME='$TT_USERNAME' \
+              -e TT_PASSWORD='$TT_PASSWORD' \
+              -e TT_EMAIL='$TT_EMAIL' \
+              -e PROXY_HOST='$TT_PROXY_HOST' \
+              -e PROXY_USER='$PROXY_USER' \
+              -e PROXY_PASS='$PROXY_PASS' \
+              -e PROXY_HTTP_PORT=50100 \
+              -v /opt/activitymint/hetzner-cluster/worker/probe_tiktok.js:/app/probe_tiktok.js:ro \
+              -v /tmp/tt_probe:/app/profile \
+              hetzner-cluster-worker_1 \
+              node probe_tiktok.js 2>&1" || true
+
+            echo ""
+            echo "==> Captured files in /tmp/tt_probe:"
+            ssh_run "ls -la /tmp/tt_probe/"
+
+            echo ""
+            echo "==> Initial page <title> + form structure (last_tt_login_initial.html):"
+            ssh_run "grep -oE '(<title>[^<]+|aria-label=\"[^\"]+\"|<input[^>]+(name|placeholder|type)=\"[^\"]+)' /tmp/tt_probe/last_tt_login_initial.html 2>/dev/null | head -40 || echo '(no initial html)'"
+
+            echo ""
+            echo "==> Post-submit page <title> + body signals (last_tt_login_after.html):"
+            ssh_run "grep -oE '(<title>[^<]+|aria-label=\"[^\"]+\"|<input[^>]+(name|placeholder)=\"[^\"]+\"|class=\"[^\"]*captcha[^\"]*\")' /tmp/tt_probe/last_tt_login_after.html 2>/dev/null | head -40 || echo '(no after html)'"
+
+            echo ""
+            echo "==> Cleanup..."
+            ssh_run "docker rm -f am_tt_probe 2>/dev/null"
           fi
 
           # ── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ──

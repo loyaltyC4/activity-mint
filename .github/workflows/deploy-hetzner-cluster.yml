@@ -22,6 +22,7 @@ on:
           - test_each
           - test_proxies
           - bisect_login
+          - reset_worker_1
 
 jobs:
   deploy:
@@ -266,6 +267,43 @@ jobs:
             echo ""
             echo "==> Real scrape: followers @instagram limit=10"
             ssh_run "source /opt/activitymint/.env && curl -s -X POST -H \"X-Secret: \$SCRAPER_SECRET\" -H 'Content-Type: application/json' --max-time 180 -d '{\"action\":\"followers\",\"payload\":{\"username\":\"instagram\",\"limit\":10}}' http://localhost:3001/scrape | python3 -m json.tool | head -100"
+          fi
+
+          # ── RESET_WORKER_1 — pull latest config, stop w1, wipe profile_1, restart ──
+          # Used after changing worker_1's proxy or credentials. Wiping the persistent
+          # profile dir guarantees a fully fresh CloakBrowser session: no stale cookies
+          # tied to the old proxy IP or old account, no SingletonLock files. Then bring
+          # worker_1 back up and tail its login flow.
+          if [ "$ACTION" = "reset_worker_1" ]; then
+            echo "==> Pulling latest repo (so docker-compose has the new proxy)..."
+            ssh_run "cd /opt/activitymint && git fetch --all && git reset --hard origin/main"
+
+            echo "==> Writing latest .env on Hetzner..."
+            echo "$ENV_CONTENT" | sshpass -p "$HETZNER_PASSWORD" ssh \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o LogLevel=ERROR \
+              "$HETZNER_USER@$HETZNER_HOST" \
+              "cat > /opt/activitymint/.env && chmod 600 /opt/activitymint/.env"
+
+            echo "==> Stopping + removing worker_1..."
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env stop worker_1 && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env rm -f worker_1"
+
+            echo "==> Wiping /opt/activitymint/profiles/profile_1 contents..."
+            ssh_run "rm -rf /opt/activitymint/profiles/profile_1/* /opt/activitymint/profiles/profile_1/.* 2>/dev/null; mkdir -p /opt/activitymint/profiles/profile_1; ls -la /opt/activitymint/profiles/profile_1"
+
+            echo "==> Rebuilding + bringing worker_1 back up..."
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env up -d --build worker_1"
+
+            echo "==> Waiting 35s for CloakBrowser launch + login attempt..."
+            sleep 35
+
+            echo "==> Worker_1 health:"
+            ssh_run "docker exec am_worker_1 curl -s --max-time 5 http://localhost:3010/health | python3 -m json.tool 2>/dev/null || echo '(unreachable)'"
+
+            echo ""
+            echo "==> Worker_1 recent log lines (login flow):"
+            ssh_run "docker logs --tail 40 am_worker_1 2>&1"
           fi
 
           # ── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ──

@@ -46,7 +46,7 @@ services:
     networks:
       - am_public
 
-  # ── Worker 1: nezaretci_01 + 168.158.21.28 + profile_1 ────────────────
+  # ── Worker 1: myrtleblairucuevi + 161.77.70.149 (fresh proxy 2026-05-23) + profile_1 ─
   worker_1:
     <<: *worker-base
     container_name: am_worker_1
@@ -55,7 +55,7 @@ services:
       IG_USERNAME: ${IG_USER_1}
       IG_PASSWORD: ${IG_PASS_1}
       IG_2FA_SECRET: ${IG_2FA_1}
-      PROXY_HOST: 168.158.21.28
+      PROXY_HOST: 161.77.70.149
       PROXY_USER: ${PROXY_USER}
       PROXY_PASS: ${PROXY_PASS}
       PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}

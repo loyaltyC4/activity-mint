@@ -220,7 +220,7 @@ jobs:
           #   - What exit IP does it report (should match the proxy host)?
           #   - Does instagram.com respond, and with what code?
           if [ "$ACTION" = "test_proxies" ]; then
-            for ip in 168.158.21.28 165.254.99.133 65.195.109.107 161.77.140.110 77.47.158.43; do
+            for ip in 168.158.21.28 165.254.99.133 65.195.109.107 161.77.140.110 77.47.158.43 161.77.70.149; do
               echo "════════════════════════════════════════════════════════════"
               echo "  PROXY $ip"
               echo "════════════════════════════════════════════════════════════"

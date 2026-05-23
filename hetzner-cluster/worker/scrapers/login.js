@@ -21,6 +21,7 @@ const {
   isBlockedSignal,
   sleep,
 } = require('./utils');
+const { detectLoginState, STATES } = require('./detectLoginState');
 
 const IG_HOME = 'https://www.instagram.com/';
 
@@ -172,6 +173,65 @@ async function findPassField(page, timeoutMs = 5000) {
   return null;
 }
 
+// ── 2FA input selectors (tracked here so captureSnap knows where to look) ──
+const TWO_FA_SELECTORS = [
+  'input[name="verificationCode"]',
+  'input[aria-label*="security code" i]',
+  'input[aria-label*="confirmation code" i]',
+  'input[autocomplete="one-time-code"]',
+];
+
+const HOME_NAV_SELECTORS = ['svg[aria-label="Home"]', 'a[href="/"]'];
+
+/**
+ * Capture a snapshot of the current page state for detectLoginState().
+ * Cheap selector probes (each ≤300ms) so the whole capture is well under 2s.
+ */
+async function captureSnap(page) {
+  const url = page.url();
+  const bodyText = await page.locator('body').innerText({ timeout: 1500 }).catch(() => '');
+  async function anyVisible(selectors) {
+    for (const sel of selectors) {
+      const v = await page.locator(sel).first().isVisible({ timeout: 300 }).catch(() => false);
+      if (v) return true;
+    }
+    return false;
+  }
+  const [hasUserField, hasPassField, has2faField, hasHomeNav] = await Promise.all([
+    anyVisible(USERNAME_SELECTORS),
+    anyVisible(PASSWORD_SELECTORS),
+    anyVisible(TWO_FA_SELECTORS),
+    anyVisible(HOME_NAV_SELECTORS),
+  ]);
+  return { url, bodyText, hasUserField, hasPassField, has2faField, hasHomeNav };
+}
+
+/**
+ * Poll the page state until detectLoginState returns something other than
+ * UNKNOWN, or we time out. Returns { state, snap }.
+ */
+async function waitForLoginState(page, timeoutMs = 20000) {
+  const start = Date.now();
+  let lastSnap = null;
+  while (Date.now() - start < timeoutMs) {
+    lastSnap = await captureSnap(page);
+    const state = detectLoginState(lastSnap);
+    if (state !== STATES.UNKNOWN) return { state, snap: lastSnap };
+    await sleep(500);
+  }
+  return { state: STATES.UNKNOWN, snap: lastSnap || (await captureSnap(page)) };
+}
+
+async function captureFailureDump(page, log, tag) {
+  try {
+    await page.screenshot({ path: `/app/profile/last_${tag}_failure.png`, fullPage: false }).catch(() => {});
+    const html = await page.content().catch(() => '');
+    if (html) require('fs').writeFileSync(`/app/profile/last_${tag}_failure.html`, html);
+  } catch (err) {
+    log.warn(`captureFailureDump ${tag} failed: ${err.message}`);
+  }
+}
+
 /**
  * Main login routine. Idempotent — safe to call even if we're already logged in.
  */
@@ -275,79 +335,44 @@ async function ensureLoggedIn(page, creds, log) {
   // Submit. Pressing Enter is more natural than clicking a button.
   await passFound.locator.press('Enter');
 
-  // ─── Post-submit: 2FA, suspicious login, captcha, or success ───
-  const outcome = await raceSelectors(
-    page,
-    [
-      'input[name="verificationCode"]',
-      'input[aria-label*="security code" i]',
-      'input[aria-label*="confirmation code" i]',
-      'input[autocomplete="one-time-code"]',
-      'svg[aria-label="Home"]',
-      'a[href="/"]',
-      'text=/please wait a few minutes/i',
-      'text=/we detected an unusual login/i',
-      'text=/help us confirm/i',
-      'text=/suspicious login/i',
-    ],
-    20000,
-  );
+  // ─── Post-submit classification via detectLoginState (pure, unit-tested) ──
+  // One state machine handles every IG outcome: home, 2fa, challenge,
+  // incorrect credentials, rate-limit, login-form-redisplayed, unknown.
+  const { state, snap } = await waitForLoginState(page, 20000);
+  log.info(`post-submit state=${state} url=${snap.url}`);
 
-  if (!outcome) {
-    log.warn(`no recognised state after credential submit for ${username}`);
-    // Capture page state so we can see what Instagram is showing
-    try {
-      const url = page.url();
-      const title = await page.title().catch(() => '');
-      const body = await page.locator('body').innerText({ timeout: 4000 }).catch(() => '');
-      log.warn(`post-submit url=${url}`);
-      log.warn(`post-submit title=${title}`);
-      log.warn(`post-submit body=${(body||'').replace(/\s+/g,' ').slice(0,600)}`);
-      await page.screenshot({ path: `/app/profile/last_login_failure.png`, fullPage: false }).catch(() => {});
-      const fs = require('fs');
-      const html = await page.content().catch(() => '');
-      if (html) fs.writeFileSync(`/app/profile/last_login_failure.html`, html);
-    } catch (err) {
-      log.warn(`unknown-state capture failed: ${err.message}`);
+  if (state === STATES.HOME) {
+    await humanDelay(500, 1200);
+    await dismissDialogs(page, log);
+    if (await isLoggedIn(page, log)) {
+      log.info(`login succeeded for ${username}`);
+      return { ok: true };
     }
-    // URL-based recovery: if the URL has changed away from /accounts/login,
-    // try a stronger isLoggedIn check after a small grace period.
-    await sleep(2500);
-    if (await isLoggedIn(page, log)) return { ok: true };
-    // If we redirected away from the login form but didn't reach home, still surface the state
-    const afterUrl = page.url();
-    if (!afterUrl.includes('/accounts/login')) {
-      log.warn(`post-submit landed at ${afterUrl} but isLoggedIn() = false`);
-      // Try dismissing any post-login interstitials and recheck once
-      await dismissDialogs(page, log);
-      await sleep(1500);
-      if (await isLoggedIn(page, log)) return { ok: true };
-    }
-    return { ok: false, reason: 'unknown_state_after_login' };
+    log.warn(`detected HOME state but isLoggedIn re-check failed`);
   }
 
-  if (
-    outcome.selector.includes('please wait') ||
-    outcome.selector.includes('unusual login') ||
-    outcome.selector.includes('help us confirm') ||
-    outcome.selector.includes('suspicious login')
-  ) {
-    log.warn(`login blocked / challenge for ${username}: ${outcome.selector}`);
+  if (state === STATES.RATE_LIMITED) {
+    log.warn(`rate-limited post-submit for ${username}`);
+    return { ok: false, blocked: true, reason: 'rate_limited_during_submit' };
+  }
+
+  if (state === STATES.CHALLENGE) {
+    log.warn(`challenge / suspicious-login wall for ${username}`);
     return { ok: false, blocked: true, reason: 'challenge_or_suspicious_login' };
   }
 
-  // 2FA prompt
-  if (outcome.selector.toLowerCase().includes('verificationcode') ||
-      outcome.selector.toLowerCase().includes('security code') ||
-      outcome.selector.toLowerCase().includes('confirmation code') ||
-      outcome.selector.toLowerCase().includes('one-time-code')) {
+  if (state === STATES.INCORRECT_CREDENTIALS) {
+    log.warn(`credentials rejected for ${username} (locked / geo-mismatch / password changed)`);
+    await captureFailureDump(page, log, 'credentials_rejected');
+    return { ok: false, reason: 'credentials_rejected' };
+  }
 
+  if (state === STATES.TWO_FACTOR) {
     if (!totpSecret) {
       log.warn(`2FA required for ${username} but no IG_2FA_SECRET set`);
       return { ok: false, reason: '2fa_required_but_no_secret' };
     }
-
-    log.info(`2FA prompt detected for ${username} — generating TOTP`);
+    log.info(`2FA prompt for ${username} — generating TOTP`);
     let code;
     try {
       code = authenticator.generate(totpSecret);
@@ -356,76 +381,41 @@ async function ensureLoggedIn(page, creds, log) {
       return { ok: false, reason: 'totp_generation_failed' };
     }
 
-    const codeInput = await raceSelectors(
-      page,
-      [
-        'input[name="verificationCode"]',
-        'input[aria-label*="security code" i]',
-        'input[aria-label*="confirmation code" i]',
-        'input[autocomplete="one-time-code"]',
-      ],
-      5000,
-    );
-    if (!codeInput) {
-      return { ok: false, reason: '2fa_input_disappeared' };
-    }
+    const codeInput = await raceSelectors(page, TWO_FA_SELECTORS, 5000);
+    if (!codeInput) return { ok: false, reason: '2fa_input_disappeared' };
     await codeInput.locator.click();
     await humanDelay();
     await codeInput.locator.fill(code);
     await humanDelay(200, 500);
 
     const confirmed = await clickByText(page, ['Confirm', 'Submit', 'Verify', 'Next'], 2500);
-    if (!confirmed) {
-      await codeInput.locator.press('Enter');
-    }
+    if (!confirmed) await codeInput.locator.press('Enter');
 
-    const post2fa = await raceSelectors(
-      page,
-      [
-        'svg[aria-label="Home"]',
-        'a[href="/"]',
-        'text=/please wait a few minutes/i',
-        'text=/incorrect code/i',
-        'text=/we detected an unusual login/i',
-        'text=/help us confirm/i',
-      ],
-      20000,
-    );
+    const post2fa = await waitForLoginState(page, 20000);
+    log.info(`post-2fa state=${post2fa.state}`);
 
-    if (!post2fa) {
-      await sleep(2000);
-      if (await isLoggedIn(page, log)) return { ok: true };
-      return { ok: false, reason: 'unknown_state_after_2fa' };
+    if (post2fa.state === STATES.HOME) {
+      await humanDelay(500, 1200);
+      await dismissDialogs(page, log);
+      if (await isLoggedIn(page, log)) {
+        log.info(`login succeeded (with 2FA) for ${username}`);
+        return { ok: true };
+      }
     }
-    if (
-      post2fa.selector.includes('please wait') ||
-      post2fa.selector.includes('unusual login') ||
-      post2fa.selector.includes('help us confirm')
-    ) {
-      log.warn(`blocked after 2FA for ${username}`);
-      return { ok: false, blocked: true, reason: 'challenge_after_2fa' };
-    }
-    if (post2fa.selector.includes('incorrect code')) {
+    if (post2fa.state === STATES.CHALLENGE) return { ok: false, blocked: true, reason: 'challenge_after_2fa' };
+    if (post2fa.state === STATES.RATE_LIMITED) return { ok: false, blocked: true, reason: 'rate_limited_after_2fa' };
+    if (post2fa.state === STATES.INCORRECT_CREDENTIALS) {
       log.warn(`incorrect 2FA code for ${username} (clock drift?)`);
       return { ok: false, reason: 'incorrect_2fa_code' };
     }
-    await humanDelay(500, 1200);
-    await dismissDialogs(page, log);
-    if (await isLoggedIn(page, log)) {
-      log.info(`login succeeded (with 2FA) for ${username}`);
-      return { ok: true };
-    }
-    return { ok: false, reason: 'not_logged_in_after_2fa' };
+    return { ok: false, reason: `not_logged_in_after_2fa:${post2fa.state}` };
   }
 
-  // No 2FA — we should already be home
-  await humanDelay(500, 1200);
-  await dismissDialogs(page, log);
-  if (await isLoggedIn(page, log)) {
-    log.info(`login succeeded (no 2FA) for ${username}`);
-    return { ok: true };
-  }
-  return { ok: false, reason: 'not_logged_in_after_submit' };
+  // STATES.LOGIN_FORM or STATES.UNKNOWN at this point — submit appears to
+  // have done nothing (form re-rendered) or IG served an unrecognised page.
+  log.warn(`post-submit unrecognised: state=${state}`);
+  await captureFailureDump(page, log, 'login');
+  return { ok: false, reason: `unknown_state_after_login:${state}` };
 }
 
 module.exports = { ensureLoggedIn, isLoggedIn, dismissDialogs };

@@ -316,6 +316,114 @@ app.post('/scrape', requireSecret, async (req, res) => {
   });
 });
 
+// ─── Batch endpoint ─────────────────────────────────────────────────────
+// POST /scrape/batch
+// Body: { tasks: [{ action, payload }, ...], strategy?: "parallel"|"sequential" }
+//   - parallel (default): waves of N tasks where N = number of healthy workers.
+//     Each task in a wave runs on a DIFFERENT worker so a single batch never
+//     hot-spots one worker. Tasks past N queue up and run as workers free.
+//   - sequential: one task at a time, sticky-routing per username (existing
+//     single-task behavior). Useful when ordering matters.
+//
+// Returns: { ok: true, results: [{ action, payload, ok, items?, error? }, ...] }
+// Per-task failures don't fail the whole batch - each result carries its own
+// ok flag so the caller can stitch UI panels regardless.
+//
+// Why this exists: the dashboard wants to show profile + posts + followers +
+// stories + comments-on-recent-post for a single username on one page load.
+// Doing those sequentially through one worker is ~30-60s; fanning out across
+// 3 healthy workers in parallel cuts it to ~10-15s.
+app.post('/scrape/batch', requireSecret, async (req, res) => {
+  const body = req.body || {};
+  const tasks = Array.isArray(body.tasks) ? body.tasks : [];
+  const strategy = (body.strategy || 'parallel').toLowerCase();
+
+  if (tasks.length === 0) {
+    return res.status(400).json({ ok: false, error: 'tasks_array_required' });
+  }
+  if (tasks.length > 32) {
+    return res.status(400).json({ ok: false, error: 'too_many_tasks (max 32)' });
+  }
+
+  // Pre-fetch healthy worker pool (one batch = one snapshot of who's available).
+  // Workers blocked since last check stay excluded for this batch.
+  const healthy = [];
+  for (const w of workers) {
+    if (!(await isWorkerBlocked(w.id))) healthy.push(w);
+  }
+  if (healthy.length === 0) {
+    return res.status(503).json({
+      ok: false,
+      error: 'no_workers_available',
+      results: tasks.map((t) => ({
+        action: t.action, payload: t.payload, ok: false, error: 'no_workers_available',
+      })),
+    });
+  }
+
+  async function runOne(task, worker) {
+    const fwd = await forwardScrape(worker, task);
+    if (fwd.status >= 200 && fwd.status < 300 && fwd.body && fwd.body.ok) {
+      await bumpWorkerRequests(worker.id);
+      const uname = task?.payload?.username;
+      if (uname) await setStickyTarget(uname, worker.id);
+      return { ok: true, items: fwd.body.items, worker: worker.id };
+    }
+    const errMsg = (fwd.body && fwd.body.error) || (fwd.networkError ? 'network_error' : `worker_status_${fwd.status}`);
+    if (fwd.status === 429) {
+      log.warn(`batch: worker ${worker.id} returned 429 (${errMsg}) - marking blocked`);
+      await markWorkerBlocked(worker.id);
+    } else if (/login_failed|credentials_rejected|not_logged_in|2fa_required|account_suspended|block_signal_on/i.test(errMsg)) {
+      log.warn(`batch: worker ${worker.id} login broken (${errMsg}) - marking blocked`);
+      await markWorkerBlocked(worker.id);
+    }
+    return { ok: false, error: errMsg, worker: worker.id };
+  }
+
+  const results = new Array(tasks.length).fill(null);
+
+  if (strategy === 'sequential') {
+    for (let i = 0; i < tasks.length; i++) {
+      // Use single-task picker so sticky-by-username still applies
+      const t = tasks[i];
+      const uname = t?.payload?.username;
+      const { worker } = await pickWorker({ username: uname, excludeIds: [] });
+      if (!worker) {
+        results[i] = { action: t.action, payload: t.payload, ok: false, error: 'no_workers_available' };
+        continue;
+      }
+      const r = await runOne(t, worker);
+      results[i] = { action: t.action, payload: t.payload, ...r };
+    }
+  } else {
+    // PARALLEL: wave-based. Each wave assigns up to healthy.length tasks to
+    // different workers. We rotate the worker order between waves so the
+    // same worker isn't always doing task 0 of every wave (better balance).
+    let cursor = 0;
+    let waveIdx = 0;
+    while (cursor < tasks.length) {
+      const waveSize = Math.min(healthy.length, tasks.length - cursor);
+      const wave = [];
+      for (let i = 0; i < waveSize; i++) {
+        const worker = healthy[(i + waveIdx) % healthy.length];
+        const idx = cursor + i;
+        const t = tasks[idx];
+        log.info(`-> ${worker.id} (batch wave ${waveIdx} #${i}) action=${t.action} user=${t?.payload?.username || '-'}`);
+        wave.push(
+          runOne(t, worker).then((r) => {
+            results[idx] = { action: t.action, payload: t.payload, ...r };
+          }),
+        );
+      }
+      await Promise.all(wave);
+      cursor += waveSize;
+      waveIdx++;
+    }
+  }
+
+  res.json({ ok: true, results });
+});
+
 app.get('/health', requireSecret, async (_req, res) => {
   const results = await Promise.all(workers.map((w) => callWorkerHealth(w)));
   // Augment with orchestrator-side data

@@ -49,6 +49,9 @@ const { ensureLoggedIn, isLoggedIn } = require('./scrapers/login');
 const { scrapeProfile } = require('./scrapers/profile');
 const { scrapeFollowers, scrapeFollowing } = require('./scrapers/followers');
 const { scrapeStories } = require('./scrapers/stories');
+const { scrapePosts } = require('./scrapers/posts');
+const { scrapeComments } = require('./scrapers/comments');
+const { enrichAudience } = require('./scrapers/audience_enrichment');
 const { isBlockedSignal } = require('./scrapers/utils');
 
 // ─── Config from env ─────────────────────────────────────────────────────
@@ -309,10 +312,13 @@ app.post('/scrape', requireSecret, async (req, res) => {
       }
 
       switch (action) {
-        case 'profile':    return scrapeProfile(page, payload || {}, log);
-        case 'followers':  return scrapeFollowers(page, payload || {}, log);
-        case 'following':  return scrapeFollowing(page, payload || {}, log);
-        case 'stories':    return scrapeStories(page, payload || {}, log);
+        case 'profile':              return scrapeProfile(page, payload || {}, log);
+        case 'followers':            return scrapeFollowers(page, payload || {}, log);
+        case 'following':            return scrapeFollowing(page, payload || {}, log);
+        case 'stories':              return scrapeStories(page, payload || {}, log);
+        case 'posts':                return scrapePosts(page, payload || {}, log);
+        case 'comments':             return scrapeComments(page, payload || {}, log);
+        case 'audience_enrichment':  return enrichAudience(page, payload || {}, log);
         default: {
           const e = new Error(`unknown_action:${action}`);
           e.statusCode = 400;

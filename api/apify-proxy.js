@@ -46,6 +46,26 @@ async function callScraperService(action, payload) {
   return body.items;
 }
 
+// ─── Cluster batch call ─────────────────────────────────────────────────
+// Fans tasks across multiple workers via /scrape/batch. Per-task failures
+// don't fail the whole call - each result carries its own ok flag so we
+// can stitch partial UI even if one worker is down.
+async function callScraperBatch(tasks, strategy = 'parallel') {
+  if (!SCRAPER_SERVICE_URL) throw new Error('SCRAPER_SERVICE_URL is not configured');
+  const res = await fetch(`${SCRAPER_SERVICE_URL}/scrape/batch`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SCRAPER_SECRET ? { 'X-Secret': SCRAPER_SECRET } : {}),
+    },
+    body: JSON.stringify({ tasks, strategy }),
+  });
+  const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error(body.error || `Scraper batch error (${res.status})`);
+  if (!body.results) throw new Error('Scraper batch returned no results');
+  return body.results;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Apify helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,14 +205,119 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, items });
     }
 
+    // ── CLUSTER-NATIVE actions (no Apify fallback) ──────────────────────────
+
+    // posts: recent posts with engagement metrics, extracted from the profile
+    // page's inline JSON. Single cluster call (one worker, one navigation).
+    if (action === 'posts') {
+      const { username, limit = 12 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      items = await callScraperService('posts', { username: username.replace('@', ''), limit });
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // audience_enrichment: sample N followers + enrich each with bio + city
+    // signal + hashtags. Used by Audience Interest, Geographic Spread,
+    // and Outreach panels.
+    if (action === 'audience_enrichment') {
+      const { username, sample = 20, offset = 0 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      items = await callScraperService('audience_enrichment', {
+        username: username.replace('@', ''), sample, offset,
+      });
+      return res.status(200).json({ ok: true, items });
+    }
+
+    // top_commenters: composite action that uses /scrape/batch to fan out
+    // comment fetches across multiple workers in parallel. Steps:
+    //   1. cluster: posts(username, limit=postLimit) on one worker
+    //   2. cluster: batch comments(shortcode, limit=commentLimit) across remaining workers
+    //   3. aggregate commenters by frequency, sort, return top N
+    if (action === 'top_commenters') {
+      const { username, postLimit = 6, commentLimit = 50, topN = 25 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      const cleanUser = username.replace('@', '');
+      const posts = await callScraperService('posts', { username: cleanUser, limit: postLimit });
+      if (!posts || posts.length === 0) return res.status(200).json({ ok: true, items: [] });
+      const tasks = posts.map((p) => ({
+        action: 'comments',
+        payload: { shortcode: p.shortcode, limit: commentLimit },
+      }));
+      const results = await callScraperBatch(tasks, 'parallel');
+      // Aggregate
+      const tally = new Map();
+      for (const r of results) {
+        if (!r.ok || !Array.isArray(r.items)) continue;
+        for (const c of r.items) {
+          if (!c.username || c.username === cleanUser) continue;
+          const cur = tally.get(c.username) || {
+            username: c.username,
+            fullName: c.fullName,
+            profilePicUrl: c.profilePicUrl,
+            isVerified: c.isVerified,
+            commentCount: 0,
+            totalLikes: 0,
+            samples: [],
+          };
+          cur.commentCount += 1;
+          cur.totalLikes += c.likeCount || 0;
+          if (cur.samples.length < 3 && c.text) cur.samples.push(c.text.slice(0, 240));
+          tally.set(c.username, cur);
+        }
+      }
+      const ranked = Array.from(tally.values())
+        .sort((a, b) => b.commentCount - a.commentCount || b.totalLikes - a.totalLikes)
+        .slice(0, topN);
+      return res.status(200).json({ ok: true, items: ranked, postsFetched: posts.length });
+    }
+
+    // dashboard_load: ONE call from the dashboard fetches profile + posts +
+    // followers (sample) + stories in parallel by fanning across workers.
+    // Replaces a sequential chain that took 30-60s with a parallel batch
+    // that completes in 10-15s on a healthy 3-worker cluster.
+    if (action === 'dashboard_load') {
+      const { username, postLimit = 12, followerLimit = 20 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      const cleanUser = username.replace('@', '');
+      const tasks = [
+        { action: 'profile',   payload: { username: cleanUser } },
+        { action: 'posts',     payload: { username: cleanUser, limit: postLimit } },
+        { action: 'followers', payload: { username: cleanUser, limit: followerLimit } },
+        { action: 'stories',   payload: { username: cleanUser } },
+      ];
+      const results = await callScraperBatch(tasks, 'parallel');
+      const byAction = {};
+      for (const r of results) {
+        byAction[r.action] = { ok: r.ok, items: r.items || [], error: r.error };
+      }
+      return res.status(200).json({ ok: true, byAction });
+    }
+
     // ── APIFY ACTORS (working fine) ──────────────────────────────────────────
     if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
 
+    // comments: now tries the cluster first (fast, free), falls back to Apify
+    // if the cluster fails. Old shape { postUrl, limit } still works; new
+    // shape { shortcode, limit } also accepted.
     if (action === 'comments') {
-      const { postUrl, limit = 50 } = payload;
-      if (!postUrl) return res.status(400).json({ error: 'Missing postUrl' });
+      const { postUrl, shortcode, limit = 50 } = payload;
+      if (!postUrl && !shortcode) return res.status(400).json({ error: 'Missing postUrl or shortcode' });
+
+      // Try cluster first
+      if (SCRAPER_SERVICE_URL) {
+        try {
+          const clusterPayload = shortcode ? { shortcode, limit } : { url: postUrl, limit };
+          items = await callScraperService('comments', clusterPayload);
+          if (items && items.length > 0) return res.status(200).json({ ok: true, items });
+        } catch (err) {
+          console.warn(`[comments] Cluster failed, falling back to Apify: ${err.message}`);
+        }
+      }
+
+      // Apify fallback
+      const apifyUrl = postUrl || `https://www.instagram.com/p/${shortcode}/`;
       run = await startRun('apify/instagram-comment-scraper', {
-        directUrls: [postUrl],
+        directUrls: [apifyUrl],
         resultsLimit: limit,
       });
       completed = await pollRun(run.id);

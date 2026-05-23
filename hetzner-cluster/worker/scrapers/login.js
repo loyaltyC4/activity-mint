@@ -106,6 +106,60 @@ async function findUserField(page, timeoutMs = 10000) {
   return null;
 }
 
+/**
+ * Try to open the login modal from the homepage WITHOUT navigating to
+ * /accounts/login/. Instagram rate-limits /accounts/login/ on a per-IP
+ * basis at the CDN edge — but instagram.com/ stays accessible. Many
+ * residential IPs that 429 on /accounts/login/ will let you reach the
+ * homepage and submit credentials via the modal.
+ *
+ * Returns true if a login form is now visible (either was already inline
+ * or we successfully opened the modal), false otherwise.
+ */
+async function openLoginModalFromHome(page, log) {
+  // 1. If the homepage already has an inline form (some logged-out variants do), we're done.
+  for (const sel of USERNAME_SELECTORS) {
+    const visible = await page.locator(sel).first().isVisible({ timeout: 1000 }).catch(() => false);
+    if (visible) {
+      log.info(`homepage has inline login form (${sel})`);
+      return true;
+    }
+  }
+
+  // 2. Look for a "Log in" trigger (button or link) — click it to open the modal.
+  const triggerCandidates = [
+    page.getByRole('button', { name: /^\s*log\s*in\s*$/i }).first(),
+    page.getByRole('link',   { name: /^\s*log\s*in\s*$/i }).first(),
+    page.locator('a[href="/accounts/login/"]').first(),
+    page.locator('button:has-text("Log in")').first(),
+    page.locator('button:has-text("Log In")').first(),
+  ];
+  for (let i = 0; i < triggerCandidates.length; i++) {
+    const cand = triggerCandidates[i];
+    try {
+      const visible = await cand.isVisible({ timeout: 1500 }).catch(() => false);
+      if (!visible) continue;
+      log.info(`clicking login trigger #${i}`);
+      await cand.click({ timeout: 3000 });
+      // Wait for either the form to appear OR a navigation (could be redirect to /accounts/login/)
+      const start = Date.now();
+      while (Date.now() - start < 10000) {
+        for (const sel of USERNAME_SELECTORS) {
+          const found = await page.locator(sel).first().isVisible({ timeout: 500 }).catch(() => false);
+          if (found) {
+            log.info(`login form now visible after trigger #${i} (selector ${sel})`);
+            return true;
+          }
+        }
+        await sleep(300);
+      }
+    } catch (err) {
+      log.warn(`login trigger #${i} click failed: ${err.message}`);
+    }
+  }
+  return false;
+}
+
 async function findPassField(page, timeoutMs = 5000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -139,17 +193,32 @@ async function ensureLoggedIn(page, creds, log) {
     return { ok: true };
   }
 
-  log.info(`not logged in — performing login flow for ${username}`);
-  try {
-    await page.goto('https://www.instagram.com/accounts/login/', {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    });
-  } catch (err) {
-    log.warn(`login page goto failed: ${err.message}`);
+  log.info(`not logged in — trying modal-based login flow (avoid /accounts/login/) for ${username}`);
+
+  // ─── Try modal-based login first ───────────────────────────────────────
+  // We are still on the homepage from the initial goto above. Try to find
+  // an inline login form OR click a "Log in" trigger to open the modal.
+  // If this works, we never touch /accounts/login/ and bypass the IP-level
+  // rate limit that's hitting some residential proxies.
+  let modalOpened = await openLoginModalFromHome(page, log);
+
+  // If modal-from-home failed, fall back to /accounts/login/ (older flow).
+  if (!modalOpened) {
+    log.info(`modal flow didn't find a form — falling back to /accounts/login/`);
+    try {
+      await page.goto('https://www.instagram.com/accounts/login/', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      });
+    } catch (err) {
+      log.warn(`login page goto failed: ${err.message}`);
+    }
+    await humanDelay(800, 1500);
+    await dismissDialogs(page, log);
+  } else {
+    log.info(`modal-based login form visible — skipping /accounts/login/`);
+    await humanDelay(400, 900);
   }
-  await humanDelay(800, 1500);
-  await dismissDialogs(page, log);
 
   // Quick pre-check for an obvious block / proxy 429
   const bodyText = await page.locator('body').innerText({ timeout: 5000 }).catch(() => '');

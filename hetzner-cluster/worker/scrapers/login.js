@@ -294,6 +294,24 @@ async function ensureLoggedIn(page, creds, log) {
     return { ok: false, blocked: true, reason: 'block_signal_on_login_page' };
   }
 
+  // Detect IG's account-locked / suspension / "confirm you're human" wall.
+  // Hits when an account has been flagged for review (suspended/disabled URL),
+  // or when IG shows the human-check wall after a redirect. Without this,
+  // the worker would just fail to find the username input and return the
+  // generic 'username_input_not_found' reason - this gives the orchestrator
+  // and operators a clear signal to stop routing to this worker permanently.
+  const checkUrl = page.url();
+  if (/\/accounts\/(suspended|disabled)\b/.test(checkUrl) ||
+      /confirm you'?re human to use your account|your account has been (suspended|disabled)|we'?ve suspended your account|your account is temporarily locked/i.test(bodyText)) {
+    log.warn(`account suspended/disabled for ${username}. url=${checkUrl}`);
+    try {
+      await page.screenshot({ path: '/app/profile/last_login_failure.png', fullPage: false }).catch(() => {});
+      const html = await page.content().catch(() => '');
+      if (html) require('fs').writeFileSync('/app/profile/last_login_failure.html', html);
+    } catch (_) {}
+    return { ok: false, reason: 'account_suspended' };
+  }
+
   // ─── Find username field (multi-selector race) ───
   const userFound = await findUserField(page, 10000);
   if (!userFound) {

@@ -300,7 +300,7 @@ app.post('/scrape', requireSecret, async (req, res) => {
     // Any other non-OK response. If it looks like a login failure, mark the
     // worker out of rotation so the cluster stops routing to it - otherwise
     // we'd keep picking the dead worker as least_loaded (it has 0 requests).
-    if (/login_failed|credentials_rejected|not_logged_in|2fa_required_but_no_secret|password_input_not_found|username_input_not_found|block_signal_on_login_page/i.test(errMsg)) {
+    if (/login_failed|credentials_rejected|not_logged_in|2fa_required_but_no_secret|password_input_not_found|username_input_not_found|block_signal_on_login_page|account_suspended/i.test(errMsg)) {
       log.warn(`worker ${worker.id} login broken (${errMsg}) - blocking and failing over`);
       await markWorkerBlocked(worker.id);
     } else {

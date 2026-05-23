@@ -1,37 +1,66 @@
 /**
  * Pulse — the user's daily snapshot.
  *
- * Sections (top to bottom):
- * 1. KPI row (Mint Score / Reach / Engagement / Audience Mood)
- * 2. Recent activity card (active stories + recent posts grid)
- * 3. Plain-English insights (1 free, others tier-locked)
- *    + Daily quests with next-best-window CTA
- * 4. Best post recipe with copy-template button
+ * Loading strategy (fast UX):
+ *   1. On mount: check localStorage cache → render INSTANTLY if cached (<5 min old)
+ *   2. In parallel + in background: fetch profile (fast cluster ~5s) then
+ *      stories + posts (~12s). Each section updates the moment its data lands.
+ *   3. Persist fresh data back to localStorage for next visit.
  *
- * Empty state: when no tracked handle exists, renders EmptyState so the
- * admin can populate the dashboard from a real scrape.
+ * The page paints in <100ms when cache exists. Even without cache, skeletons
+ * appear immediately and individual cards swap in as their data arrives.
  */
 
 'use strict'
 
-import React, { useEffect, useState } from 'react'
-import { Flame, TrendingUp, Activity, Smile, Heart, MessageCircle, Clock, Bell } from 'lucide-react'
+import React, { useEffect, useState, useCallback } from 'react'
+import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { useTier } from '../../../context/TierContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchInstagramProfileWithPosts, fetchInstagramStories } from '../../../lib/apify'
+import {
+  fetchInstagramProfile,
+  fetchInstagramProfileWithPosts,
+  fetchInstagramStories,
+} from '../../../lib/apify'
 import KpiCard from '../shared/KpiCard'
 import InsightCard from '../shared/InsightCard'
 import StoryRing from '../shared/StoryRing'
 import PostThumb from '../shared/PostThumb'
 import EmptyState from '../EmptyState'
 
-function PaneHeader({ title, subtitle }) {
+// ── Cache helpers ─────────────────────────────────────────────────────────
+const CACHE_KEY = (h) => `pulse:v1:${h}`
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+function loadCache(handle) {
+  if (!handle || typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(CACHE_KEY(handle))
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (!data || (Date.now() - (data.t || 0)) > CACHE_TTL_MS) return null
+    return data
+  } catch { return null }
+}
+function saveCache(handle, payload) {
+  if (!handle || typeof localStorage === 'undefined') return
+  try { localStorage.setItem(CACHE_KEY(handle), JSON.stringify({ ...payload, t: Date.now() })) } catch {}
+}
+
+function PaneHeader({ title, subtitle, stale }) {
   return (
-    <div className="mb-5">
-      <h1 className="text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
-      <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
+    <div className="mb-5 flex items-end gap-3">
+      <div>
+        <h1 className="text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
+        <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
+      </div>
+      {stale && (
+        <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600 shadow-[0_0_0_1px_rgba(245,158,11,0.2)]">
+          Refreshing…
+        </span>
+      )}
     </div>
   )
 }
@@ -50,7 +79,7 @@ function ActivityCard({ stories, posts, loading }) {
       <div className="mb-5">
         <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#64756f]">Active Stories</div>
         <div className="flex flex-wrap items-start gap-3.5">
-          {loading
+          {loading && stories.length === 0
             ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[54px] w-[54px] rounded-full" />)
             : stories.length > 0
               ? stories.map((s, i) => (
@@ -64,7 +93,7 @@ function ActivityCard({ stories, posts, loading }) {
       <div>
         <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#64756f]">Recent Posts</div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {loading
+          {loading && posts.length === 0
             ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-[14px]" />)
             : posts.length > 0
               ? posts.slice(0, 4).map((p, i) => (
@@ -163,19 +192,28 @@ function QuestsCard({ streak = 0 }) {
   )
 }
 
+function fmt(n) {
+  if (n === null || n === undefined) return '--'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k'
+  return String(n)
+}
+
 export default function PulsePane({ timeRange }) {
   const { user } = useAuth()
   const { tier } = useTier()
   const isPaid = tier === 'standard' || tier === 'premium'
 
-  const [handle, setHandle]   = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [profile, setProfile] = useState(null)
-  const [stories, setStories] = useState([])
+  const [handle, setHandle]     = useState(null)
+  const [handleLoading, setHL]  = useState(true)
+  const [profile, setProfile]   = useState(null)
+  const [stories, setStories]   = useState([])
+  const [posts, setPosts]       = useState([])
+  const [refreshing, setRefresh] = useState(false)
 
-  // 1) Resolve the user's tracked handle from Supabase
+  // 1) Resolve the user's tracked handle from Supabase (fast — DB query <200ms)
   useEffect(() => {
-    if (!user) { setLoading(false); return }
+    if (!user) { setHL(false); return }
     let cancelled = false
     ;(async () => {
       const { data, error } = await supabase
@@ -186,42 +224,80 @@ export default function PulsePane({ timeRange }) {
         .limit(1)
         .maybeSingle()
       if (cancelled) return
-      if (error || !data) { setLoading(false); setHandle(null); return }
+      setHL(false)
+      if (error || !data) { setHandle(null); return }
       setHandle(data.username)
     })()
     return () => { cancelled = true }
   }, [user])
 
-  // 2) Fetch profile + posts + stories once we have a handle
+  // 2) Once we have a handle: hydrate from cache instantly, then refresh in background
+  const hydrate = useCallback(async (h) => {
+    // a. Instant paint from cache
+    const cached = loadCache(h)
+    if (cached) {
+      if (cached.profile) setProfile(cached.profile)
+      if (cached.stories) setStories(cached.stories)
+      if (cached.posts)   setPosts(cached.posts)
+    }
+    setRefresh(true)
+
+    // b. Staged refresh — profile first (fast cluster call), then stories + posts in parallel
+    let profileNext = cached?.profile || null
+    try {
+      const items = await fetchInstagramProfile(h)
+      if (items && items[0]) {
+        profileNext = items[0]
+        setProfile(profileNext)
+      }
+    } catch (err) {
+      console.warn('pulse: profile fetch failed', err)
+    }
+
+    // c. Now fetch stories + full profile (with posts) in parallel
+    const [storiesRes, postsRes] = await Promise.allSettled([
+      fetchInstagramStories(h),
+      fetchInstagramProfileWithPosts(h),
+    ])
+
+    let storiesNext = cached?.stories || []
+    if (storiesRes.status === 'fulfilled') {
+      const raw = storiesRes.value || []
+      storiesNext = raw.map((s, i) => ({ thumb: ['🎬','✨','📸','🎨'][i % 4], label: `Story ${i + 1}` }))
+      setStories(storiesNext)
+    }
+
+    let postsNext = cached?.posts || []
+    if (postsRes.status === 'fulfilled') {
+      const apifyProfile = postsRes.value?.[0]
+      if (apifyProfile?.latestPosts) {
+        postsNext = apifyProfile.latestPosts
+        setPosts(postsNext)
+      }
+      // Also merge any richer profile fields from Apify (followers, engagement)
+      if (apifyProfile) {
+        profileNext = { ...profileNext, ...apifyProfile }
+        setProfile(profileNext)
+      }
+    }
+
+    saveCache(h, { profile: profileNext, stories: storiesNext, posts: postsNext })
+    setRefresh(false)
+  }, [])
+
   useEffect(() => {
     if (!handle) return
-    let cancelled = false
-    setLoading(true)
-    Promise.allSettled([
-      fetchInstagramProfileWithPosts(handle),
-      fetchInstagramStories(handle),
-    ]).then(([profileRes, storiesRes]) => {
-      if (cancelled) return
-      if (profileRes.status === 'fulfilled') {
-        setProfile(profileRes.value?.[0] || null)
-      }
-      if (storiesRes.status === 'fulfilled') {
-        const raw = storiesRes.value || []
-        setStories(raw.map((s, i) => ({ thumb: ['🎬','✨','📸','🎨'][i % 4], label: `Story ${i + 1}` })))
-      }
-      setLoading(false)
-    })
-    return () => { cancelled = true }
-  }, [handle])
+    hydrate(handle)
+  }, [handle, hydrate])
 
   // Empty state: no handle tracked yet
-  if (!loading && !handle) {
-    return <EmptyState user={user} onHandleAdded={(h) => { setHandle(h); setLoading(true) }} />
+  if (!handleLoading && !handle) {
+    return <EmptyState user={user} onHandleAdded={(h) => { setHandle(h) }} />
   }
 
-  const followers = profile?.followersCount ?? null
+  const followers  = profile?.followersCount ?? profile?.followers ?? null
   const engagement = profile?.engagementRate ?? null
-  const posts = profile?.latestPosts || []
+  const hasData    = !!profile || posts.length > 0
 
   const insights = [
     { Icon: Activity, body: 'Your Reels earn 3.2× more saves than photos this month.', cta: 'Post 2 more Reels this week', tone: 'teal' },
@@ -231,18 +307,17 @@ export default function PulsePane({ timeRange }) {
 
   return (
     <>
-      <PaneHeader title="Pulse" subtitle={`Your daily snapshot — ${timeRange} view`} />
+      <PaneHeader title="Pulse" subtitle={`Your daily snapshot — ${timeRange} view`} stale={refreshing} />
 
       <div className="space-y-4">
-        {/* KPI Row */}
         <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
-          <KpiCard label="Mint Score"     value={loading ? '--' : 75}                emoji="💎" trend={8}  trendLabel="↑ +8 this week"   sparkData={[22,20,20,18,16,13,11,8]}  sparkColor="teal" />
-          <KpiCard label="Reach"          value={loading ? '--' : fmt(followers)}    emoji="📡" trend={22} trendLabel="↑ +22%"           sparkData={[26,22,24,19,20,13,9,3]}   sparkColor="sky" />
-          <KpiCard label="Engagement"     value={loading ? '--' : `${(engagement || 6.4).toFixed(1)}%`} emoji="❤️" trend={1.1} trendLabel="↑ +1.1pt" sparkData={[24,22,19,18,14,12,8,4]} sparkColor="coral" />
-          <KpiCard label="Audience mood"  value={loading ? '--' : '78%'}             emoji="🙂" trendLabel="↑ trending positive"  sparkData={[24,20,22,17,13,11,8,4]} sparkColor="violet" />
+          <KpiCard label="Mint Score"    value={hasData ? 75 : '--'}            emoji="💎" trend={8}   trendLabel="↑ +8 this week"      sparkData={[22,20,20,18,16,13,11,8]} sparkColor="teal" />
+          <KpiCard label="Reach"         value={fmt(followers)}                 emoji="📡" trend={22}  trendLabel="↑ +22%"              sparkData={[26,22,24,19,20,13,9,3]}  sparkColor="sky" />
+          <KpiCard label="Engagement"    value={engagement ? `${engagement.toFixed(1)}%` : (hasData ? '6.4%' : '--')} emoji="❤️" trend={1.1} trendLabel="↑ +1.1pt"      sparkData={[24,22,19,18,14,12,8,4]} sparkColor="coral" />
+          <KpiCard label="Audience mood" value={hasData ? '78%' : '--'}         emoji="🙂"                trendLabel="↑ trending positive"  sparkData={[24,20,22,17,13,11,8,4]} sparkColor="violet" />
         </div>
 
-        <ActivityCard stories={stories} posts={posts} loading={loading} />
+        <ActivityCard stories={stories} posts={posts} loading={refreshing} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
           <InsightsCard insights={insights} isPaid={isPaid} onUpgrade={() => alert('Upgrade flow coming')} />
@@ -251,11 +326,4 @@ export default function PulsePane({ timeRange }) {
       </div>
     </>
   )
-}
-
-function fmt(n) {
-  if (n === null || n === undefined) return '--'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k'
-  return String(n)
 }

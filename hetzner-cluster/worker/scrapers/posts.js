@@ -1,23 +1,26 @@
 /**
- * Posts scraper.
+ * Posts scraper (v2 - API-based).
  *
- * Extracts the target's most recent N posts and their engagement metrics by
- * parsing the inline JSON Instagram embeds in the profile page. This is fast
- * (one navigation) and reliable because IG ships the data inline; DOM-only
- * scraping would need a separate page load per post.
+ * Instagram's profile page is a SPA shell as of 2026 - the post grid is
+ * loaded via a separate API call after JS executes, so the rendered HTML
+ * contains NO inline JSON anchors (no edge_owner_to_timeline_media, no
+ * shortcode strings, nothing).
  *
- * Returns an array of:
- *   {
- *     shortcode, url, type ('image'|'video'|'carousel'),
- *     likes, comments, videoViews,
- *     caption, hashtags, mentions,
- *     timestamp,            // ISO string
- *     mediaUrl,             // primary display URL
- *     thumbnailUrl,         // smaller preview if available
- *     isVideo, isCarousel,
- *   }
+ * Strategy: from inside the logged-in page context (cookies + ig app id),
+ * call IG's own /api/v1/users/web_profile_info/?username=X endpoint - it
+ * returns the user's web profile bundle including the first 12 posts under
+ * data.user.edge_owner_to_timeline_media.edges. This is the same call the
+ * SPA itself makes, so the auth shape works as long as the worker session
+ * is valid.
  *
- * payload.limit = how many posts to return (default 12, max 36 per call).
+ * If that fails (logged-out shell, IG response changed), fall back to a
+ * DOM-scrape of the post grid - we get shortcodes but not engagement, and
+ * the caller can fan out per-post fetches for engagement via the batch
+ * endpoint.
+ *
+ * Returns: array of post records (see field list at bottom).
+ *
+ * payload: { username, limit? (default 12, max 36) }
  */
 
 'use strict';
@@ -25,132 +28,126 @@
 const { humanDelay, isBlockedSignal } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
-
-// Robust decode of IG's JSON unicode escapes
-function decodeStr(v) {
-  if (v == null) return null;
-  return v
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
-    .replace(/\\n/g, '\n')
-    .replace(/\\"/g, '"')
-    .replace(/\\\//g, '/')
-    .replace(/\\\\/g, '\\');
-}
+const IG_APP_ID = '936619743392459';  // public web IG app id
 
 function extractHashtags(caption) {
   if (!caption) return [];
   const m = caption.match(/#[\p{L}\p{N}_]+/gu);
-  return m ? m.map((s) => s.slice(1).toLowerCase()) : [];
+  return m ? [...new Set(m.map((s) => s.slice(1).toLowerCase()))] : [];
 }
-
 function extractMentions(caption) {
   if (!caption) return [];
   const m = caption.match(/@[\w.]+/g);
-  return m ? m.map((s) => s.slice(1).toLowerCase()) : [];
+  return m ? [...new Set(m.map((s) => s.slice(1).toLowerCase()))] : [];
 }
 
 /**
- * Pull the edge_owner_to_timeline_media.edges array out of a profile page's
- * inline HTML and normalize each post.
- *
- * Strategy: locate the username blob first, then walk forward in the HTML to
- * find a JSON-shape edges array of media nodes. IG ships these in several
- * places (XDT_API__v1__feed__user_timeline, PolarisProfilePageContentQuery,
- * etc.), so we try a couple of likely anchors.
+ * Normalize one IG GraphQL edge node into our post shape.
  */
-async function extractPostsFromInlineJSON(page, targetUsername, limit) {
-  const html = await page.content();
-  const out = [];
+function normalizeNode(n) {
+  const caption = n?.edge_media_to_caption?.edges?.[0]?.node?.text || null;
+  const isCarousel = n?.__typename === 'GraphSidecar';
+  const isVideo = !!n?.is_video;
+  const ts = n?.taken_at_timestamp;
+  return {
+    shortcode: n?.shortcode || null,
+    url: n?.shortcode ? `${IG_BASE}/p/${n.shortcode}/` : null,
+    type: isCarousel ? 'carousel' : (isVideo ? 'video' : 'image'),
+    productType: n?.product_type || null,
+    likes: n?.edge_media_preview_like?.count ?? n?.edge_liked_by?.count ?? 0,
+    comments: n?.edge_media_to_comment?.count ?? 0,
+    videoViews: isVideo ? (n?.video_view_count ?? 0) : 0,
+    caption,
+    hashtags: extractHashtags(caption),
+    mentions: extractMentions(caption),
+    timestamp: ts ? new Date(ts * 1000).toISOString() : null,
+    mediaUrl: n?.display_url || n?.thumbnail_src || null,
+    thumbnailUrl: n?.thumbnail_src || n?.display_url || null,
+    isVideo,
+    isCarousel,
+  };
+}
 
-  // Find a region of HTML where the media edges are likely to live. We look
-  // for any "edge_owner_to_timeline_media":{"count":N,"edges":[...]} blob,
-  // accepting up to ~80kb of content per blob.
-  const edgesRe = /"edge_owner_to_timeline_media"\s*:\s*\{[^{}]*"edges"\s*:\s*\[([\s\S]*?)\](?:\s*,\s*"page_info"|\s*\})/g;
-  let match;
-  while ((match = edgesRe.exec(html)) !== null) {
-    const edgesBody = match[1];
-    // Split on `},{` boundaries inside the edges array. Each edge has the
-    // shape {"node":{...}} so we look for "node":{ ... } substrings.
-    const nodeRe = /"node"\s*:\s*\{/g;
-    let m2;
-    const nodeStarts = [];
-    while ((m2 = nodeRe.exec(edgesBody)) !== null) {
-      nodeStarts.push(m2.index + m2[0].length);
+/**
+ * Call web_profile_info from inside the logged-in page context.
+ * Returns { user } or null.
+ */
+async function fetchWebProfileInfoFromPage(page, username) {
+  const apiUrl = `${IG_BASE}/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+  return page.evaluate(async (args) => {
+    try {
+      const r = await fetch(args.url, {
+        headers: {
+          'x-ig-app-id': args.appId,
+          'accept': 'application/json',
+          'sec-fetch-site': 'same-origin',
+        },
+        credentials: 'include',
+      });
+      if (!r.ok) return { __err: `http_${r.status}` };
+      const j = await r.json();
+      return j?.data || j;
+    } catch (e) {
+      return { __err: e.message || 'fetch_failed' };
     }
-    for (let i = 0; i < nodeStarts.length && out.length < limit; i++) {
-      const start = nodeStarts[i];
-      // Find matching closing brace by counting depth
-      let depth = 1, end = start;
-      while (end < edgesBody.length && depth > 0) {
-        const ch = edgesBody[end];
-        if (ch === '{') depth++;
-        else if (ch === '}') depth--;
-        end++;
-      }
-      const nodeBlob = edgesBody.slice(start, end - 1); // exclude closing }
+  }, { url: apiUrl, appId: IG_APP_ID }).catch(() => null);
+}
 
-      const pick = (re) => {
-        const x = nodeBlob.match(re);
-        return x ? x[1] : null;
-      };
-
-      const shortcode = pick(/"shortcode"\s*:\s*"([^"]+)"/);
-      if (!shortcode) continue;
-
-      const isVideo = pick(/"is_video"\s*:\s*(true|false)/) === 'true';
-      const productType = pick(/"product_type"\s*:\s*"([^"]+)"/);
-      const isCarousel = /"__typename"\s*:\s*"GraphSidecar"/.test(nodeBlob) ||
-                        /"media_type"\s*:\s*8\b/.test(nodeBlob);
-      const likes = parseInt(
-        pick(/"edge_(?:media_preview_like|liked_by)"\s*:\s*\{\s*"count"\s*:\s*(\d+)/) || '0',
-        10,
-      );
-      const comments = parseInt(pick(/"edge_media_to_comment"\s*:\s*\{\s*"count"\s*:\s*(\d+)/) || '0', 10);
-      const videoViews = parseInt(pick(/"video_view_count"\s*:\s*(\d+)/) || '0', 10);
-      const captionRaw = pick(/"edge_media_to_caption"\s*:\s*\{\s*"edges"\s*:\s*\[\s*\{\s*"node"\s*:\s*\{\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-      const caption = captionRaw ? decodeStr(captionRaw) : null;
-      const ts = pick(/"taken_at_timestamp"\s*:\s*(\d+)/);
-      const timestamp = ts ? new Date(parseInt(ts, 10) * 1000).toISOString() : null;
-      const displayUrl = decodeStr(pick(/"display_url"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-      const thumbnail = decodeStr(pick(/"thumbnail_src"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-
-      // Dedup by shortcode (multiple edges blobs may be present)
-      if (out.find((p) => p.shortcode === shortcode)) continue;
-
+/**
+ * DOM fallback - walk the post grid for shortcode anchors. No engagement,
+ * caller can fan per-post fetches via batch for that.
+ */
+async function scrapePostsFromDom(page, limit) {
+  return page.evaluate((max) => {
+    const links = Array.from(document.querySelectorAll('a[href^="/p/"], a[href^="/reel/"]'));
+    const seen = new Set();
+    const out = [];
+    for (const a of links) {
+      if (out.length >= max) break;
+      const href = a.getAttribute('href') || '';
+      const m = href.match(/^\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+      if (!m) continue;
+      const sc = m[1];
+      if (seen.has(sc)) continue;
+      seen.add(sc);
+      // Grab thumbnail if present
+      const img = a.querySelector('img');
+      const thumb = img ? (img.getAttribute('src') || null) : null;
+      const isReel = href.startsWith('/reel/');
       out.push({
-        shortcode,
-        url: `${IG_BASE}/p/${shortcode}/`,
-        type: isCarousel ? 'carousel' : (isVideo ? 'video' : 'image'),
-        productType: productType || null,
-        likes,
-        comments,
-        videoViews: isVideo ? videoViews : 0,
-        caption,
-        hashtags: extractHashtags(caption),
-        mentions: extractMentions(caption),
-        timestamp,
-        mediaUrl: displayUrl || thumbnail || null,
-        thumbnailUrl: thumbnail || displayUrl || null,
-        isVideo,
-        isCarousel,
+        shortcode: sc,
+        url: `https://www.instagram.com${href}`,
+        type: isReel ? 'video' : 'image',
+        likes: 0,
+        comments: 0,
+        videoViews: 0,
+        caption: null,
+        hashtags: [],
+        mentions: [],
+        timestamp: null,
+        mediaUrl: thumb,
+        thumbnailUrl: thumb,
+        isVideo: isReel,
+        isCarousel: false,
+        _engagementMissing: true,
       });
     }
-    if (out.length >= limit) break;
-  }
-
-  return out.slice(0, limit);
+    return out;
+  }, limit).catch(() => []);
 }
 
 async function scrapePosts(page, payload, log) {
   const username = (payload?.username || '').trim().replace(/^@/, '');
   if (!username) throw new Error('payload.username is required');
-
   const limit = Math.max(1, Math.min(parseInt(payload?.limit ?? 12, 10) || 12, 36));
 
+  // We need to be on instagram.com so the API call inherits the right
+  // origin + cookies. Going to the profile page also lets the SPA chunks
+  // warm up if we need to fall back to DOM scraping.
   const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
   log.info(`scrape posts -> ${username} (limit=${limit})`);
   const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await humanDelay(800, 1600);
+  await humanDelay(600, 1100);
 
   const status = resp ? resp.status() : 0;
   if (status === 404) throw new Error(`profile_not_found:${username}`);
@@ -162,9 +159,33 @@ async function scrapePosts(page, payload, log) {
     throw err;
   }
 
-  const posts = await extractPostsFromInlineJSON(page, username, limit);
-  log.info(`extracted ${posts.length} posts for ${username}`);
-  return posts;
+  // Strategy 1: API call from inside the page
+  log.info(`fetching web_profile_info for ${username}`);
+  const data = await fetchWebProfileInfoFromPage(page, username);
+
+  if (data && data.user && !data.__err) {
+    const edges = data.user.edge_owner_to_timeline_media?.edges || [];
+    if (edges.length > 0) {
+      const posts = edges.slice(0, limit).map((e) => normalizeNode(e.node));
+      log.info(`extracted ${posts.length} posts via API for ${username}`);
+      return posts;
+    }
+    log.warn(`web_profile_info returned no edges for ${username} (private or empty profile)`);
+    // Surface up - private accounts legitimately have no public posts
+    if (data.user?.is_private) return [];
+  } else {
+    log.warn(`web_profile_info failed for ${username}: ${data?.__err || 'no_data'}`);
+  }
+
+  // Strategy 2: wait for the post grid to render, then DOM scrape
+  log.info(`falling back to DOM scrape for ${username} posts`);
+  // Wait up to 8s for at least one /p/ anchor to appear
+  try {
+    await page.waitForSelector('a[href^="/p/"], a[href^="/reel/"]', { timeout: 8000 });
+  } catch (_) {}
+  const domPosts = await scrapePostsFromDom(page, limit);
+  log.info(`DOM scrape returned ${domPosts.length} posts for ${username}`);
+  return domPosts;
 }
 
 module.exports = { scrapePosts };

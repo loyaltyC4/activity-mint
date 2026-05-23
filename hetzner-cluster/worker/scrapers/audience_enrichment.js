@@ -1,29 +1,27 @@
 /**
- * Audience enrichment scraper.
+ * Audience enrichment scraper (v2 - API-based per-follower bio).
+ *
+ * IG's profile pages are now SPA shells with no inline JSON, so for each
+ * sampled follower we call /api/v1/users/web_profile_info/ from inside the
+ * logged-in page context (same approach as posts.js).
  *
  * Given a target username + sample size, fetches a small slice of the
- * target's followers AND enriches each with profile-level signal (bio,
- * follower count, city/location signal extracted from bio, hashtags
- * the follower mentions in their own bio).
+ * target's followers AND enriches each with bio, follower/following/post
+ * counts, verified/private flags, plus derived signals: city hint extracted
+ * from the bio text and any flag emojis, hashtags + mentions the follower
+ * uses in their own bio.
  *
  * Used by:
- *   - Audience Interest panel        (aggregate bio hashtags)
- *   - Geographic Spread map          (aggregate city signals)
- *   - Outreach Ideas                 (filter candidates by follower-count)
+ *   - Audience Interest panel    (aggregate bio hashtags + city hints)
+ *   - Geographic Spread map      (aggregate city signals)
+ *   - Outreach Ideas             (filter by follower-count + bio keyword)
  *
- * Single-worker latency note: each follower bio is one navigation, so a
- * sample of 20 followers ~= 20 nav cycles. The proxy can fan-out by calling
- * audience_enrichment several times with different offsets across multiple
- * workers via the batch endpoint.
+ * Per-worker latency: a sample of 20 followers ~= 20 sequential API calls
+ * inside the same page session. The proxy can fan out by calling this
+ * action multiple times with different offsets across workers via batch.
  *
  * payload:
  *   { username, sample? (default 20, max 50), offset? (default 0) }
- *
- * Returns array of:
- *   { username, fullName, bio, followerCount, followingCount, postCount,
- *     isVerified, isPrivate, profilePicUrl,
- *     bioHashtags, bioMentions, citySignal,    // derived
- *   }
  */
 
 'use strict';
@@ -31,36 +29,37 @@
 const { humanDelay, isBlockedSignal, sleep } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
+const IG_APP_ID = '936619743392459';
 
-// Common city hints we look for in bios; not exhaustive but useful at scale.
-// Each entry: [matcher_regex, normalized_name].
+// Common city / region hints we look for in bios. Not exhaustive, but at
+// scale this gives us "X% of audience in NYC, Y% in LA" granularity which
+// is enough for a marketing dashboard.
 const CITY_HINTS = [
-  [/\b(nyc|new york|brooklyn|manhattan)\b/i, 'New York'],
-  [/\b(los angeles|la,|l\.a\.|hollywood)\b/i, 'Los Angeles'],
-  [/\b(san francisco|sf|bay area)\b/i, 'San Francisco'],
-  [/\b(london|uk)\b/i, 'London'],
+  [/\b(nyc|new york|brooklyn|manhattan|queens)\b/i, 'New York'],
+  [/\b(los angeles|la,|l\.a\.|hollywood|santa monica)\b/i, 'Los Angeles'],
+  [/\b(san francisco|sf|bay area|silicon valley)\b/i, 'San Francisco'],
+  [/\b(london|england|uk)\b/i, 'London'],
   [/\b(paris|france)\b/i, 'Paris'],
-  [/\b(berlin)\b/i, 'Berlin'],
+  [/\b(berlin|germany)\b/i, 'Berlin'],
   [/\b(tokyo|japan)\b/i, 'Tokyo'],
-  [/\b(sydney|australia)\b/i, 'Sydney'],
-  [/\b(toronto|canada)\b/i, 'Toronto'],
-  [/\b(dubai|uae)\b/i, 'Dubai'],
-  [/\b(mumbai|delhi|bengaluru|bangalore|india)\b/i, 'India'],
-  [/\b(rio|sao paulo|brazil)\b/i, 'Brazil'],
-  [/\b(mexico city|mexico)\b/i, 'Mexico City'],
-  [/\b(lagos|nigeria)\b/i, 'Lagos'],
-  [/\b(berlin|germany)\b/i, 'Germany'],
+  [/\b(sydney|australia|melbourne)\b/i, 'Sydney'],
+  [/\b(toronto|canada|montreal|vancouver)\b/i, 'Toronto'],
+  [/\b(dubai|uae|abu dhabi)\b/i, 'Dubai'],
+  [/\b(mumbai|delhi|bengaluru|bangalore|india|chennai|kolkata)\b/i, 'India'],
+  [/\b(rio|sao paulo|brazil|brasil)\b/i, 'Brazil'],
+  [/\b(mexico city|cdmx|mexico|méxico)\b/i, 'Mexico City'],
+  [/\b(lagos|nigeria|abuja)\b/i, 'Lagos'],
   [/\b(amsterdam|netherlands)\b/i, 'Amsterdam'],
-  [/\b(madrid|barcelona|spain)\b/i, 'Spain'],
-  [/\b(istanbul|turkey)\b/i, 'Istanbul'],
+  [/\b(madrid|barcelona|spain|españa)\b/i, 'Spain'],
+  [/\b(istanbul|turkey|türkiye)\b/i, 'Istanbul'],
   [/\b(singapore)\b/i, 'Singapore'],
   [/\b(seoul|korea)\b/i, 'Seoul'],
+  [/\b(lagos|accra|nairobi|johannesburg|cape town)\b/i, 'Africa'],
 ];
 
 function detectCity(bio) {
   if (!bio) return null;
   for (const [re, name] of CITY_HINTS) if (re.test(bio)) return name;
-  // Flag-emoji hint: try to find any flag emoji and report it without geocoding
   const flag = bio.match(/[\u{1F1E6}-\u{1F1FF}]{2}/u);
   return flag ? `flag:${flag[0]}` : null;
 }
@@ -76,17 +75,34 @@ function extractMentions(text) {
   return m ? [...new Set(m.map((s) => s.slice(1).toLowerCase()))] : [];
 }
 
-function decodeStr(v) {
-  if (v == null) return null;
-  return v.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
-          .replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\//g, '/').replace(/\\\\/g, '\\');
+/** API call from page context. Returns user object or null. */
+async function fetchProfileInfo(page, username) {
+  const url = `${IG_BASE}/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+  const data = await page.evaluate(async (args) => {
+    try {
+      const r = await fetch(args.url, {
+        headers: {
+          'x-ig-app-id': args.appId,
+          'accept': 'application/json',
+          'sec-fetch-site': 'same-origin',
+        },
+        credentials: 'include',
+      });
+      if (!r.ok) return { __err: `http_${r.status}` };
+      const j = await r.json();
+      return j?.data || j;
+    } catch (e) {
+      return { __err: e.message || 'fetch_failed' };
+    }
+  }, { url, appId: IG_APP_ID }).catch(() => null);
+
+  if (!data || data.__err || !data.user) return null;
+  return data.user;
 }
 
 /**
- * Pull a sample of followers' usernames from the target's followers modal.
- * We re-use the existing followers scraping path (open modal + scroll) but
- * cap the harvest at `sample + offset` items and slice to the requested
- * window. We import the helper lazily to avoid a circular-ish dependency.
+ * Get a sample of follower usernames by re-using the existing followers
+ * scraper. Returns the slice [offset, offset+sample).
  */
 async function harvestFollowerUsernames(page, target, sample, offset, log) {
   const { scrapeFollowers } = require('./followers');
@@ -96,53 +112,30 @@ async function harvestFollowerUsernames(page, target, sample, offset, log) {
 }
 
 /**
- * Lightweight per-follower bio fetch using meta tags + inline JSON. Returns
- * the enriched record with derived fields filled in.
+ * Per-follower enrichment via API. Self-contained; one call per follower.
+ * The orchestrator's batch endpoint is the right place to parallelize this
+ * across workers, not in-worker.
  */
-async function fetchFollowerBio(page, follower, log) {
-  const url = `${IG_BASE}/${encodeURIComponent(follower)}/`;
-  try {
-    const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await humanDelay(300, 700);
-    const status = resp ? resp.status() : 0;
-    if (status === 404) return null;
-    const html = await page.content();
-
-    const blobRe = new RegExp(`"username"\\s*:\\s*"${follower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[\\s\\S]{0,4000}`, 'i');
-    const m = html.match(blobRe);
-    let pick = () => null;
-    let blob = '';
-    if (m) {
-      blob = m[0];
-      pick = (re) => { const x = blob.match(re); return x ? x[1] : null; };
-    }
-    const fullName = decodeStr(pick(/"full_name"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-    const bio = decodeStr(pick(/"biography"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-    const profilePicUrl = decodeStr(pick(/"profile_pic_url(?:_hd)?"\s*:\s*"((?:[^"\\]|\\.)*)"/));
-    const isPrivate = pick(/"is_private"\s*:\s*(true|false)/) === 'true';
-    const isVerified = pick(/"is_verified"\s*:\s*(true|false)/) === 'true';
-    const followerCount = parseInt(pick(/"edge_followed_by"\s*:\s*\{\s*"count"\s*:\s*(\d+)/) || '0', 10) || null;
-    const followingCount = parseInt(pick(/"edge_follow"\s*:\s*\{\s*"count"\s*:\s*(\d+)/) || '0', 10) || null;
-    const postCount = parseInt(pick(/"edge_owner_to_timeline_media"\s*:\s*\{\s*"count"\s*:\s*(\d+)/) || '0', 10) || null;
-
-    return {
-      username: follower,
-      fullName,
-      bio,
-      followerCount,
-      followingCount,
-      postCount,
-      isVerified,
-      isPrivate,
-      profilePicUrl,
-      bioHashtags: extractHashtags(bio),
-      bioMentions: extractMentions(bio),
-      citySignal: detectCity(bio),
-    };
-  } catch (err) {
-    log.warn(`enrich ${follower} failed: ${err.message}`);
-    return null;
-  }
+async function enrichOne(page, follower, log) {
+  const user = await fetchProfileInfo(page, follower);
+  if (!user) return null;
+  const bio = user.biography || null;
+  return {
+    username: user.username || follower,
+    fullName: user.full_name || null,
+    bio,
+    followerCount: user.edge_followed_by?.count ?? null,
+    followingCount: user.edge_follow?.count ?? null,
+    postCount: user.edge_owner_to_timeline_media?.count ?? null,
+    isVerified: !!user.is_verified,
+    isPrivate: !!user.is_private,
+    profilePicUrl: user.profile_pic_url_hd || user.profile_pic_url || null,
+    bioHashtags: extractHashtags(bio),
+    bioMentions: extractMentions(bio),
+    citySignal: detectCity(bio),
+    externalUrl: user.external_url || null,
+    category: user.category_name || user.business_category_name || null,
+  };
 }
 
 async function enrichAudience(page, payload, log) {
@@ -153,12 +146,17 @@ async function enrichAudience(page, payload, log) {
 
   log.info(`enrich audience -> ${target} sample=${sample} offset=${offset}`);
 
-  // Step 1: harvest follower usernames from the target
-  let followers = [];
+  // Need to be on instagram.com so the API call inherits cookies + origin
+  await page.goto(`${IG_BASE}/${encodeURIComponent(target)}/`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30000,
+  });
+  await humanDelay(800, 1500);
+
+  let followers;
   try {
     followers = await harvestFollowerUsernames(page, target, sample, offset, log);
   } catch (err) {
-    log.warn(`follower harvest failed: ${err.message}`);
     if (err.blocked || isBlockedSignal(err.message)) {
       err.blocked = true;
       throw err;
@@ -170,14 +168,15 @@ async function enrichAudience(page, payload, log) {
     return [];
   }
 
-  // Step 2: enrich each follower with their bio. Sequential per worker
-  // (the orchestrator can fan multiple slices across workers). Tight delay
-  // budget so a sample of 20 finishes in well under 60s.
   const out = [];
   for (const f of followers) {
-    const rec = await fetchFollowerBio(page, f, log);
-    if (rec) out.push(rec);
-    await humanDelay(150, 400);  // micro-jitter between fetches
+    try {
+      const rec = await enrichOne(page, f, log);
+      if (rec) out.push(rec);
+    } catch (err) {
+      log.warn(`enrich ${f} failed: ${err.message}`);
+    }
+    await humanDelay(120, 380);
   }
   log.info(`enriched ${out.length}/${followers.length} followers for ${target}`);
   return out;

@@ -157,42 +157,37 @@ jobs:
           #      → if this fails, the proxy is bad → buy proxies
           # Together these resolve which to replace.
           if [ "$ACTION" = "bisect_login" ]; then
-            ssh_run "source /opt/activitymint/.env && \
-              docker rm -f am_bisect_a am_bisect_b 2>/dev/null; \
-              rm -rf /tmp/bisect_a /tmp/bisect_b; \
-              mkdir -p /tmp/bisect_a /tmp/bisect_b && chmod 755 /tmp/bisect_a /tmp/bisect_b"
+            ssh_run "docker rm -f am_bisect_a am_bisect_b 2>/dev/null; rm -rf /tmp/bisect_a /tmp/bisect_b; mkdir -p /tmp/bisect_a /tmp/bisect_b && chmod 755 /tmp/bisect_a /tmp/bisect_b"
+            # All credentials are already in the runner's env (from the step's env: block)
+            # so they expand HERE on the runner before SSH sends them to Hetzner.
             echo "==> A: account=nezaretci_01 (acct 1, FAILING) + proxy=65.195.109.107 (proxy 3, HEALTHY)"
-            ssh_run "source /opt/activitymint/.env && docker run -d \
-              --name am_bisect_a \
-              --network hetzner-cluster_am_public \
+            ssh_run "docker run -d --name am_bisect_a --network hetzner-cluster_am_public \
               -e WORKER_ID=bisect_a \
-              -e IG_USERNAME='$IG_USER_1' \
-              -e IG_PASSWORD='$IG_PASS_1' \
-              -e IG_2FA_SECRET='$IG_2FA_1' \
+              -e IG_USERNAME=$IG_USER_1 \
+              -e IG_PASSWORD=$IG_PASS_1 \
+              -e IG_2FA_SECRET=$IG_2FA_1 \
               -e PROXY_HOST=65.195.109.107 \
-              -e PROXY_USER='\$PROXY_USER' \
-              -e PROXY_PASS='\$PROXY_PASS' \
+              -e PROXY_USER=$PROXY_USER \
+              -e PROXY_PASS=$PROXY_PASS \
               -e PROXY_HTTP_PORT=50100 \
-              -e SCRAPER_SECRET='\$SCRAPER_SECRET' \
+              -e SCRAPER_SECRET=$SCRAPER_SECRET \
               -e PORT=3010 \
               -v /tmp/bisect_a:/app/profile \
-              hetzner-cluster-worker_1 || echo 'A failed to start'"
+              hetzner-cluster-worker_1 2>&1 | tail -1"
             echo "==> B: account=nigar.fan.3 (acct 3, HEALTHY) + proxy=168.158.21.28 (proxy 1, FAILING)"
-            ssh_run "source /opt/activitymint/.env && docker run -d \
-              --name am_bisect_b \
-              --network hetzner-cluster_am_public \
+            ssh_run "docker run -d --name am_bisect_b --network hetzner-cluster_am_public \
               -e WORKER_ID=bisect_b \
-              -e IG_USERNAME='$IG_USER_3' \
-              -e IG_PASSWORD='$IG_PASS_3' \
-              -e IG_2FA_SECRET='$IG_2FA_3' \
+              -e IG_USERNAME=$IG_USER_3 \
+              -e IG_PASSWORD=$IG_PASS_3 \
+              -e IG_2FA_SECRET=$IG_2FA_3 \
               -e PROXY_HOST=168.158.21.28 \
-              -e PROXY_USER='\$PROXY_USER' \
-              -e PROXY_PASS='\$PROXY_PASS' \
+              -e PROXY_USER=$PROXY_USER \
+              -e PROXY_PASS=$PROXY_PASS \
               -e PROXY_HTTP_PORT=50100 \
-              -e SCRAPER_SECRET='\$SCRAPER_SECRET' \
+              -e SCRAPER_SECRET=$SCRAPER_SECRET \
               -e PORT=3010 \
               -v /tmp/bisect_b:/app/profile \
-              hetzner-cluster-worker_1 || echo 'B failed to start'"
+              hetzner-cluster-worker_1 2>&1 | tail -1"
             echo ""
             echo "Waiting 70s for both to attempt login..."
             sleep 70

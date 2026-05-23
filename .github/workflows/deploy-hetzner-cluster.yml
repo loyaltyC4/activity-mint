@@ -20,6 +20,7 @@ on:
           - diagnostics
           - smoke
           - test_each
+          - test_proxies
 
 jobs:
   deploy:
@@ -142,6 +143,32 @@ jobs:
           # ── LOGS ───────────────────────────────────────────────────────────
           if [ "$ACTION" = "logs" ]; then
             ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml logs --tail=100"
+          fi
+
+          # ── TEST_PROXIES — verify each proxy independently of Instagram ──
+          # For each of the 5 proxy IPs, curl through HTTP and SOCKS5 to
+          # api.ipify.org and (lightly) to instagram.com to see:
+          #   - Does the proxy auth work at all?
+          #   - What exit IP does it report (should match the proxy host)?
+          #   - Does instagram.com respond, and with what code?
+          if [ "$ACTION" = "test_proxies" ]; then
+            for ip in 168.158.21.28 165.254.99.133 65.195.109.107 161.77.140.110 77.47.158.43; do
+              echo "════════════════════════════════════════════════════════════"
+              echo "  PROXY $ip"
+              echo "════════════════════════════════════════════════════════════"
+              echo "─ HTTP (port 50100) exit IP via api.ipify.org ─"
+              ssh_run "curl -s --max-time 12 --proxy http://$PROXY_USER:$PROXY_PASS@${ip}:50100 https://api.ipify.org -w ' [code=%{http_code}]' || echo ' [curl_failed]'"
+              echo ""
+              echo "─ SOCKS5 (port 50101) exit IP via api.ipify.org ─"
+              ssh_run "curl -s --max-time 12 --proxy socks5h://$PROXY_USER:$PROXY_PASS@${ip}:50101 https://api.ipify.org -w ' [code=%{http_code}]' || echo ' [curl_failed]'"
+              echo ""
+              echo "─ HTTP — instagram.com response code ─"
+              ssh_run "curl -s --max-time 15 -o /dev/null -w 'instagram.com [code=%{http_code} time=%{time_total}s]' --proxy http://$PROXY_USER:$PROXY_PASS@${ip}:50100 https://www.instagram.com/ || echo ' [curl_failed]'"
+              echo ""
+              echo "─ HTTP — instagram /accounts/login/ response code ─"
+              ssh_run "curl -s --max-time 15 -o /dev/null -w 'instagram/login [code=%{http_code} time=%{time_total}s]' --proxy http://$PROXY_USER:$PROXY_PASS@${ip}:50100 https://www.instagram.com/accounts/login/ || echo ' [curl_failed]'"
+              echo ""
+            done
           fi
 
           # ── TEST_EACH — bypass orchestrator, hit each worker container directly ──

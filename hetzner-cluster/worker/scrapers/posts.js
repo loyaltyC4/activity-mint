@@ -1,24 +1,25 @@
 /**
- * Posts scraper (v2 - API-based).
+ * Posts scraper (v3 - passive GraphQL interception).
  *
- * Instagram's profile page is a SPA shell as of 2026 - the post grid is
- * loaded via a separate API call after JS executes, so the rendered HTML
- * contains NO inline JSON anchors (no edge_owner_to_timeline_media, no
- * shortcode strings, nothing).
+ * IG's profile page is an SPA shell. The post grid is loaded via a POST to
+ * /graphql/query that responds with the path:
+ *   data.xdt_api__v1__feed__user_timeline_graphql_connection.edges[].node
  *
- * Strategy: from inside the logged-in page context (cookies + ig app id),
- * call IG's own /api/v1/users/web_profile_info/?username=X endpoint - it
- * returns the user's web profile bundle including the first 12 posts under
- * data.user.edge_owner_to_timeline_media.edges. This is the same call the
- * SPA itself makes, so the auth shape works as long as the worker session
- * is valid.
+ * Replicating that POST from outside is impractical - the body uses
+ * Meta-internal session params (__csr, __dyn, __hsi, etc.) that aren't
+ * stable. Instead we let the SPA fire the request itself and PASSIVELY
+ * intercept the response body via page.on('response'). We only need to
+ * read the bytes; we don't need to craft the request.
  *
- * If that fails (logged-out shell, IG response changed), fall back to a
- * DOM-scrape of the post grid - we get shortcodes but not engagement, and
- * the caller can fan out per-post fetches for engagement via the batch
- * endpoint.
+ * 2026 field renames (vs. pre-SPA shape):
+ *   - shortcode             -> code
+ *   - taken_at_timestamp    -> taken_at
+ *   - edge_media_to_caption -> caption (object with .text)
+ *   - edge_liked_by.count   -> like_count
+ *   - edge_media_to_comment -> comment_count
+ *   - media_type            -> 1=image, 2=video, 8=carousel
  *
- * Returns: array of post records (see field list at bottom).
+ * Returns array of post records, same shape as before so callers don't care.
  *
  * payload: { username, limit? (default 12, max 36) }
  */
@@ -28,7 +29,6 @@
 const { humanDelay, isBlockedSignal } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
-const IG_APP_ID = '936619743392459';  // public web IG app id
 
 function extractHashtags(caption) {
   if (!caption) return [];
@@ -41,99 +41,66 @@ function extractMentions(caption) {
   return m ? [...new Set(m.map((s) => s.slice(1).toLowerCase()))] : [];
 }
 
-/**
- * Normalize one IG GraphQL edge node into our post shape.
- */
+/** Pick the best display URL out of image_versions2 candidates (largest). */
+function pickImageUrl(n) {
+  const cands = n?.image_versions2?.candidates || [];
+  if (cands.length === 0) return null;
+  // candidates[0] is usually highest resolution
+  return cands[0]?.url || null;
+}
+function pickThumbnailUrl(n) {
+  const cands = n?.image_versions2?.candidates || [];
+  if (cands.length === 0) return null;
+  return cands[cands.length - 1]?.url || cands[0]?.url || null;
+}
+function pickVideoUrl(n) {
+  const vs = n?.video_versions || [];
+  return vs[0]?.url || null;
+}
+
 function normalizeNode(n) {
-  const caption = n?.edge_media_to_caption?.edges?.[0]?.node?.text || null;
-  const isCarousel = n?.__typename === 'GraphSidecar';
-  const isVideo = !!n?.is_video;
-  const ts = n?.taken_at_timestamp;
+  if (!n) return null;
+  const code = n.code || n.shortcode || null;
+  const caption = n?.caption?.text || n?.edge_media_to_caption?.edges?.[0]?.node?.text || null;
+  const mt = n.media_type;
+  const isCarousel = mt === 8 || n.__typename === 'GraphSidecar';
+  const isVideo = mt === 2 || !!(n.video_versions && n.video_versions.length);
+  const ts = n.taken_at ?? n.taken_at_timestamp ?? null;
   return {
-    shortcode: n?.shortcode || null,
-    url: n?.shortcode ? `${IG_BASE}/p/${n.shortcode}/` : null,
+    shortcode: code,
+    url: code ? `${IG_BASE}/p/${code}/` : null,
     type: isCarousel ? 'carousel' : (isVideo ? 'video' : 'image'),
-    productType: n?.product_type || null,
-    likes: n?.edge_media_preview_like?.count ?? n?.edge_liked_by?.count ?? 0,
-    comments: n?.edge_media_to_comment?.count ?? 0,
-    videoViews: isVideo ? (n?.video_view_count ?? 0) : 0,
+    productType: n.product_type || null,
+    likes: n.like_count ?? n.edge_media_preview_like?.count ?? n.edge_liked_by?.count ?? 0,
+    comments: n.comment_count ?? n.edge_media_to_comment?.count ?? 0,
+    videoViews: isVideo ? (n.play_count ?? n.view_count ?? n.video_view_count ?? 0) : 0,
     caption,
     hashtags: extractHashtags(caption),
     mentions: extractMentions(caption),
     timestamp: ts ? new Date(ts * 1000).toISOString() : null,
-    mediaUrl: n?.display_url || n?.thumbnail_src || null,
-    thumbnailUrl: n?.thumbnail_src || n?.display_url || null,
+    mediaUrl: pickImageUrl(n) || pickVideoUrl(n) || n.display_url || null,
+    thumbnailUrl: pickThumbnailUrl(n) || n.thumbnail_src || null,
     isVideo,
     isCarousel,
   };
 }
 
 /**
- * Call web_profile_info from inside the logged-in page context.
- * Returns { user } or null.
+ * Try parsing every captured GraphQL response. Returns the first edges
+ * array found at the known xdt_api path, or [] if nothing matched.
  */
-async function fetchWebProfileInfoFromPage(page, username) {
-  const apiUrl = `${IG_BASE}/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
-  return page.evaluate(async (args) => {
+function findEdgesInCaptured(captured) {
+  for (const body of captured) {
     try {
-      const r = await fetch(args.url, {
-        headers: {
-          'x-ig-app-id': args.appId,
-          'accept': 'application/json',
-          'sec-fetch-site': 'same-origin',
-        },
-        credentials: 'include',
-      });
-      if (!r.ok) return { __err: `http_${r.status}` };
-      const j = await r.json();
-      return j?.data || j;
-    } catch (e) {
-      return { __err: e.message || 'fetch_failed' };
-    }
-  }, { url: apiUrl, appId: IG_APP_ID }).catch(() => null);
-}
-
-/**
- * DOM fallback - walk the post grid for shortcode anchors. No engagement,
- * caller can fan per-post fetches via batch for that.
- */
-async function scrapePostsFromDom(page, limit) {
-  return page.evaluate((max) => {
-    const links = Array.from(document.querySelectorAll('a[href^="/p/"], a[href^="/reel/"]'));
-    const seen = new Set();
-    const out = [];
-    for (const a of links) {
-      if (out.length >= max) break;
-      const href = a.getAttribute('href') || '';
-      const m = href.match(/^\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
-      if (!m) continue;
-      const sc = m[1];
-      if (seen.has(sc)) continue;
-      seen.add(sc);
-      // Grab thumbnail if present
-      const img = a.querySelector('img');
-      const thumb = img ? (img.getAttribute('src') || null) : null;
-      const isReel = href.startsWith('/reel/');
-      out.push({
-        shortcode: sc,
-        url: `https://www.instagram.com${href}`,
-        type: isReel ? 'video' : 'image',
-        likes: 0,
-        comments: 0,
-        videoViews: 0,
-        caption: null,
-        hashtags: [],
-        mentions: [],
-        timestamp: null,
-        mediaUrl: thumb,
-        thumbnailUrl: thumb,
-        isVideo: isReel,
-        isCarousel: false,
-        _engagementMissing: true,
-      });
-    }
-    return out;
-  }, limit).catch(() => []);
+      const json = JSON.parse(body);
+      const conn = json?.data?.xdt_api__v1__feed__user_timeline_graphql_connection
+                || json?.data?.user?.edge_owner_to_timeline_media
+                || json?.data?.xdt_api__v1__feed__reels_media__connection;
+      const edges = conn?.edges;
+      if (Array.isArray(edges) && edges.length > 0) return edges;
+    } catch (_) {}
+  }
+  return [];
 }
 
 async function scrapePosts(page, payload, log) {
@@ -141,51 +108,95 @@ async function scrapePosts(page, payload, log) {
   if (!username) throw new Error('payload.username is required');
   const limit = Math.max(1, Math.min(parseInt(payload?.limit ?? 12, 10) || 12, 36));
 
-  // We need to be on instagram.com so the API call inherits the right
-  // origin + cookies. Going to the profile page also lets the SPA chunks
-  // warm up if we need to fall back to DOM scraping.
-  const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
-  log.info(`scrape posts -> ${username} (limit=${limit})`);
-  const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await humanDelay(600, 1100);
+  // Set up the response interceptor BEFORE navigation so we don't miss
+  // early SPA calls. We collect every GraphQL response body that mentions
+  // a known posts data key.
+  const captured = [];
+  const onResponse = async (resp) => {
+    const url = resp.url();
+    if (!/instagram\.com\/(graphql\/query|api\/graphql)/.test(url)) return;
+    try {
+      const txt = await resp.text();
+      // Cheap pre-filter so we don't keep big unrelated bodies in memory
+      if (
+        txt.includes('xdt_api__v1__feed__user_timeline') ||
+        txt.includes('edge_owner_to_timeline_media') ||
+        txt.includes('"code":"') && txt.includes('"caption"')
+      ) {
+        captured.push(txt);
+      }
+    } catch (_) {}
+  };
+  page.on('response', onResponse);
 
-  const status = resp ? resp.status() : 0;
-  if (status === 404) throw new Error(`profile_not_found:${username}`);
+  try {
+    const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
+    log.info(`scrape posts -> ${username} (limit=${limit})`);
+    const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const status = resp ? resp.status() : 0;
+    if (status === 404) throw new Error(`profile_not_found:${username}`);
 
-  const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
-  if (isBlockedSignal(bodyText)) {
-    const err = new Error('blocked_signal_on_profile');
-    err.blocked = true;
-    throw err;
-  }
+    const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
+    if (isBlockedSignal(bodyText)) {
+      const err = new Error('blocked_signal_on_profile');
+      err.blocked = true;
+      throw err;
+    }
 
-  // Strategy 1: API call from inside the page
-  log.info(`fetching web_profile_info for ${username}`);
-  const data = await fetchWebProfileInfoFromPage(page, username);
+    // Wait for the SPA to fire its post-loading GraphQL calls. We poll the
+    // captured array; if we get a posts response early, return quickly.
+    const deadline = Date.now() + 14000;
+    while (Date.now() < deadline) {
+      await page.waitForTimeout(500);
+      if (findEdgesInCaptured(captured).length > 0) break;
+    }
 
-  if (data && data.user && !data.__err) {
-    const edges = data.user.edge_owner_to_timeline_media?.edges || [];
+    const edges = findEdgesInCaptured(captured);
     if (edges.length > 0) {
-      const posts = edges.slice(0, limit).map((e) => normalizeNode(e.node));
-      log.info(`extracted ${posts.length} posts via API for ${username}`);
+      const posts = edges.slice(0, limit).map((e) => normalizeNode(e.node)).filter(Boolean);
+      log.info(`captured ${edges.length} edges; returning ${posts.length} posts for ${username}`);
       return posts;
     }
-    log.warn(`web_profile_info returned no edges for ${username} (private or empty profile)`);
-    // Surface up - private accounts legitimately have no public posts
-    if (data.user?.is_private) return [];
-  } else {
-    log.warn(`web_profile_info failed for ${username}: ${data?.__err || 'no_data'}`);
-  }
 
-  // Strategy 2: wait for the post grid to render, then DOM scrape
-  log.info(`falling back to DOM scrape for ${username} posts`);
-  // Wait up to 8s for at least one /p/ anchor to appear
-  try {
-    await page.waitForSelector('a[href^="/p/"], a[href^="/reel/"]', { timeout: 8000 });
-  } catch (_) {}
-  const domPosts = await scrapePostsFromDom(page, limit);
-  log.info(`DOM scrape returned ${domPosts.length} posts for ${username}`);
-  return domPosts;
+    // Fallback: DOM scrape /p/ anchors that the SPA may have rendered
+    log.warn(`no GraphQL posts captured for ${username}, trying DOM scrape`);
+    try { await page.waitForSelector('a[href^="/p/"], a[href^="/reel/"]', { timeout: 6000 }); } catch (_) {}
+    const domPosts = await page.evaluate((max) => {
+      const links = Array.from(document.querySelectorAll('a[href^="/p/"], a[href^="/reel/"]'));
+      const seen = new Set();
+      const out = [];
+      for (const a of links) {
+        if (out.length >= max) break;
+        const href = a.getAttribute('href') || '';
+        const m = href.match(/^\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+        if (!m) continue;
+        const sc = m[1];
+        if (seen.has(sc)) continue;
+        seen.add(sc);
+        const img = a.querySelector('img');
+        const thumb = img ? (img.getAttribute('src') || null) : null;
+        const isReel = href.startsWith('/reel/');
+        out.push({
+          shortcode: sc,
+          url: 'https://www.instagram.com' + href,
+          type: isReel ? 'video' : 'image',
+          likes: 0,
+          comments: 0,
+          videoViews: 0,
+          caption: null, hashtags: [], mentions: [],
+          timestamp: null,
+          mediaUrl: thumb, thumbnailUrl: thumb,
+          isVideo: isReel, isCarousel: false,
+          _engagementMissing: true,
+        });
+      }
+      return out;
+    }, limit).catch(() => []);
+    log.info(`DOM scrape returned ${domPosts.length} posts for ${username}`);
+    return domPosts;
+  } finally {
+    page.off('response', onResponse);
+  }
 }
 
 module.exports = { scrapePosts };

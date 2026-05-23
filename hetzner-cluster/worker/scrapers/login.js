@@ -207,8 +207,10 @@ async function captureSnap(page) {
 }
 
 /**
- * Poll the page state until detectLoginState returns something other than
- * UNKNOWN, or we time out. Returns { state, snap }.
+ * Poll the page state until detectLoginState returns a TERMINAL state, or we
+ * time out. LOGIN_FORM is treated as transient during the wait window (the
+ * form is briefly visible just after submit while IG processes credentials)
+ * and only counts as final if the poll times out without seeing anything else.
  */
 async function waitForLoginState(page, timeoutMs = 20000) {
   const start = Date.now();
@@ -216,10 +218,15 @@ async function waitForLoginState(page, timeoutMs = 20000) {
   while (Date.now() - start < timeoutMs) {
     lastSnap = await captureSnap(page);
     const state = detectLoginState(lastSnap);
-    if (state !== STATES.UNKNOWN) return { state, snap: lastSnap };
+    // Terminal states: anything that's not UNKNOWN and not the still-here login form
+    if (state !== STATES.UNKNOWN && state !== STATES.LOGIN_FORM) {
+      return { state, snap: lastSnap };
+    }
     await sleep(500);
   }
-  return { state: STATES.UNKNOWN, snap: lastSnap || (await captureSnap(page)) };
+  // Timeout: surface whatever the final state is (may be LOGIN_FORM = stuck, may be UNKNOWN)
+  const finalSnap = lastSnap || (await captureSnap(page));
+  return { state: detectLoginState(finalSnap), snap: finalSnap };
 }
 
 async function captureFailureDump(page, log, tag) {

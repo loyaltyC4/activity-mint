@@ -136,12 +136,13 @@ const HELP_CATEGORIES = [
 /* ─── Shared Components ─────────────────────────────────────────────────── */
 
 const Logo = ({ onClick }) => (
-  <div className="flex items-center gap-2 cursor-pointer" onClick={onClick}>
-    <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 shadow-md">
-      <Activity className="w-5 h-5 text-white absolute" />
+  <div className="flex items-center gap-2.5 cursor-pointer group" onClick={onClick}>
+    <div className="relative flex items-center justify-center w-9 h-9 rounded-[12px] bg-gradient-to-br from-teal-400 via-emerald-500 to-teal-600 shadow-[0_8px_20px_-6px_rgba(20,184,166,0.55)] group-hover:scale-105 transition-transform duration-300">
+      <Sparkles className="w-5 h-5 text-white relative z-10" strokeWidth={2.5} />
+      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-300 border-2 border-white shadow-sm"></div>
     </div>
-    <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">
-      Activity Mint
+    <span className="text-xl font-extrabold tracking-tight text-slate-900">
+      Activity<span className="text-teal-600">Mint</span>
     </span>
   </div>
 );
@@ -159,7 +160,32 @@ const FeatureCard = ({ icon, title, description }) => (
   </Card>
 );
 
-const UseCaseCard = ({ title, description, icon, bgGradient }) => (
+const UseCaseCard = ({ title, description, Icon, accent = 'teal' }) => {
+  const accentMap = {
+    teal:   { ring: 'from-teal-400 to-emerald-500',   tint: 'bg-teal-50',   chip: 'text-teal-600',   hover: 'group-hover:shadow-teal-500/15' },
+    violet: { ring: 'from-violet-400 to-indigo-500',  tint: 'bg-violet-50', chip: 'text-violet-600', hover: 'group-hover:shadow-violet-500/15' },
+    amber:  { ring: 'from-amber-400 to-orange-500',   tint: 'bg-amber-50',  chip: 'text-amber-600',  hover: 'group-hover:shadow-amber-500/15' },
+    rose:   { ring: 'from-rose-400 to-pink-500',      tint: 'bg-rose-50',   chip: 'text-rose-600',   hover: 'group-hover:shadow-rose-500/15' },
+    sky:    { ring: 'from-sky-400 to-cyan-500',       tint: 'bg-sky-50',    chip: 'text-sky-600',    hover: 'group-hover:shadow-sky-500/15' },
+    slate:  { ring: 'from-slate-400 to-slate-600',    tint: 'bg-slate-50',  chip: 'text-slate-600',  hover: 'group-hover:shadow-slate-500/15' },
+  };
+  const a = accentMap[accent] || accentMap.teal;
+  return (
+    <Card className={`group relative overflow-hidden border-slate-200/70 hover:-translate-y-1 hover:shadow-2xl ${a.hover} transition-all duration-500 rounded-3xl`}>
+      <div className={`absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br ${a.ring} opacity-15 blur-2xl group-hover:scale-150 group-hover:opacity-25 transition-all duration-700`}></div>
+      <CardContent className="p-7 relative">
+        <div className={`w-12 h-12 rounded-2xl ${a.tint} ${a.chip} flex items-center justify-center mb-5 shadow-sm`}>
+          {Icon ? <Icon className="w-6 h-6" strokeWidth={2} /> : null}
+        </div>
+        <h3 className="text-[17px] font-bold text-foreground mb-2 leading-tight tracking-tight">{title}</h3>
+        <p className="text-muted-foreground text-[13.5px] leading-relaxed">{description}</p>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Legacy props (icon=JSX, bgGradient=class) kept here so existing call sites won't break.
+const LegacyUseCaseCard = ({ title, description, icon, bgGradient }) => (
   <Card className="group hover:shadow-2xl hover:border-primary/10 transition-all duration-500 overflow-hidden">
     <CardContent className="p-8 flex flex-col sm:flex-row items-center gap-8">
       <div className="sm:w-3/5 relative z-10">
@@ -840,39 +866,65 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
       </div>
     </section>
 
-    <section className="py-24 bg-background border-t border-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">Use Cases</Badge>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground">Activity Mint meets all your needs</h2>
-          <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">Want to know more about the Instagram accounts on your followed list? Activity Mint makes it easy to safely and privately check their likes and interests.</p>
+    <section className="py-24 bg-background border-t border-border relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(20,184,166,0.06),transparent_50%)] pointer-events-none"></div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="text-center mb-14">
+          <Badge className="mb-4 bg-teal-50 text-teal-700 border-teal-100 hover:bg-teal-50">
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+            Use Cases
+          </Badge>
+          <h2 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight">Built for every kind of user</h2>
+          <p className="mt-4 text-muted-foreground max-w-2xl mx-auto text-base">From creators tuning their next post to marketers spotting trends to anyone watching a public account privately — there's a path here for you.</p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8">
-          <div className="relative pt-12">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
-              <Badge className="bg-indigo-100 text-indigo-700 px-6 py-2 text-sm font-bold tracking-wide border-indigo-200 hover:bg-indigo-100 shadow-sm">
-                <Briefcase className="w-4 h-4 mr-2" />
-                For Marketing
-              </Badge>
-            </div>
-            <div className="space-y-6">
-              <UseCaseCard title="Stay on Top of Your Competition" description="Track competitors' follows, likes, and engagement. Stay one step ahead and make smarter decisions." icon={<PenTool className="w-20 h-20 text-indigo-500 transform -rotate-12 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-indigo-200 to-purple-200" />
-              <UseCaseCard title="Track Unusual Instagram Activity" description="Sudden follower spikes or unusual behavior can say a lot. Activity Mint brings public activity into focus." icon={<AlertCircle className="w-20 h-20 text-rose-400 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-rose-200 to-pink-200" />
-              <UseCaseCard title="Find the Perfect Influencer" description="Access real-time data on 10,000+ influencers. Track growth, analyze tags, and spot trends." icon={<Award className="w-20 h-20 text-amber-400 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-amber-200 to-orange-200" />
-            </div>
+
+        {/* Audience group: For Creators */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50 px-3 py-1">
+              <PenTool className="w-3.5 h-3.5 mr-1.5" />
+              For Creators
+            </Badge>
+            <div className="h-px flex-1 bg-gradient-to-r from-emerald-200 to-transparent"></div>
           </div>
-          <div className="relative pt-12">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
-              <Badge className="bg-primary/10 text-primary px-6 py-2 text-sm font-bold tracking-wide border-primary/20 hover:bg-primary/10 shadow-sm">
-                <Users className="w-4 h-4 mr-2" />
-                For Individuals
-              </Badge>
-            </div>
-            <div className="space-y-6">
-              <UseCaseCard title="Explore Public Instagram Activity" description="View public interactions, likes, followers, and follow activity — keeping your browsing private." icon={<UserCheck className="w-20 h-20 text-teal-500 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-teal-200 to-cyan-200" />
-              <UseCaseCard title="Instagram Viewing Made Easy" description="Download Instagram Stories and Highlights discreetly without connecting your own account." icon={<MonitorPlay className="w-20 h-20 text-slate-700 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-slate-200 to-gray-200" />
-              <UseCaseCard title="Uncover Instagram Influencer Gossip" description="View public interactions between creators, celebs, or that suspicious duo you've been watching." icon={<Eye className="w-20 h-20 text-yellow-500 drop-shadow-xl" strokeWidth={1.5} />} bgGradient="bg-gradient-to-br from-yellow-200 to-lime-200" />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <UseCaseCard accent="teal"   Icon={Activity}   title="Plan your next post" description="A calendar of suggested formats and best times — drawn from your own engagement patterns." />
+            <UseCaseCard accent="violet" Icon={Sparkles}   title="Repeat what works" description="Caption recipes, format tips and hook examples. Copy the template, post it your way." />
+            <UseCaseCard accent="amber"  Icon={Flame}      title="Streaks that stick" description="Tiny daily quests to keep your momentum. Insights you'll actually act on." />
+            <UseCaseCard accent="rose"   Icon={Heart}      title="Save hours on audience research" description="Demographics, sentiment and cohorts charted in language you can use immediately." />
+          </div>
+        </div>
+
+        {/* Audience group: For Marketers & Brands */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-50 px-3 py-1">
+              <Briefcase className="w-3.5 h-3.5 mr-1.5" />
+              For Marketers &amp; Brands
+            </Badge>
+            <div className="h-px flex-1 bg-gradient-to-r from-indigo-200 to-transparent"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <UseCaseCard accent="violet" Icon={Target}     title="Watch competitors without following" description="Anonymous tracking. No DMs to your inbox, no notifications to them." />
+            <UseCaseCard accent="sky"    Icon={TrendingUp} title="Spot trends before they peak" description="Hashtag ROI, format momentum and sentiment shifts — early enough to catch the wave." />
+            <UseCaseCard accent="amber"  Icon={MessageSquare} title="Find the right people to message" description="Top fans from your own audience plus demographic matches — with draft DMs included." />
+            <UseCaseCard accent="rose"   Icon={Award}      title="10,000+ influencers, vetted" description="Track growth, analyse posting habits, validate the fit before you reach out." />
+          </div>
+        </div>
+
+        {/* Audience group: For Curious Users */}
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <Badge className="bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-100 px-3 py-1">
+              <Eye className="w-3.5 h-3.5 mr-1.5" />
+              For Curious Users
+            </Badge>
+            <div className="h-px flex-1 bg-gradient-to-r from-slate-300 to-transparent"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <UseCaseCard accent="teal"   Icon={UserCheck}   title="View any public account, privately" description="No follows, no traces. Stories, highlights and posts — all browsable from a clean dashboard." />
+            <UseCaseCard accent="slate"  Icon={Download}    title="Save what you find" description="Download stories, highlights, transcripts and posts. Local copies, your data." />
+            <UseCaseCard accent="amber"  Icon={AlertCircle} title="Watch unusual activity" description="Sudden follower spikes, oddly-timed likes, ghost followers — the noise brought into focus." />
           </div>
         </div>
       </div>
@@ -917,10 +969,20 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
 
     <section className="py-20 sm:py-24 bg-muted/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Card className="bg-gradient-to-br from-primary to-teal-700 border-0 rounded-3xl p-6 sm:p-10 md:p-14 text-white relative overflow-hidden shadow-2xl">
-          {/* Background glows */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300 opacity-10 rounded-full blur-3xl transform -translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
+        <Card className="border-0 rounded-3xl p-6 sm:p-10 md:p-14 text-white relative overflow-hidden shadow-2xl">
+          {/* Photo background */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src="https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&w=2000&q=70"
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-950/95 via-teal-900/90 to-emerald-900/95"></div>
+          </div>
+          {/* Subtle glow overlays */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/15 rounded-full blur-3xl transform -translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
 
           <CardContent className="relative z-10 p-0">
             {/* Header */}
@@ -1072,9 +1134,17 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
     <section className="py-20 bg-background pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Card className="relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-slate-900 via-teal-950 to-emerald-950 border-0 text-center px-6 py-20 shadow-2xl group">
-          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-            <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/20 rounded-full blur-[100px] group-hover:scale-150 transition-transform duration-1000"></div>
-            <div className="absolute bottom-0 right-0 w-[30rem] h-[30rem] bg-teal-400/10 rounded-full blur-[100px] translate-x-1/3 translate-y-1/3 group-hover:scale-125 transition-transform duration-1000"></div>
+          {/* Photo background */}
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            <img
+              src="https://images.unsplash.com/photo-1611605698335-8b1569810432?auto=format&fit=crop&w=2000&q=70"
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-950/92 via-emerald-950/88 to-teal-900/95"></div>
+            <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-400/20 rounded-full blur-[100px] group-hover:scale-150 transition-transform duration-1000"></div>
+            <div className="absolute bottom-0 right-0 w-[30rem] h-[30rem] bg-teal-400/15 rounded-full blur-[100px] translate-x-1/3 translate-y-1/3 group-hover:scale-125 transition-transform duration-1000"></div>
           </div>
           <CardContent className="relative z-10 max-w-4xl mx-auto p-0">
             <Badge className="mb-6 bg-white/10 text-white border-white/20 backdrop-blur-sm">

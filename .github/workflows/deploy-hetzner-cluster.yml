@@ -283,5 +283,17 @@ jobs:
               echo "--- Form-related HTML around inputs ---"
               ssh_run "grep -oE '(<form|<input|aria-label=\"[^\"]+\")' /opt/activitymint/profiles/profile_${w}/last_login_failure.html 2>/dev/null | head -20 || echo '(no HTML)'"
               echo ""
+              echo "--- Followers/Following failure dumps (filenames + sizes) ---"
+              ssh_run "ls -la /opt/activitymint/profiles/profile_${w}/last_followers_failure.html /opt/activitymint/profiles/profile_${w}/last_following_failure.html 2>/dev/null || echo '(no followers/following dumps)'"
+              echo ""
+              echo "--- last_followers_failure.html: header-area anchors + buttons ---"
+              ssh_run "grep -oE '(href=\"/[A-Za-z0-9._]+/(followers|following)/\"[^>]*>[^<]{0,80})|(<a[^>]*href=\"/[A-Za-z0-9._]+/(followers|following)/\"[^>]*>)|(role=\"link\"[^>]*aria-label=\"[^\"]{0,80}\")' /opt/activitymint/profiles/profile_${w}/last_followers_failure.html 2>/dev/null | head -30 || echo '(no followers HTML)'"
+              echo ""
+              echo "--- last_followers_failure.html: aria-labels visible in main column ---"
+              ssh_run "grep -oE 'aria-label=\"[^\"]{1,80}\"' /opt/activitymint/profiles/profile_${w}/last_followers_failure.html 2>/dev/null | sort -u | head -40 || echo '(no html)'"
+              echo ""
+              echo "--- Followers/following scrape errors from logs ---"
+              ssh_run "docker logs am_worker_${w} 2>&1 | grep -E 'followers|following|modal' | tail -20"
+              echo ""
             done
           fi

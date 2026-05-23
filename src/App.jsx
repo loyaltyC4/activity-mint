@@ -24,7 +24,16 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 /* ─── Lazy-loaded components for code-splitting ────────────────────────── */
-const Dashboard = lazy(() => import('./components/Dashboard'));
+const Dashboard   = lazy(() => import('./components/Dashboard'));
+const DashboardV2 = lazy(() => import('./components/dashboard'));
+
+// Admin sees DashboardV2 by default; anyone can opt in via #new-dashboard, escape to #legacy.
+const ADMIN_EMAIL = 'slyvesterchiko1@gmail.com';
+const shouldUseDashboardV2 = (user) => {
+  if (typeof window !== 'undefined' && window.location.hash === '#new-dashboard') return true;
+  if (typeof window !== 'undefined' && window.location.hash === '#legacy') return false;
+  return user?.email === ADMIN_EMAIL;
+};
 
 // Views (2550 lines) - split by feature
 const BlogPageView = lazy(() => import('./views').then(m => ({ default: m.BlogPageView })));
@@ -574,7 +583,7 @@ export default function App() {
 
         {/* Lazy-loaded views wrapped in Suspense for code-splitting */}
         <Suspense fallback={<MintingLoader />}>
-          {activeTab === 'dashboard' && (user ? <Dashboard /> : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
+          {activeTab === 'dashboard' && (user ? (shouldUseDashboardV2(user) ? <DashboardV2 /> : <Dashboard />) : <div className="min-h-[80vh] flex items-center justify-center"><button onClick={() => setAuthOpen(true)} className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-full">Log In to Access Dashboard</button></div>)}
           {activeTab === 'blog' && <BlogPageView setActiveTab={setActiveTab} />}
           {activeTab === 'affiliate' && <AffiliateView />}
           {activeTab === 'toolkit' && <ToolkitPageView setActiveTab={setActiveTab} />}

@@ -31,7 +31,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'trends',      Icon: TrendingUp,   label: 'Trends & Insights', badge: 'new' },
       { id: 'outreach',    Icon: Phone,        label: 'Outreach Ideas' },
-      { id: 'toolkit',     Icon: Wrench,       label: 'Free Tools' },
+      { id: 'toolkit',     Icon: Wrench,       label: 'Tools' },
       { id: 'competitors', Icon: Globe,        label: 'Competitors', badge: 'pro' },
     ],
   },

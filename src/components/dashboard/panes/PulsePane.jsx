@@ -14,7 +14,7 @@
 'use strict'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell } from 'lucide-react'
+import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell, Sparkles, Radio, Smile } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { useTier } from '../../../context/TierContext'
@@ -29,6 +29,7 @@ import InsightCard from '../shared/InsightCard'
 import StoryRing from '../shared/StoryRing'
 import PostThumb from '../shared/PostThumb'
 import EmptyState from '../EmptyState'
+import { proxyImg, fmt as fmtShared } from '../shared/utils'
 
 // ── Cache helpers ─────────────────────────────────────────────────────────
 const CACHE_KEY = (h) => `pulse:v1:${h}`
@@ -99,7 +100,7 @@ function ActivityCard({ stories, posts, loading }) {
               ? posts.slice(0, 4).map((p, i) => (
                   <PostThumb
                     key={p.id || i}
-                    imageUrl={p.displayUrl || p.thumbnailUrl}
+                    imageUrl={proxyImg(p.displayUrl || p.thumbnailUrl || p.imageUrl)}
                     likes={p.likesCount ?? p.likes}
                     comments={p.commentsCount ?? p.comments}
                     gradientIndex={i}
@@ -192,12 +193,8 @@ function QuestsCard({ streak = 0 }) {
   )
 }
 
-function fmt(n) {
-  if (n === null || n === undefined) return '--'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k'
-  return String(n)
-}
+// local fmt() removed — use shared fmtShared from ../shared/utils
+const fmt = fmtShared
 
 export default function PulsePane({ timeRange }) {
   const { user } = useAuth()
@@ -311,10 +308,10 @@ export default function PulsePane({ timeRange }) {
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
-          <KpiCard label="Mint Score"    value={hasData ? 75 : '--'}            emoji="💎" trend={8}   trendLabel="↑ +8 this week"      sparkData={[22,20,20,18,16,13,11,8]} sparkColor="teal" />
-          <KpiCard label="Reach"         value={fmt(followers)}                 emoji="📡" trend={22}  trendLabel="↑ +22%"              sparkData={[26,22,24,19,20,13,9,3]}  sparkColor="sky" />
-          <KpiCard label="Engagement"    value={engagement ? `${engagement.toFixed(1)}%` : (hasData ? '6.4%' : '--')} emoji="❤️" trend={1.1} trendLabel="↑ +1.1pt"      sparkData={[24,22,19,18,14,12,8,4]} sparkColor="coral" />
-          <KpiCard label="Audience mood" value={hasData ? '78%' : '--'}         emoji="🙂"                trendLabel="↑ trending positive"  sparkData={[24,20,22,17,13,11,8,4]} sparkColor="violet" />
+          <KpiCard label="Mint Score"    value={hasData ? 75 : '--'}            Icon={Sparkles} trend={8}   trendLabel="↑ +8 this week"      sparkData={[22,20,20,18,16,13,11,8]} sparkColor="teal" />
+          <KpiCard label="Reach"         value={fmt(followers)}                 Icon={Radio}    trend={22}  trendLabel="↑ +22%"              sparkData={[26,22,24,19,20,13,9,3]}  sparkColor="sky" />
+          <KpiCard label="Engagement"    value={engagement ? `${engagement.toFixed(1)}%` : (hasData ? '6.4%' : '--')} Icon={Heart} trend={1.1} trendLabel="↑ +1.1pt" sparkData={[24,22,19,18,14,12,8,4]} sparkColor="coral" />
+          <KpiCard label="Audience mood" value={hasData ? '78%' : '--'}         Icon={Smile}                trendLabel="↑ trending positive"  sparkData={[24,20,22,17,13,11,8,4]} sparkColor="violet" />
         </div>
 
         <ActivityCard stories={stories} posts={posts} loading={refreshing} />

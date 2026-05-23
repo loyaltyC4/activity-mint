@@ -40,21 +40,31 @@ function Sparkline({ data, color = 'teal' }) {
   )
 }
 
+const ICON_COLOR = {
+  teal:   'text-teal-500',
+  sky:    'text-sky-500',
+  coral:  'text-rose-500',
+  violet: 'text-violet-600',
+  amber:  'text-amber-500',
+}
+
 export default function KpiCard({
   label,
   value,
   trend,
   trendLabel,
-  emoji,
+  Icon,
+  emoji, // back-compat — discouraged; pass Icon instead
   sparkData,
   sparkColor = 'teal',
 }) {
   const trendPositive = trend === undefined || trend === null ? null : trend >= 0
+  const iconCls = ICON_COLOR[sparkColor] || ICON_COLOR.teal
   return (
     <div className="rounded-[20px] bg-white p-[18px] shadow-[0_0_0_1px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)]">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium text-[#64756f]">{label}</span>
-        {emoji && <span>{emoji}</span>}
+        {Icon ? <Icon className={`h-4 w-4 ${iconCls}`} strokeWidth={2} /> : emoji ? <span>{emoji}</span> : null}
       </div>
       <div className="mt-1.5 text-2xl font-extrabold leading-none tracking-tight">{value ?? '--'}</div>
       {(trendLabel || trendPositive !== null) && (

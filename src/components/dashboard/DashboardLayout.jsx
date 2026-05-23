@@ -20,6 +20,8 @@ const TrendsPane      = lazy(() => import('./panes/TrendsPane'))
 const OutreachPane    = lazy(() => import('./panes/OutreachPane'))
 const ToolsPane       = lazy(() => import('./panes/ToolsPane'))
 const CompetitorsPane = lazy(() => import('./panes/CompetitorsPane'))
+const RewardsPane     = lazy(() => import('./panes/RewardsPane'))
+const SettingsPane    = lazy(() => import('./panes/SettingsPane'))
 
 function PanePlaceholder({ paneId }) {
   const meta = PANES[paneId]
@@ -59,6 +61,8 @@ function PaneRouter({ paneId, timeRange }) {
     case 'outreach':    return <OutreachPane    timeRange={timeRange} />
     case 'toolkit':     return <ToolsPane />
     case 'competitors': return <CompetitorsPane timeRange={timeRange} />
+    case 'rewards':     return <RewardsPane />
+    case 'settings':    return <SettingsPane />
     default:            return <PanePlaceholder paneId={paneId} />
   }
 }

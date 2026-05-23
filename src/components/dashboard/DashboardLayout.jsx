@@ -1,9 +1,10 @@
 /**
  * Layout shell: topbar at the top, sidebar on the left, pane content centre.
  *
- * The pane switch is INLINE for Phase 2 Commit B so the dashboard renders
- * end-to-end before all the real panes exist. Each pane is a stub here that
- * gets replaced by a real lazy-loaded component in Commits D/E/F.
+ * Pane dispatch is a switch over activePane. Each pane is lazy-loaded so
+ * the initial bundle stays small. As Commits D/E/F land, the switch grows
+ * with more lazy imports; panes that don't exist yet fall through to
+ * PanePlaceholder.
  */
 
 'use strict'
@@ -14,8 +15,12 @@ import Sidebar from './Sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PANES } from './index'
 
-// Pane components will be lazy-loaded as Commits D/E/F land.
-// For now every pane renders the PanePlaceholder stub below.
+// ── Lazy-loaded panes (added as commits land) ────────────────────────────
+const PulsePane     = lazy(() => import('./panes/PulsePane'))
+const AudiencePane  = lazy(() => import('./panes/AudiencePane'))
+const ContentPane   = lazy(() => import('./panes/ContentLabPane'))
+const SentimentPane = lazy(() => import('./panes/SentimentPane'))
+
 function PanePlaceholder({ paneId }) {
   const meta = PANES[paneId]
   return (
@@ -25,8 +30,7 @@ function PanePlaceholder({ paneId }) {
       </div>
       <h2 className="text-2xl font-bold tracking-tight">{meta?.label}</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        This pane will render in a later Phase 2 commit. The layout shell is in place;
-        each pane gets its own file under <code className="rounded bg-muted px-1.5 py-0.5 text-xs">src/components/dashboard/panes/</code>.
+        Coming in the next phase 2 commit.
       </p>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
@@ -35,6 +39,28 @@ function PanePlaceholder({ paneId }) {
       </div>
     </div>
   )
+}
+
+function PaneFallback() {
+  return (
+    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+      <Skeleton className="h-8 w-1/3 rounded-full" />
+      <Skeleton className="mt-2 h-4 w-1/2 rounded-full" />
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[0,1,2,3].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+      </div>
+    </div>
+  )
+}
+
+function PaneRouter({ paneId, timeRange }) {
+  switch (paneId) {
+    case 'pulse':     return <PulsePane     timeRange={timeRange} />
+    case 'audience':  return <AudiencePane  timeRange={timeRange} />
+    case 'content':   return <ContentPane   timeRange={timeRange} />
+    case 'sentiment': return <SentimentPane timeRange={timeRange} />
+    default:          return <PanePlaceholder paneId={paneId} />
+  }
 }
 
 export default function DashboardLayout({
@@ -63,8 +89,8 @@ export default function DashboardLayout({
         />
 
         <main className="min-w-0 flex-1 px-7 pb-24 pt-7">
-          <Suspense fallback={<div className="rounded-3xl bg-card p-6"><Skeleton className="h-64 rounded-xl" /></div>}>
-            <PanePlaceholder paneId={activePane} />
+          <Suspense fallback={<PaneFallback />}>
+            <PaneRouter paneId={activePane} timeRange={timeRange} />
           </Suspense>
         </main>
       </div>

@@ -33,20 +33,25 @@ const PROXY_PORT = process.env.PROXY_HTTP_PORT || '50100';
   const page = (await ctx.pages())[0] || await ctx.newPage();
 
   // Intercept ALL network requests so we can see what API endpoints the SPA
-  // calls to load posts. Filter to API/GraphQL-shaped URLs in the log dump.
+  // calls to load posts. Also keep full body text for GraphQL responses so
+  // we can find which response contains the posts data.
   const captured = [];
   page.on('response', async (resp) => {
     const url = resp.url();
     if (!/instagram\.com\/(api\/|graphql\/)/.test(url)) return;
     const ct = resp.headers()['content-type'] || '';
-    let bodyPreview = '';
+    let body = '';
+    let requestBody = '';
     if (ct.includes('json')) {
-      try {
-        const txt = await resp.text();
-        bodyPreview = txt.slice(0, 200);
-      } catch (_) {}
+      try { body = await resp.text(); } catch (_) {}
     }
-    captured.push({ url, status: resp.status(), ct, bodyPreview });
+    try {
+      const req = resp.request();
+      if (req.method() === 'POST') {
+        requestBody = (req.postData() || '').slice(0, 600);
+      }
+    } catch (_) {}
+    captured.push({ url, status: resp.status(), ct, body, requestBody, method: resp.request().method() });
   });
 
   // We assume the persistent profile is already logged in from prior worker
@@ -56,9 +61,24 @@ const PROXY_PORT = process.env.PROXY_HTTP_PORT || '50100';
   // Longer wait so the SPA has time to fire all post-loading requests
   await page.waitForTimeout(8000);
   console.log(`\n[probe] captured ${captured.length} API/GraphQL responses during navigation:`);
-  for (const c of captured.slice(0, 25)) {
-    const tag = c.bodyPreview.includes('shortcode') ? ' *SHORTCODE*' : '';
-    console.log(`  [${c.status}] ${c.url.slice(0, 140)}${tag}`);
+  let hitIdx = -1;
+  for (let i = 0; i < Math.min(captured.length, 25); i++) {
+    const c = captured[i];
+    const hasShortcode = (c.body || '').includes('"shortcode"') || (c.body || '').includes('"code":"');
+    const tag = hasShortcode ? '  *POSTS-DATA*' : '';
+    console.log(`  [${i}] ${c.method} [${c.status}] ${c.url.slice(0, 100)}${tag}`);
+    if (hasShortcode && hitIdx < 0) hitIdx = i;
+  }
+  if (hitIdx >= 0) {
+    const hit = captured[hitIdx];
+    console.log(`\n[probe] FIRST POSTS-DATA response = index ${hitIdx}`);
+    console.log(`[probe] url: ${hit.url}`);
+    console.log(`[probe] request body (first 600c): ${hit.requestBody}`);
+    console.log(`[probe] response body (first 2000c):`);
+    console.log(hit.body.slice(0, 2000));
+    fs.writeFileSync('/app/profile/probe_posts_response.json', hit.body.slice(0, 200000));
+  } else {
+    console.log('\n[probe] NO response with shortcode found among captured calls');
   }
 
   const url = page.url();

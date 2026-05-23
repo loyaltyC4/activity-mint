@@ -19,6 +19,7 @@ on:
           - logs
           - diagnostics
           - smoke
+          - test_each
 
 jobs:
   deploy:
@@ -141,6 +142,21 @@ jobs:
           # ── LOGS ───────────────────────────────────────────────────────────
           if [ "$ACTION" = "logs" ]; then
             ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml logs --tail=100"
+          fi
+
+          # ── TEST_EACH — bypass orchestrator, hit each worker container directly ──
+          if [ "$ACTION" = "test_each" ]; then
+            for w in 1 2 3 4 5; do
+              echo "════════════════════════════════════════════════════════════"
+              echo "  WORKER $w"
+              echo "════════════════════════════════════════════════════════════"
+              echo "─ /health ─"
+              ssh_run "docker exec am_worker_${w} curl -s --max-time 5 http://localhost:3010/health | python3 -m json.tool"
+              echo ""
+              echo "─ scrape profile @instagram ─"
+              ssh_run "docker exec am_worker_${w} curl -s --max-time 90 -X POST -H 'X-Secret: '\"\$SCRAPER_SECRET\" -H 'Content-Type: application/json' -d '{\"action\":\"profile\",\"payload\":{\"username\":\"instagram\"}}' http://localhost:3010/scrape | python3 -m json.tool | head -25"
+              echo ""
+            done
           fi
 
           # ── SMOKE — end-to-end real scrape through the orchestrator ──────

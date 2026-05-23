@@ -255,29 +255,25 @@ app.post('/scrape', requireSecret, async (req, res) => {
   const username = payload && typeof payload.username === 'string' ? payload.username.trim().replace(/^@/, '') : null;
 
   const tried = [];
-  // Try up to 2 workers: first pick + one failover
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Try up to 3 workers: first pick + two failovers. Generous because we want
+  // to absorb any single-worker login/scrape failure within the cluster rather
+  // than surfacing it to the caller (which would then fall back to Apify).
+  let lastError = null;
+  let lastStatus = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
     const { worker, reason } = await pickWorker({ username, excludeIds: tried });
     if (!worker) {
       log.warn(`no worker available after ${tried.length} attempts`);
-      return res.status(503).json({ ok: false, error: 'no_workers_available' });
+      return res.status(503).json({
+        ok: false,
+        error: lastError || 'no_workers_available',
+        tried,
+      });
     }
     tried.push(worker.id);
 
     log.info(`-> ${worker.id} (${reason}) action=${action} user=${username || '-'}`);
     const fwd = await forwardScrape(worker, body);
-
-    if (fwd.status === 429) {
-      const errMsg = (fwd.body && fwd.body.error) || 'blocked';
-      log.warn(`worker ${worker.id} returned 429 (${errMsg}) — failing over`);
-      await markWorkerBlocked(worker.id);
-      continue;
-    }
-
-    if (fwd.networkError) {
-      log.warn(`worker ${worker.id} network error: ${fwd.body.error} — trying another worker`);
-      continue;
-    }
 
     if (fwd.status >= 200 && fwd.status < 300 && fwd.body && fwd.body.ok) {
       await bumpWorkerRequests(worker.id);
@@ -285,11 +281,39 @@ app.post('/scrape', requireSecret, async (req, res) => {
       return res.status(fwd.status).json(fwd.body);
     }
 
-    // Non-OK but not 429 — surface the worker's error to the caller
-    return res.status(fwd.status || 502).json(fwd.body || { ok: false, error: 'worker_failure' });
+    // Failure path - decide whether to mark worker out and failover.
+    const errMsg = (fwd.body && fwd.body.error) || (fwd.networkError ? 'network_error' : `worker_status_${fwd.status}`);
+    lastError = errMsg;
+    lastStatus = fwd.status;
+
+    if (fwd.status === 429) {
+      log.warn(`worker ${worker.id} returned 429 (${errMsg}) - blocking and failing over`);
+      await markWorkerBlocked(worker.id);
+      continue;
+    }
+
+    if (fwd.networkError) {
+      log.warn(`worker ${worker.id} network error: ${errMsg} - failing over`);
+      continue;
+    }
+
+    // Any other non-OK response. If it looks like a login failure, mark the
+    // worker out of rotation so the cluster stops routing to it - otherwise
+    // we'd keep picking the dead worker as least_loaded (it has 0 requests).
+    if (/login_failed|credentials_rejected|not_logged_in|2fa_required_but_no_secret|password_input_not_found|username_input_not_found|block_signal_on_login_page/i.test(errMsg)) {
+      log.warn(`worker ${worker.id} login broken (${errMsg}) - blocking and failing over`);
+      await markWorkerBlocked(worker.id);
+    } else {
+      log.warn(`worker ${worker.id} returned ${fwd.status} (${errMsg}) - failing over`);
+    }
   }
 
-  return res.status(503).json({ ok: false, error: 'all_workers_blocked_or_unavailable' });
+  // All attempts exhausted - surface the last error to the caller
+  return res.status(lastStatus && lastStatus !== 0 ? lastStatus : 503).json({
+    ok: false,
+    error: lastError || 'all_workers_failed',
+    tried,
+  });
 });
 
 app.get('/health', requireSecret, async (_req, res) => {

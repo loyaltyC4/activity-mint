@@ -30,6 +30,29 @@ const IG_BASE = 'https://www.instagram.com';
  */
 async function openModal(page, username, mode, log) {
   const hrefTail = mode === 'followers' ? '/followers/' : '/following/';
+
+  // ─── Wait for profile header hydration ──────────────────────────────────
+  // The followers/following anchors are rendered after the IG SPA chunk
+  // hydrates. With a fast network goto + only a static ~2s humanDelay we
+  // sometimes race the hydration, find no candidate, falsely conclude the
+  // link is missing, and dump a half-rendered page (body snippet = sidebar
+  // text like "Messages"). Wait up to 15s for EITHER followers or following
+  // anchor to actually exist before we start the click race. Accept either
+  // because some private-but-followed profiles only render one direction
+  // depending on the viewer's relationship.
+  try {
+    await page.waitForFunction(
+      (u) => {
+        const sel = `a[href*="/${u}/followers/"], a[href*="/${u}/following/"], a[href$="/${u}/followers/"], a[href$="/${u}/following/"]`;
+        return !!document.querySelector(sel);
+      },
+      username,
+      { timeout: 15000 },
+    );
+  } catch (_) {
+    log.warn(`profile header hydration timed out for ${username} (${mode}) — will still try candidate race`);
+  }
+
   const candidates = [
     page.locator(`a[href$="${hrefTail}"]`).first(),
     page.locator(`a[role="link"][href$="${hrefTail}"]`).first(),

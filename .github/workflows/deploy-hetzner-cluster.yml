@@ -24,6 +24,7 @@ on:
           - bisect_login
           - reset_worker_1
           - test_tiktok_login
+          - test_unsuspend_w4
 
 jobs:
   deploy:
@@ -353,6 +354,48 @@ jobs:
             echo ""
             echo "==> Cleanup..."
             ssh_run "docker rm -f am_tt_probe 2>/dev/null"
+          fi
+
+          # ── TEST_UNSUSPEND_W4 — try CloakBrowser humanize=true on worker 4's
+          # "Confirm you're human" suspension wall. Uses worker 4's credentials
+          # and proxy (same proxy as where the account was suspended, so IG
+          # sees the verification coming from the same IP as the flagged
+          # session). Runs in a one-off container with a CLEAN /tmp profile.
+          if [ "$ACTION" = "test_unsuspend_w4" ]; then
+            echo "==> Pulling latest repo..."
+            ssh_run "cd /opt/activitymint && git fetch --all && git reset --hard origin/main"
+
+            ssh_run "docker rm -f am_unsuspend_w4 2>/dev/null; rm -rf /tmp/unsuspend_w4; mkdir -p /tmp/unsuspend_w4 && chmod 755 /tmp/unsuspend_w4"
+
+            echo "==> Launching unsuspend probe for worker_4..."
+            ssh_run "docker run --name am_unsuspend_w4 --network hetzner-cluster_am_public \
+              -e IG_USERNAME='$IG_USER_4' \
+              -e IG_PASSWORD='$IG_PASS_4' \
+              -e IG_2FA_SECRET='$IG_2FA_4' \
+              -e PROXY_HOST=161.77.140.110 \
+              -e PROXY_USER='$PROXY_USER' \
+              -e PROXY_PASS='$PROXY_PASS' \
+              -e PROXY_HTTP_PORT=50100 \
+              -v /opt/activitymint/hetzner-cluster/worker/probe_unsuspend.js:/app/probe_unsuspend.js:ro \
+              -v /tmp/unsuspend_w4:/app/profile \
+              hetzner-cluster-worker_1 \
+              node probe_unsuspend.js 2>&1" || true
+
+            echo ""
+            echo "==> Captured files:"
+            ssh_run "ls -la /tmp/unsuspend_w4/last_unsuspend_*.html /tmp/unsuspend_w4/last_unsuspend_*.png 2>/dev/null || echo '(no artifacts)'"
+
+            echo ""
+            echo "==> Suspension page structure (post_login HTML):"
+            ssh_run "grep -oE '(<title>[^<]+|aria-label=\"[^\"]+\"|<button[^>]*>|class=\"[^\"]*captcha[^\"]*\")' /tmp/unsuspend_w4/last_unsuspend_03_post_login.html 2>/dev/null | head -30 || echo '(no post_login html)'"
+
+            echo ""
+            echo "==> Final state structure (after_wait HTML):"
+            ssh_run "grep -oE '(<title>[^<]+|aria-label=\"[^\"]+\"|<input[^>]+(name|placeholder)=\"[^\"]+\"|class=\"[^\"]*captcha[^\"]*\")' /tmp/unsuspend_w4/last_unsuspend_06_after_wait.html 2>/dev/null | head -30 || echo '(no after_wait html)'"
+
+            echo ""
+            echo "==> Cleanup..."
+            ssh_run "docker rm -f am_unsuspend_w4 2>/dev/null"
           fi
 
           # ── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ──

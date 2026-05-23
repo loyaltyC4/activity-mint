@@ -32,11 +32,34 @@ const PROXY_PORT = process.env.PROXY_HTTP_PORT || '50100';
   ctx.setDefaultTimeout(20000);
   const page = (await ctx.pages())[0] || await ctx.newPage();
 
+  // Intercept ALL network requests so we can see what API endpoints the SPA
+  // calls to load posts. Filter to API/GraphQL-shaped URLs in the log dump.
+  const captured = [];
+  page.on('response', async (resp) => {
+    const url = resp.url();
+    if (!/instagram\.com\/(api\/|graphql\/)/.test(url)) return;
+    const ct = resp.headers()['content-type'] || '';
+    let bodyPreview = '';
+    if (ct.includes('json')) {
+      try {
+        const txt = await resp.text();
+        bodyPreview = txt.slice(0, 200);
+      } catch (_) {}
+    }
+    captured.push({ url, status: resp.status(), ct, bodyPreview });
+  });
+
   // We assume the persistent profile is already logged in from prior worker
   // runs (the profile dir we mount has cookies). Skip login entirely.
   console.log(`[probe] navigating to https://www.instagram.com/${TARGET}/`);
   await page.goto(`https://www.instagram.com/${TARGET}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForTimeout(3500);
+  // Longer wait so the SPA has time to fire all post-loading requests
+  await page.waitForTimeout(8000);
+  console.log(`\n[probe] captured ${captured.length} API/GraphQL responses during navigation:`);
+  for (const c of captured.slice(0, 25)) {
+    const tag = c.bodyPreview.includes('shortcode') ? ' *SHORTCODE*' : '';
+    console.log(`  [${c.status}] ${c.url.slice(0, 140)}${tag}`);
+  }
 
   const url = page.url();
   const title = await page.title().catch(() => '');

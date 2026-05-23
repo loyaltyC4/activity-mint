@@ -235,6 +235,34 @@ if [ "$ACTION" = "test_unsuspend_w4" ]; then
   ssh_run "docker rm -f am_unsuspend_w4 2>/dev/null"
 fi
 
+# ─── PROBE_POSTS_HTML — borrow worker_3's logged-in profile dir + dump @nasa
+# inline JSON shape so we can update posts.js regex anchors. Stops worker_3
+# briefly to release its profile lock, then runs the probe with that profile
+# mounted, then brings worker_3 back up.
+if [ "$ACTION" = "probe_posts_html" ]; then
+  echo "==> Pulling latest repo..."
+  ssh_run "cd /opt/activitymint && git fetch --all && git reset --hard origin/main"
+
+  echo "==> Stopping worker_3 to release its profile lock..."
+  ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env stop worker_3"
+
+  ssh_run "docker rm -f am_posts_probe 2>/dev/null"
+
+  echo "==> Launching posts HTML probe with worker_3's cookies..."
+  ssh_run "docker run --name am_posts_probe --network hetzner-cluster_am_public -e TARGET=nasa -e PROXY_HOST=65.195.109.107 -e PROXY_USER='$PROXY_USER' -e PROXY_PASS='$PROXY_PASS' -e PROXY_HTTP_PORT=50100 -v /opt/activitymint/hetzner-cluster/worker/probe_posts_html.js:/app/probe_posts_html.js:ro -v /opt/activitymint/profiles/profile_3:/app/profile hetzner-cluster-worker_3 node probe_posts_html.js 2>&1" || true
+
+  echo ""
+  echo "==> Cleanup probe container..."
+  ssh_run "docker rm -f am_posts_probe 2>/dev/null"
+
+  echo "==> Restarting worker_3..."
+  ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env up -d worker_3"
+
+  echo ""
+  echo "==> Excerpt around first shortcode (1.6KB):"
+  ssh_run "head -c 1600 /opt/activitymint/profiles/profile_3/probe_posts_html_excerpt.txt 2>/dev/null || echo '(no excerpt)'"
+fi
+
 # ─── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ───────
 if [ "$ACTION" = "diagnostics" ]; then
   for w in 1 2 3 4 5; do

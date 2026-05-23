@@ -25,6 +25,7 @@ on:
           - reset_worker_1
           - test_tiktok_login
           - test_unsuspend_w4
+          - reset_worker_4
 
 jobs:
   deploy:
@@ -354,6 +355,44 @@ jobs:
             echo ""
             echo "==> Cleanup..."
             ssh_run "docker rm -f am_tt_probe 2>/dev/null"
+          fi
+
+          # ── RESET_WORKER_4 — wipe profile_4 + restart so worker_4 starts from a
+          # truly clean state. Used after the unsuspend probe revealed that
+          # worker_4's account isn't actually suspended; IG was just keeping the
+          # session on the suspension page because the persistent profile dir
+          # had stale failed-session cookies. Wiping it lets login.js hit the
+          # normal 2FA prompt the probe confirmed is what IG actually shows.
+          if [ "$ACTION" = "reset_worker_4" ]; then
+            echo "==> Pulling latest repo..."
+            ssh_run "cd /opt/activitymint && git fetch --all && git reset --hard origin/main"
+
+            echo "==> Writing latest .env on Hetzner..."
+            echo "$ENV_CONTENT" | sshpass -p "$HETZNER_PASSWORD" ssh \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o LogLevel=ERROR \
+              "$HETZNER_USER@$HETZNER_HOST" \
+              "cat > /opt/activitymint/.env && chmod 600 /opt/activitymint/.env"
+
+            echo "==> Stopping + removing worker_4..."
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env stop worker_4 && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env rm -f worker_4"
+
+            echo "==> Wiping /opt/activitymint/profiles/profile_4 contents..."
+            ssh_run "rm -rf /opt/activitymint/profiles/profile_4/* /opt/activitymint/profiles/profile_4/.* 2>/dev/null; mkdir -p /opt/activitymint/profiles/profile_4; ls -la /opt/activitymint/profiles/profile_4"
+
+            echo "==> Bringing worker_4 back up..."
+            ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env up -d worker_4"
+
+            echo "==> Waiting 40s for CloakBrowser launch + login + 2FA flow..."
+            sleep 40
+
+            echo "==> Worker_4 health:"
+            ssh_run "docker exec am_worker_4 curl -s --max-time 5 http://localhost:3010/health | python3 -m json.tool 2>/dev/null || echo '(unreachable)'"
+
+            echo ""
+            echo "==> Worker_4 recent log lines:"
+            ssh_run "docker logs --tail 50 am_worker_4 2>&1"
           fi
 
           # ── TEST_UNSUSPEND_W4 — try CloakBrowser humanize=true on worker 4's

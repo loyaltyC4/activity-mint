@@ -8,6 +8,24 @@ import { fetchInstagramProfile, fetchInstagramStories, fetchProfileWithClusterPo
 
 const FREE_POST_LIMIT = 6;
 
+/**
+ * Compact-number formatter for follower / following / post counts.
+ * Truncates (not rounds) the decimal so 19165 → "19.1K", which is what
+ * Instagram itself displays.
+ *   44719181  -> "44.7M"
+ *   19165     -> "19.1K"
+ *   107       -> "107"
+ */
+const fmtCount = (n) => {
+  if (n == null || Number.isNaN(Number(n))) return '0';
+  const num = Number(n);
+  const trunc = (v) => (Math.floor(v * 10) / 10).toFixed(1).replace(/\.0$/, '');
+  if (num >= 1_000_000_000) return trunc(num / 1_000_000_000) + 'B';
+  if (num >= 1_000_000)     return trunc(num / 1_000_000) + 'M';
+  if (num >= 1_000)         return trunc(num / 1_000) + 'K';
+  return String(num);
+};
+
 /* ─── Helper: Proxy Instagram CDN images to bypass CORS ─────────────────── */
 const proxyImageUrl = (url) => {
   if (!url) return null;
@@ -234,9 +252,9 @@ export const StoryViewerView = () => {
                     </div>
                     {profile.fullName && <p className="text-slate-500 text-sm">{profile.fullName}</p>}
                     <div className="flex flex-wrap gap-3 sm:gap-4 mt-2 text-xs sm:text-sm">
-                      <span><strong>{profile.postsCount?.toLocaleString() || 0}</strong> posts</span>
-                      <span><strong>{profile.followersCount?.toLocaleString() || 0}</strong> followers</span>
-                      <span><strong>{(profile.followsCount || profile.followingCount)?.toLocaleString() || 0}</strong> following</span>
+                      <span><strong>{fmtCount(profile.postsCount ?? profile.posts)}</strong> posts</span>
+                      <span><strong>{fmtCount(profile.followersCount ?? profile.followers)}</strong> followers</span>
+                      <span><strong>{fmtCount(profile.followingCount ?? profile.following ?? profile.followsCount)}</strong> following</span>
                     </div>
                   </div>
                 </div>

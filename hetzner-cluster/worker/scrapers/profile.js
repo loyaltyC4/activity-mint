@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { humanDelay, isBlockedSignal } = require('./utils');
+const { humanDelay, isBlockedSignal, ensureIGContext } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
 
@@ -211,8 +211,20 @@ async function scrapeProfile(page, payload, log) {
     throw new Error('payload.username is required');
   }
 
-  const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
   log.info(`scrape profile -> ${username}`);
+
+  // PRIMARY: web_profile_info via direct API. We just need IG-origin context
+  // for cookies; we DO NOT navigate to the profile page. Saves ~3-5s.
+  await ensureIGContext(page, log);
+  const api = await fetchWebProfileInfo(page, username, log);
+  if (api && (api.followers != null || api.posts != null)) {
+    log.info(`web_profile_info OK (no nav): followers=${api.followers} following=${api.following} posts=${api.posts} verified=${api.isVerified}`);
+    return [api];
+  }
+
+  // FALLBACKS need the actual profile page — navigate now.
+  log.info(`web_profile_info empty; navigating to profile page for HTML extraction`);
+  const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
   const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await humanDelay(400, 800);
 
@@ -227,13 +239,6 @@ async function scrapeProfile(page, payload, log) {
     const err = new Error('blocked_signal_on_profile');
     err.blocked = true;
     throw err;
-  }
-
-  // PRIMARY: web_profile_info — canonical API, returns every field we need.
-  const api = await fetchWebProfileInfo(page, username, log);
-  if (api && (api.followers != null || api.posts != null)) {
-    log.info(`web_profile_info OK: followers=${api.followers} following=${api.following} posts=${api.posts} verified=${api.isVerified}`);
-    return [api];
   }
 
   // FALLBACK 1: inline JSON regex

@@ -163,6 +163,32 @@ async function humanType(locator, text, opts = {}) {
   }
 }
 
+/**
+ * Phase 4: ensure the page has an Instagram origin so session cookies are
+ * available for direct API fetches. If we're already on www.instagram.com
+ * and not on the login/challenge pages, this is a no-op (~zero latency).
+ * Otherwise navigates to the IG home (~3-5s one-time cost). Subsequent
+ * scrapers can call fetch() against /api/v1/* without re-navigating.
+ */
+async function ensureIGContext(page, log) {
+  try {
+    const url = page.url();
+    if (
+      url.startsWith('https://www.instagram.com/') &&
+      !url.includes('/accounts/login') &&
+      !url.includes('/challenge/')
+    ) {
+      return;
+    }
+    await page.goto('https://www.instagram.com/', {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
+    });
+  } catch (err) {
+    if (log) log.warn(`ensureIGContext failed: ${err.message}`);
+  }
+}
+
 module.exports = {
   sleep,
   randInt,
@@ -174,4 +200,5 @@ module.exports = {
   isBlockedSignal,
   scrollContainer,
   humanType,
+  ensureIGContext,
 };

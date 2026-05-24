@@ -18,7 +18,7 @@
 
 'use strict';
 
-const { humanDelay, sleep, isBlockedSignal, safeWaitForSelector, randInt } = require('./utils');
+const { humanDelay, sleep, isBlockedSignal, safeWaitForSelector, randInt, ensureIGContext } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
 
@@ -201,20 +201,11 @@ async function scrapeStories(page, payload, log) {
 
   try {
     log.info(`scrape stories -> ${username}`);
-    // Navigate to the user's profile first so we have a valid IG context
-    // for subsequent fetch() calls (cookies + same-origin).
-    await page.goto(`${IG_BASE}/${encodeURIComponent(username)}/`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    });
-    await humanDelay(400, 800);
-
-    const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
-    if (isBlockedSignal(bodyText)) {
-      const err = new Error('blocked_signal_on_profile');
-      err.blocked = true;
-      throw err;
-    }
+    // PRIMARY path needs only IG-origin context (cookies + same-origin).
+    // We DO NOT navigate to the user's profile page — saves 3-5s. Just
+    // ensure we're on instagram.com somewhere and then hit reels_media.
+    await ensureIGContext(page, log);
+    await humanDelay(200, 400);
 
     // PRIMARY: hit the reels_media API directly. This is the same endpoint
     // IG's web app uses when you click a story ring — but we skip the click

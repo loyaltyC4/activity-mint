@@ -194,6 +194,23 @@ async function bootBrowser() {
         state.loggedIn = true;
         state.lastError = null;
         log.info(`logged in OK as ${IG_USERNAME} (${POOL_SIZE} pages warm)`);
+
+        // Phase 4: pre-warm each page to https://www.instagram.com/ so the
+        // first /scrape doesn't pay the initial ~3-5s navigation cost. Any
+        // subsequent scraper that only needs IG-origin context (profile via
+        // web_profile_info, stories via reels_media) can call its API
+        // directly without re-navigating.
+        await Promise.all(pagePool.map(async (slot, i) => {
+          try {
+            await slot.page.goto('https://www.instagram.com/', {
+              waitUntil: 'domcontentloaded',
+              timeout: 15000,
+            });
+          } catch (err) {
+            log.warn(`pre-warm goto page[${i}] failed: ${err.message}`);
+          }
+        }));
+        log.info(`pages pre-warmed to IG home (direct-API path is HOT)`);
       }
 
       browserContext = ctx;

@@ -8,7 +8,7 @@ import {
   MonitorPlay, UserCheck, PenTool, UserMinus, FileUp, Flame,
   LayoutGrid, DollarSign, BookOpen, Briefcase, Mail, FileText,
   Lock, PlusCircle, ChevronRight, PieChart, HelpCircle, Sparkles,
-  Link2, Repeat2, Star,
+  Link2, Repeat2, Star, Home, Handshake,
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useTier } from './context/TierContext';
@@ -557,16 +557,22 @@ export default function App() {
         {mobileMenuOpen && (
           <div className="md:hidden fixed inset-0 top-16 z-50 bg-white overflow-y-auto overscroll-contain">
             <div className="px-5 py-6 space-y-1">
-              {/* Primary nav — large touch targets */}
-              {[['home', 'Features', '🏠'], ['pricing', 'Pricing', '💰'], ['blog', 'Blog', '📝'], ['help-center', 'Help Center', '❓'], ['affiliate', 'Affiliate', '🤝']].map(([tab, label, emoji]) => (
+              {/* Primary nav — large touch targets, lucide icons for visual chrome */}
+              {[
+                ['home',         'Features',     Home],
+                ['pricing',      'Pricing',      DollarSign],
+                ['blog',         'Blog',         FileText],
+                ['help-center',  'Help Center',  HelpCircle],
+                ['affiliate',    'Affiliate',    Handshake],
+              ].map(([tab, label, Icon]) => (
                 <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }}
                   className={`flex items-center gap-3 w-full text-left font-medium py-3.5 px-4 rounded-xl min-h-[48px] transition-colors ${activeTab === tab ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'}`}>
-                  <span className="text-lg">{emoji}</span> {label}
+                  <Icon className="w-5 h-5 text-slate-500" /> {label}
                 </button>
               ))}
               {/* Tools section */}
               <div className="pt-3 pb-1">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 px-4 mb-2">Free Tools</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 px-4 mb-2">Tools</p>
               </div>
               {[['story-viewer', 'Story Viewer'], ['post-viewer', 'Post Viewer'], ['hashtag-generator', 'Hashtag Generator'], ['shadowban-checker', 'Shadowban Checker'], ['unfollower', 'Unfollower Finder'], ['recent-follower', 'Recent Followers'], ['toolkit', 'All Tools →']].map(([tab, label]) => (
                 <button key={tab} onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }}
@@ -662,7 +668,7 @@ export default function App() {
               <ul className="space-y-2 text-sm text-slate-500">
                 <li><button onClick={() => setActiveTab('blog')} className="hover:text-emerald-600 transition-colors">Blog</button></li>
                 <li><button onClick={() => setActiveTab('help-center')} className="hover:text-emerald-600 transition-colors">Help Center</button></li>
-                <li><button onClick={() => setActiveTab('toolkit')} className="hover:text-emerald-600 transition-colors">Free Tools</button></li>
+                <li><button onClick={() => setActiveTab('toolkit')} className="hover:text-emerald-600 transition-colors">Tools</button></li>
               </ul>
             </div>
             <div>

@@ -27,7 +27,7 @@ export const PANES = {
   // Growth
   trends:      { group: 'Growth',   label: 'Trends & Insights', badge: 'new' },
   outreach:    { group: 'Growth',   label: 'Outreach Ideas' },
-  toolkit:     { group: 'Growth',   label: 'Free Tools' },
+  toolkit:     { group: 'Growth',   label: 'Tools' },
   competitors: { group: 'Growth',   label: 'Competitors', badge: 'pro' },
   // You
   rewards:     { group: 'You',      label: 'Rewards' },

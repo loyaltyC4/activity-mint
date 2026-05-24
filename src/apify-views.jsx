@@ -4,7 +4,7 @@ import {
   Image as ImageIcon, Video, AlertCircle, RefreshCw, ExternalLink,
   CheckCircle, Clock, ChevronDown, Lock, ArrowRight,
 } from 'lucide-react';
-import { fetchInstagramProfile, fetchInstagramProfileWithPosts, fetchInstagramStories } from './lib/apify';
+import { fetchInstagramProfile, fetchInstagramProfileWithPosts, fetchInstagramStories, fetchProfileWithClusterPosts } from './lib/apify';
 
 const FREE_POST_LIMIT = 6;
 
@@ -336,6 +336,7 @@ export const PostViewerView = () => {
   const [username, setUsername] = useState('');
   const [status, setStatus] = useState('idle');
   const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState('');
 
@@ -343,13 +344,25 @@ export const PostViewerView = () => {
     if (!username.trim()) return;
     setStatus('loading');
     setProfile(null);
+    setPosts([]);
     setError('');
     setSearched(username.trim());
     try {
-      // Uses profile-with-posts (Apify) because we need latestPosts for the grid
-      const items = await fetchInstagramProfileWithPosts(username.trim());
-      if (!items || items.length === 0) throw new Error('No profile data returned. The account may not exist or may be private.');
-      setProfile(items[0]);
+      // Cluster-first: profile + posts in parallel (~13s vs ~60s via Apify)
+      const result = await fetchProfileWithClusterPosts(username.trim(), 12);
+      if (!result.profile) {
+        // Fallback: Apify profile-with-posts (legacy path)
+        const items = await fetchInstagramProfileWithPosts(username.trim());
+        if (!items || items.length === 0) {
+          throw new Error('No profile data returned. The account may not exist or may be private.');
+        }
+        setProfile(items[0]);
+        // Apify returns latestPosts inside the profile item
+        setPosts(items[0].latestPosts || []);
+      } else {
+        setProfile(result.profile);
+        setPosts(result.posts);
+      }
       setStatus('success');
     } catch (err) {
       setError(err.message || 'Something went wrong. The account may be private.');
@@ -486,52 +499,73 @@ export const PostViewerView = () => {
                 </div>
               </div>
 
-              {/* Recent posts */}
-              {profile.latestPosts && profile.latestPosts.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">
-                    Recent Posts <span className="text-slate-400 font-normal text-sm">({profile.latestPosts.length})</span>
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {profile.latestPosts.slice(0, FREE_POST_LIMIT).map((post, i) => (
-                      <div key={i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all aspect-square">
-                        {post.displayUrl ? (
-                          <img
-                            src={proxyImageUrl(post.displayUrl)}
-                            alt={`Post ${i + 1}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-teal-100 to-indigo-100 flex items-center justify-center">
-                            <ImageIcon className="w-8 h-8 text-teal-300" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3">
-                          <div className="flex items-center gap-3 text-white text-xs font-semibold">
-                            <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {fmt(post.likesCount)}</span>
-                            <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {fmt(post.commentsCount)}</span>
-                          </div>
-                          {post.displayUrl && (
-                            <a
-                              href={post.displayUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1 rounded-full transition-colors flex items-center gap-1"
-                            >
-                              <Download className="w-3 h-3" /> Download
-                            </a>
+              {/* Recent posts — source can be cluster (posts state) or Apify (profile.latestPosts) */}
+              {(() => {
+                // Unified post list: prefer cluster posts (richer + faster), fall back to Apify latestPosts
+                const list = posts.length > 0 ? posts : (profile.latestPosts || []);
+                if (list.length === 0) return null;
+                // Helpers to read either cluster or Apify shape from a post
+                const thumb = (p) => p.thumbnailUrl || p.mediaUrl || p.displayUrl || null;
+                const likes = (p) => p.likes ?? p.likesCount ?? 0;
+                const comments = (p) => p.comments ?? p.commentsCount ?? 0;
+                const linkUrl = (p) => p.url || (p.shortcode ? `https://www.instagram.com/p/${p.shortcode}/` : (p.displayUrl || null));
+
+                return (
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">
+                      Recent Posts <span className="text-slate-400 font-normal text-sm">({list.length})</span>
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {list.slice(0, FREE_POST_LIMIT).map((post, i) => (
+                        <div key={post.shortcode || post.id || i} className="group relative bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all aspect-square">
+                          {thumb(post) ? (
+                            <img
+                              src={proxyImageUrl(thumb(post))}
+                              alt={`Post ${i + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-teal-100 to-indigo-100 flex items-center justify-center">
+                              <ImageIcon className="w-8 h-8 text-teal-300" />
+                            </div>
                           )}
+                          {/* Post type badge (top-left) */}
+                          {(post.isVideo || post.type === 'video') && (
+                            <div className="absolute top-2 left-2">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500 text-white">VIDEO</span>
+                            </div>
+                          )}
+                          {(post.isCarousel || post.type === 'carousel') && (
+                            <div className="absolute top-2 left-2">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">CAROUSEL</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3">
+                            <div className="flex items-center gap-3 text-white text-xs font-semibold">
+                              <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {fmt(likes(post))}</span>
+                              <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {fmt(comments(post))}</span>
+                            </div>
+                            {linkUrl(post) && (
+                              <a
+                                href={linkUrl(post)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white/20 hover:bg-white/30 text-white text-xs px-3 py-1 rounded-full transition-colors flex items-center gap-1"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Open
+                              </a>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    {list.length > FREE_POST_LIMIT && (
+                      <PostSignupGate total={list.length} shown={FREE_POST_LIMIT} locked={list.slice(FREE_POST_LIMIT, FREE_POST_LIMIT + 3)} />
+                    )}
                   </div>
-                  {/* Sign-up gate for remaining posts */}
-                  {profile.latestPosts.length > FREE_POST_LIMIT && (
-                    <PostSignupGate total={profile.latestPosts.length} shown={FREE_POST_LIMIT} locked={profile.latestPosts.slice(FREE_POST_LIMIT, FREE_POST_LIMIT + 3)} />
-                  )}
-                </div>
-              )}
+                );
+              })()}
             </div>
           )}
 

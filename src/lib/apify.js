@@ -48,6 +48,39 @@ export async function fetchInstagramStories(username) {
 }
 
 /**
+ * Fetch the target's most recent posts with engagement metrics
+ * (likes, comments, video views, caption, hashtags, posting time).
+ * Cluster-only: extracted via passive GraphQL interception in posts.js,
+ * much faster than the legacy fetchInstagramProfileWithPosts (~13s vs ~60s).
+ *
+ * @param {string} username
+ * @param {number} limit  default 12, max 36
+ */
+export async function fetchInstagramPosts(username, limit = 12) {
+  return callProxy('posts', { username: username.replace('@', ''), limit });
+}
+
+/**
+ * Composite: profile + posts in one call. Used by Post Viewer for the
+ * default "show me the profile + their recent posts" view. The proxy
+ * runs both as cluster calls; profile falls back to Apify if cluster
+ * misses, posts is cluster-only.
+ *
+ * Returns { profile, posts }.
+ */
+export async function fetchProfileWithClusterPosts(username, postLimit = 12) {
+  const cleanUser = username.replace('@', '');
+  const [profileItems, posts] = await Promise.all([
+    callProxy('profile', { username: cleanUser }),
+    callProxy('posts', { username: cleanUser, limit: postLimit }),
+  ]);
+  return {
+    profile: (profileItems && profileItems[0]) || null,
+    posts: posts || [],
+  };
+}
+
+/**
  * Fetch followers or following list for a public Instagram account.
  * Routed server-side through /api/apify-proxy to keep the token hidden.
  *

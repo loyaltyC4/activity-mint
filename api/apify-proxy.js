@@ -35,6 +35,108 @@ if (!APIFY_TOKEN) console.error('APIFY_TOKEN environment variable is not configu
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Speed-v5: dual-path provider routing
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard context → Apify path for actions where Apify is faster/more
+// scalable. Free tools → cluster (HD media, session-state, sub-ms cache hits).
+// Stories stay on cluster regardless because cluster reels_media is 1-2s.
+const PROVIDER_MAP = {
+  dashboard: {
+    profile:              'apify',
+    'profile-with-posts': 'apify',
+    posts:                'apify',
+    top_commenters:       'apify',
+    comments:             'apify',
+    dashboard_load:       'apify',
+    // these intentionally stay on cluster even in dashboard context:
+    stories:              'cluster',
+    followers:            'cluster',
+    following:            'cluster',
+    audience_enrichment:  'cluster',
+  },
+  freetools: {
+    // Free tools are session-aware and want HD media — always cluster.
+    profile:              'cluster',
+    'profile-with-posts': 'cluster',
+    posts:                'cluster',
+    stories:              'cluster',
+    comments:             'cluster',
+    followers:            'cluster',
+    following:            'cluster',
+  },
+};
+
+function resolveProvider(action, context) {
+  const map = PROVIDER_MAP[context];
+  return map?.[action] || 'cluster';
+}
+
+// Convert Apify profile-scraper item shape to our normalized profile shape.
+// Apify returns: { username, fullName, followersCount, followsCount,
+// postsCount, biography, verified, private, profilePicUrlHD, latestPosts }
+// Our normalized shape (per normalizeProfile in this file) accepts both
+// camelCase and snake_case so this is mostly a pass-through.
+function normalizeApifyProfile(p) {
+  if (!p || typeof p !== 'object') return p;
+  return {
+    username: p.username,
+    fullName: p.fullName || p.full_name || null,
+    biography: p.biography || null,
+    bio: p.biography || null,
+    followers: p.followersCount ?? null,
+    followersCount: p.followersCount ?? null,
+    following: p.followsCount ?? p.followingCount ?? null,
+    followingCount: p.followsCount ?? p.followingCount ?? null,
+    followsCount: p.followsCount ?? p.followingCount ?? null,
+    posts: p.postsCount ?? null,
+    postsCount: p.postsCount ?? null,
+    isVerified: !!p.verified,
+    verified: !!p.verified,
+    isPrivate: !!p.private,
+    private: !!p.private,
+    profilePicUrl: p.profilePicUrlHD || p.profilePicUrl || null,
+    profilePicUrlHD: p.profilePicUrlHD || p.profilePicUrl || null,
+    externalUrl: p.externalUrl || null,
+    category: p.businessCategoryName || p.category || null,
+    // Pass-through latestPosts when present (the profile-scraper bundles them)
+    latestPosts: Array.isArray(p.latestPosts) ? p.latestPosts.map(normalizeApifyPost) : undefined,
+  };
+}
+
+// Apify post item shape → our post shape. Picks HD media URLs the same way
+// the cluster does.
+function normalizeApifyPost(p) {
+  if (!p || typeof p !== 'object') return p;
+  // Apify gives displayUrl + images[] + videoUrl directly.
+  const imageHD = p.displayUrl || (Array.isArray(p.images) && p.images[0]) || null;
+  return {
+    shortcode: p.shortCode || p.shortcode || null,
+    url: p.url || (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : null),
+    type: p.type === 'Video' ? 'video' : (p.type === 'Sidecar' ? 'carousel' : 'image'),
+    likes: p.likesCount ?? 0,
+    comments: p.commentsCount ?? 0,
+    videoViews: p.videoViewCount ?? p.videoPlayCount ?? 0,
+    caption: p.caption || null,
+    hashtags: Array.isArray(p.hashtags) ? p.hashtags : [],
+    mentions: Array.isArray(p.mentions) ? p.mentions : [],
+    timestamp: p.timestamp || null,
+    mediaUrl: p.videoUrl || imageHD,
+    thumbnailUrl: imageHD,
+    imageUrlHD: imageHD,
+    videoUrlHD: p.videoUrl || null,
+    isVideo: p.type === 'Video',
+    isCarousel: p.type === 'Sidecar',
+    carouselItems: Array.isArray(p.childPosts)
+      ? p.childPosts.map((c) => ({
+          mediaType: c.type === 'Video' ? 'video' : 'image',
+          imageUrl: c.displayUrl || (Array.isArray(c.images) && c.images[0]) || null,
+          videoUrl: c.videoUrl || null,
+        }))
+      : null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Profile field normalization
 // ─────────────────────────────────────────────────────────────────────────────
 // The cluster scraper returns IG-style snake-ish keys: followers, following,
@@ -305,6 +407,24 @@ export default async function handler(req, res) {
       return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items }));
     }
 
+    // profile: provider-routed. Apify path on dashboard context.
+    if (action === 'profile' && resolveProvider('profile', payload.context) === 'apify') {
+      const { username } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      try {
+        run = await startRun('apify/instagram-profile-scraper', { usernames: [username.replace('@', '')] });
+        completed = await pollRun(run.id);
+        const raw = await getDatasetItems(completed.defaultDatasetId, 1);
+        const normalized = (raw || []).map(normalizeApifyProfile);
+        setEdgeCache(res, 'profile');
+        return res.status(200).json(withSource(res, 'apify', { ok: true, items: normalized }));
+      } catch (err) {
+        console.warn(`[profile via apify] failed: ${err.message}, falling back to cluster`);
+        // Fall through to cluster path below
+      }
+    }
+
     // profile: CLUSTER-ONLY. Apify fallback removed.
     // Field normalization: the cluster returns { followers, following, posts,
     // bio, isVerified, isPrivate, fullName, profilePicUrl } but the UI reads
@@ -323,6 +443,32 @@ export default async function handler(req, res) {
       const normalized = [normalizeProfile(p)];
       setEdgeCache(res, 'profile');
       return res.status(200).json(withSource(res, r.source, { ok: true, items: normalized }));
+    }
+
+    // profile-with-posts via Apify: ONE call returns profile + 12 latest posts.
+    // This is the killer Apify path — single 6s call vs cluster's 13s composite.
+    if (action === 'profile-with-posts' && resolveProvider('profile-with-posts', payload.context) === 'apify') {
+      const { username, postLimit = 12 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      try {
+        run = await startRun('apify/instagram-profile-scraper', {
+          usernames: [username.replace('@', '')],
+          resultsLimit: postLimit,
+        });
+        completed = await pollRun(run.id);
+        const raw = await getDatasetItems(completed.defaultDatasetId, 1);
+        if (!raw || raw.length === 0) {
+          res.setHeader('x-data-source', 'apify-empty');
+          return res.status(502).json({ ok: false, error: 'Apify returned empty profile', _dataSource: 'apify-empty' });
+        }
+        // normalizeApifyProfile already includes latestPosts converted to our shape
+        const merged = [normalizeApifyProfile(raw[0])];
+        setEdgeCache(res, 'profile');
+        return res.status(200).json(withSource(res, 'apify', { ok: true, items: merged }));
+      } catch (err) {
+        console.warn(`[profile-with-posts via apify] failed: ${err.message}, falling back to cluster`);
+      }
     }
 
     // profile-with-posts: CLUSTER-ONLY. Apify path removed — we now compose
@@ -354,6 +500,29 @@ export default async function handler(req, res) {
       return res.status(200).json(withSource(res, 'cluster', { ok: true, items: merged }));
     }
 
+    // posts: provider-routed. Apify uses instagram-profile-scraper which
+    // bundles the latest posts WITH the profile call — so we get profile +
+    // posts for the price of one actor run.
+    if (action === 'posts' && resolveProvider('posts', payload.context) === 'apify') {
+      const { username, limit = 12 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      try {
+        run = await startRun('apify/instagram-profile-scraper', {
+          usernames: [username.replace('@', '')],
+          resultsLimit: Math.min(limit, 36),
+        });
+        completed = await pollRun(run.id);
+        const raw = await getDatasetItems(completed.defaultDatasetId, 1);
+        const latestPosts = raw?.[0]?.latestPosts || [];
+        const normalized = latestPosts.slice(0, limit).map(normalizeApifyPost);
+        setEdgeCache(res, 'posts');
+        return res.status(200).json(withSource(res, 'apify', { ok: true, items: normalized }));
+      } catch (err) {
+        console.warn(`[posts via apify] failed: ${err.message}, falling back to cluster`);
+      }
+    }
+
     if (action === 'posts') {
       const { username, limit = 12 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
@@ -370,6 +539,73 @@ export default async function handler(req, res) {
       });
       setEdgeCache(res, 'audience_enrichment');
       return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items }));
+    }
+
+    // top_commenters via Apify (dashboard context): composite that uses
+    // Apify profile-scraper for shortcodes + Apify comment-scraper batched.
+    // Returns ranked commenters across recent posts.
+    if (action === 'top_commenters' && resolveProvider('top_commenters', payload.context) === 'apify') {
+      const { username, postLimit = 6, commentLimit = 50, topN = 25 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      const cleanUser = username.replace('@', '');
+      try {
+        // Step 1: get the user's recent post shortcodes via profile-scraper
+        const profRun = await startRun('apify/instagram-profile-scraper', {
+          usernames: [cleanUser],
+          resultsLimit: postLimit,
+        });
+        const profComplete = await pollRun(profRun.id);
+        const profRaw = await getDatasetItems(profComplete.defaultDatasetId, 1);
+        const latestPosts = profRaw?.[0]?.latestPosts || [];
+        const shortcodes = latestPosts.slice(0, postLimit).map((p) => p.shortCode || p.shortcode).filter(Boolean);
+        if (shortcodes.length === 0) {
+          setEdgeCache(res, 'top_commenters');
+          return res.status(200).json(withSource(res, 'apify', { ok: true, items: [], postsFetched: 0 }));
+        }
+        // Step 2: parallel comment-scraper calls
+        const commentResults = await Promise.all(shortcodes.map(async (sc) => {
+          try {
+            const r = await startRun('apify/instagram-comment-scraper', {
+              directUrls: [`https://www.instagram.com/p/${sc}/`],
+              resultsLimit: commentLimit,
+            });
+            const c = await pollRun(r.id);
+            return await getDatasetItems(c.defaultDatasetId, commentLimit);
+          } catch { return []; }
+        }));
+        // Step 3: aggregate
+        const tally = new Map();
+        for (const arr of commentResults) {
+          if (!Array.isArray(arr)) continue;
+          for (const c of arr) {
+            const u = c.ownerUsername || c.username;
+            if (!u || u === cleanUser) continue;
+            const cur = tally.get(u) || {
+              username: u,
+              fullName: c.ownerFullName || null,
+              profilePicUrl: c.ownerProfilePicUrl || null,
+              isVerified: !!c.ownerIsVerified,
+              commentCount: 0, totalLikes: 0, samples: [],
+            };
+            cur.commentCount += 1;
+            cur.totalLikes += (c.likesCount ?? 0);
+            const txt = c.text || '';
+            if (cur.samples.length < 3 && txt) cur.samples.push(String(txt).slice(0, 240));
+            tally.set(u, cur);
+          }
+        }
+        const ranked = Array.from(tally.values())
+          .sort((a, b) => b.commentCount - a.commentCount || b.totalLikes - a.totalLikes)
+          .slice(0, topN);
+        setEdgeCache(res, 'top_commenters');
+        return res.status(200).json(withSource(res, 'apify-batch', {
+          ok: true, items: ranked,
+          postsFetched: shortcodes.length,
+        }));
+      } catch (err) {
+        console.warn(`[top_commenters via apify] failed: ${err.message}, falling back to cluster`);
+      }
     }
 
     // top_commenters: CLUSTER-ONLY. The inline Apify fallback for missed-post
@@ -440,6 +676,43 @@ export default async function handler(req, res) {
       }));
     }
 
+    // dashboard_load via Apify: ONE profile-scraper call covers profile +
+    // posts in 6s. Stories + followers stay on cluster (parallel).
+    if (action === 'dashboard_load' && resolveProvider('dashboard_load', payload.context) === 'apify') {
+      const { username, postLimit = 12, followerLimit = 20 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      const cleanUser = username.replace('@', '');
+      // Fire Apify (profile+posts) and cluster (stories+followers) in parallel
+      const apifyPromise = (async () => {
+        try {
+          const r = await startRun('apify/instagram-profile-scraper', {
+            usernames: [cleanUser],
+            resultsLimit: postLimit,
+          });
+          const c = await pollRun(r.id);
+          const raw = await getDatasetItems(c.defaultDatasetId, 1);
+          const profile = raw?.[0] ? normalizeApifyProfile(raw[0]) : null;
+          const posts = (raw?.[0]?.latestPosts || []).slice(0, postLimit).map(normalizeApifyPost);
+          return { profile, posts };
+        } catch (err) { return { __error: err.message }; }
+      })();
+      const clusterPromise = callScraperBatch([
+        { action: 'followers', payload: { username: cleanUser, limit: followerLimit } },
+        { action: 'stories',   payload: { username: cleanUser } },
+      ], 'parallel').catch(() => []);
+
+      const [apifyResult, clusterResults] = await Promise.all([apifyPromise, clusterPromise]);
+      const byAction = {
+        profile:   { ok: !!apifyResult.profile, items: apifyResult.profile ? [apifyResult.profile] : [] },
+        posts:     { ok: Array.isArray(apifyResult.posts), items: apifyResult.posts || [] },
+        followers: clusterResults.find?.((r) => r.action === 'followers') || { ok: false, items: [] },
+        stories:   clusterResults.find?.((r) => r.action === 'stories')   || { ok: false, items: [] },
+      };
+      setEdgeCache(res, 'dashboard_load');
+      return res.status(200).json(withSource(res, 'apify-batch', { ok: true, byAction }));
+    }
+
     // dashboard_load: parallel fan-out of profile + posts + followers + stories.
     if (action === 'dashboard_load') {
       const { username, postLimit = 12, followerLimit = 20 } = payload;
@@ -458,6 +731,27 @@ export default async function handler(req, res) {
       }
       setEdgeCache(res, 'dashboard_load');
       return res.status(200).json(withSource(res, 'cluster', { ok: true, byAction }));
+    }
+
+    // comments via Apify: dashboard context. Per-comment pricing so we
+    // pass through limit faithfully.
+    if (action === 'comments' && resolveProvider('comments', payload.context) === 'apify') {
+      const { postUrl, shortcode, limit = 50 } = payload;
+      if (!postUrl && !shortcode) return res.status(400).json({ error: 'Missing postUrl or shortcode' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      const apifyUrl = postUrl || `https://www.instagram.com/p/${shortcode}/`;
+      try {
+        run = await startRun('apify/instagram-comment-scraper', {
+          directUrls: [apifyUrl],
+          resultsLimit: limit,
+        });
+        completed = await pollRun(run.id);
+        const items = await getDatasetItems(completed.defaultDatasetId, limit);
+        setEdgeCache(res, 'comments');
+        return res.status(200).json(withSource(res, 'apify', { ok: true, items: items || [] }));
+      } catch (err) {
+        console.warn(`[comments via apify] failed: ${err.message}, falling back to cluster`);
+      }
     }
 
     // comments: CLUSTER-ONLY. Apify fallback removed. Returns [] if the

@@ -77,6 +77,11 @@ function writeCache(action, payload, items, dataSource) {
 // ─── core proxy call ───────────────────────────────────────────────────────
 // Internal. Returns { items, source }. Source is taken from x-data-source
 // header (set by the proxy) so we can tell cluster vs apify-fallback apart.
+//
+// `payload.context` is propagated to the proxy. Values:
+//   'dashboard' → route to Apify path where mapped (provider table)
+//   'freetools' → route to cluster path
+//   undefined   → cluster (legacy default)
 async function callProxyRaw(action, payload) {
   const useGet = READ_ACTIONS_GET.has(action);
   const start = (typeof performance !== 'undefined' ? performance : Date).now();
@@ -187,6 +192,56 @@ export async function fetchInstagramProfile(username) {
 /** SWR variant. Identical signature except returns instantly from cache when warm. */
 export async function fetchInstagramProfileSWR(username, opts) {
   return callProxyCached('profile', { username: username.replace('@', '') }, opts);
+}
+
+/**
+ * Speed-v5: dashboard-context fetcher. Routes via Apify provider for the
+ * faster cold-path. Use from Pulse / Audience / ContentLab / Outreach panes.
+ * Returns full profile + 12 latest posts in one call (via profile-with-posts).
+ */
+export async function fetchDashboardProfile(username, opts) {
+  return callProxyCached(
+    'profile-with-posts',
+    { username: username.replace('@', ''), context: 'dashboard' },
+    opts,
+  );
+}
+
+/** Dashboard posts fetcher (Apify path). */
+export async function fetchDashboardPosts(username, limit = 12, opts) {
+  return callProxyCached(
+    'posts',
+    { username: username.replace('@', ''), limit, context: 'dashboard' },
+    opts,
+  );
+}
+
+/** Dashboard top-commenters fetcher (Apify composite path). */
+export async function fetchDashboardTopCommenters(username, options = {}, opts) {
+  const { postLimit = 6, commentLimit = 50, topN = 25 } = options;
+  return callProxyCached(
+    'top_commenters',
+    {
+      username: username.replace('@', ''),
+      postLimit, commentLimit, topN,
+      context: 'dashboard',
+    },
+    opts,
+  );
+}
+
+/** Dashboard one-shot loader (profile + posts via Apify, stories + followers via cluster). */
+export async function fetchDashboardLoad(username, options = {}) {
+  return callProxyCached(
+    'dashboard_load',
+    {
+      username: username.replace('@', ''),
+      postLimit: options.postLimit || 12,
+      followerLimit: options.followerLimit || 20,
+      context: 'dashboard',
+    },
+    options,
+  );
 }
 
 /**

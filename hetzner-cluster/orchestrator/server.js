@@ -100,28 +100,82 @@ function bloomCheck(key) {
 }
 
 // ─── Cache helpers ────────────────────────────────────────────────────────
+// Phase 2: XFetch probabilistic early refresh + per-popularity adaptive TTL.
+//
+// XFetch (Vainstein 2011):
+//   With delta = recompute_ms, beta = 1, and r = U(0,1), a cached entry is
+//   *probabilistically* considered expired at:
+//       expires_at - delta * beta * (-log(r))
+//   Since -log(U(0,1)) ~ Exp(1), entries close to expiry have a rising
+//   chance of being treated as expired BEFORE the hard deadline. This
+//   prevents the thundering-herd at TTL boundary.
+//
+// Popularity multiplier:
+//   hits/key kept in Redis with 24h sliding window. Hot handles get 5x TTL,
+//   moderately popular get 2x, never-hit handles get 0.5x.
+const XFETCH_BETA = 1.0;
+function popularityMultiplier(hits) {
+  if (hits > 50) return 5;
+  if (hits > 10) return 2;
+  if (hits > 0) return 1;
+  return 0.5;
+}
+
 function cacheKey(action, payload) {
   const canon = JSON.stringify(payload || {}, Object.keys(payload || {}).sort());
   return `cache:${action}:${crypto.createHash('sha1').update(canon).digest('hex').slice(0, 16)}`;
 }
 
-async function cacheGet(key) {
+async function cacheGet(key, action, onEarlyRefresh) {
   // Bloom pre-check — skip Redis round-trip on guaranteed misses.
   if (!bloomCheck(key)) return null;
   try {
     const raw = await redis.get(key);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+
+    // Track hits for popularity-based TTL (fire and forget, sliding window 24h)
+    redis.incr(`hits:${key}`).catch(() => {});
+    redis.expire(`hits:${key}`, 86400).catch(() => {});
+
+    // XFetch early refresh probability
+    const ageMs = Date.now() - (parsed.t || 0);
+    const baseTtlMs = (CACHE_TTLS[action] || 60) * 1000;
+    const recomputeMs = parsed.recompute_ms || 5000;
+    const remainingMs = baseTtlMs - ageMs;
+    if (remainingMs > 0 && typeof onEarlyRefresh === 'function') {
+      // r ~ U(0,1] (avoid log(0))
+      const r = Math.max(Math.random(), 1e-9);
+      const refreshOffset = recomputeMs * XFETCH_BETA * (-Math.log(r));
+      if (remainingMs < refreshOffset) {
+        // Fire background refresh, still serve cached
+        try { onEarlyRefresh(); } catch (_) {}
+      }
+    }
+    return parsed;
   } catch (err) {
     log.warn(`cacheGet failed: ${err.message}`);
     return null;
   }
 }
 
-async function cacheSet(action, key, items) {
-  const ttl = CACHE_TTLS[action] || 60;
+async function cacheSet(action, key, items, recomputeMs) {
+  const baseTtl = CACHE_TTLS[action] || 60;
+  let popularity = 1;
   try {
-    await redis.set(key, JSON.stringify({ items, t: Date.now() }), 'EX', ttl);
+    const hitsRaw = await redis.get(`hits:${key}`);
+    const hits = hitsRaw ? parseInt(hitsRaw, 10) || 0 : 0;
+    popularity = popularityMultiplier(hits);
+  } catch (_) {}
+  const ttl = Math.max(10, Math.round(baseTtl * popularity));
+  try {
+    await redis.set(key, JSON.stringify({
+      items,
+      t: Date.now(),
+      recompute_ms: recomputeMs || null,
+      ttl_used: ttl,
+      popularity_mult: popularity,
+    }), 'EX', ttl);
     bloomAdd(key);
   } catch (err) {
     log.warn(`cacheSet failed: ${err.message}`);
@@ -191,6 +245,42 @@ const redis = new Redis(REDIS_URL, {
 redis.on('error', (err) => log.error(`redis: ${err.message}`));
 redis.on('ready', () => log.info('redis connected'));
 
+// ─── Phase 3: cross-instance coordination bridge via Redis pub/sub ────────
+// Two channels:
+//   - bridge:cache  → announcements that a cache key was just (re)populated
+//   - bridge:block  → announcements that a worker was just marked blocked
+// We open a dedicated pubsub connection (ioredis requires sub mode on its
+// own client) so subscriptions don't interfere with regular GET/SET.
+const pubsub = new Redis(REDIS_URL, { maxRetriesPerRequest: 3, lazyConnect: false });
+pubsub.on('error', (err) => log.warn(`pubsub: ${err.message}`));
+
+const sub = new Redis(REDIS_URL, { maxRetriesPerRequest: 3, lazyConnect: false });
+sub.on('error', (err) => log.warn(`sub: ${err.message}`));
+sub.subscribe('bridge:cache', 'bridge:block', (err) => {
+  if (err) log.warn(`sub subscribe failed: ${err.message}`);
+  else log.info('bridge: subscribed to cache + block channels');
+});
+sub.on('message', (channel, msg) => {
+  try {
+    const data = JSON.parse(msg);
+    if (channel === 'bridge:cache' && data.ckey) {
+      // Update Bloom locally so future GETs see this key
+      bloomAdd(data.ckey);
+    } else if (channel === 'bridge:block' && data.workerId) {
+      log.info(`bridge: peer reported worker ${data.workerId} blocked`);
+    }
+  } catch (_) {}
+});
+
+async function bridgePublishCache(ckey, action) {
+  try { await pubsub.publish('bridge:cache', JSON.stringify({ ckey, action, t: Date.now() })); }
+  catch (_) {}
+}
+async function bridgePublishBlock(workerId, reason) {
+  try { await pubsub.publish('bridge:block', JSON.stringify({ workerId, reason, t: Date.now() })); }
+  catch (_) {}
+}
+
 let rrCursor = 0;
 
 // ─── Worker state helpers ────────────────────────────────────────────────
@@ -210,12 +300,13 @@ async function isWorkerBlocked(id) {
   return false;
 }
 
-async function markWorkerBlocked(id, ttlSeconds = BLOCK_TTL_SECONDS) {
+async function markWorkerBlocked(id, ttlSeconds = BLOCK_TTL_SECONDS, reason = '') {
   const until = new Date(Date.now() + ttlSeconds * 1000).toISOString();
   await redis.set(`worker:${id}:blocked_until`, until, 'EX', ttlSeconds).catch((err) => {
     log.warn(`redis set blocked_until failed: ${err.message}`);
   });
   log.warn(`worker ${id} marked blocked until ${until}`);
+  bridgePublishBlock(id, reason);
 }
 
 async function bumpWorkerRequests(id) {
@@ -234,15 +325,34 @@ async function setStickyTarget(username, workerId) {
   });
 }
 
+/**
+ * Rendezvous hashing (Highest Random Weight, Thaler & Ravishankar 1998).
+ * Compute h(worker_id, key) for each candidate, pick the one with the
+ * highest hash. This gives deterministic assignment with the property
+ * that only K/n keys move when the worker set changes — far better than
+ * naive hash(key) % n which reshuffles everything.
+ *
+ * Why we use this instead of the prior Redis-backed sticky map:
+ *   - No Redis write per request → fewer round trips
+ *   - Same handle always lands on the same worker (assuming pool stable)
+ *   - Failover is implicit: exclude broken workers from the candidate set,
+ *     the next-highest hash worker takes over deterministically
+ */
+function hrwScore(workerId, key) {
+  // FNV-1a-style mix of workerId and key. Deterministic.
+  let h = 2166136261 >>> 0;
+  const s = workerId + '::' + key;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
 async function pickWorker({ username, excludeIds = [] }) {
   const exclude = new Set(excludeIds);
-  if (ROUTING_STRATEGY === 'sticky' && username) {
-    const stickyId = await getStickyTarget(username);
-    if (stickyId && !exclude.has(stickyId) && workerById(stickyId)) {
-      const blocked = await isWorkerBlocked(stickyId);
-      if (!blocked) return { worker: workerById(stickyId), reason: 'sticky' };
-    }
-  }
+
+  // Build candidate list: not excluded, not blocked
   const candidates = [];
   for (const w of workers) {
     if (exclude.has(w.id)) continue;
@@ -250,11 +360,25 @@ async function pickWorker({ username, excludeIds = [] }) {
     candidates.push(w);
   }
   if (candidates.length === 0) return { worker: null, reason: 'no_workers_available' };
+
+  // Sticky / HRW: deterministic per-username routing via rendezvous hash
+  if ((ROUTING_STRATEGY === 'sticky' || ROUTING_STRATEGY === 'hrw') && username) {
+    let bestWorker = candidates[0];
+    let bestScore = hrwScore(bestWorker.id, username);
+    for (let i = 1; i < candidates.length; i++) {
+      const s = hrwScore(candidates[i].id, username);
+      if (s > bestScore) { bestScore = s; bestWorker = candidates[i]; }
+    }
+    return { worker: bestWorker, reason: 'hrw' };
+  }
+
   if (ROUTING_STRATEGY === 'round_robin') {
     const w = candidates[rrCursor % candidates.length];
     rrCursor = (rrCursor + 1) % Math.max(candidates.length, 1);
     return { worker: w, reason: 'round_robin' };
   }
+
+  // Fallback: least-loaded (used if username is null AND not round_robin)
   const counts = await Promise.all(candidates.map((w) => getWorkerRequests(w.id)));
   let bestIdx = 0;
   for (let i = 1; i < candidates.length; i++) {
@@ -346,8 +470,25 @@ async function scrapeWithCache(task, username) {
   const ckey = cacheKey(task.action, task.payload);
   const t0 = Date.now();
 
-  // 1. Cache lookup (Bloom-gated)
-  const cached = await cacheGet(ckey);
+  // 1. Cache lookup with XFetch probabilistic early refresh.
+  //    onEarlyRefresh fires a background scrape ahead of TTL expiry so we
+  //    avoid the thundering-herd at boundary. Still serves the cached value
+  //    to this caller — the refresh is for the *next* caller.
+  const onEarlyRefresh = () => {
+    log.info(`xfetch early refresh: ${task.action}/${username || '-'}`);
+    // Use singleflight so only ONE background refresh fires even if many
+    // requests trigger the XFetch path simultaneously.
+    singleflight(`${ckey}::xfetch`, async () => {
+      const t0bg = Date.now();
+      const r = await dispatchToWorker(task, username);
+      if (r.ok) {
+        await cacheSet(task.action, ckey, r.items, Date.now() - t0bg);
+        telemetry({ action: task.action, user: username || '-', source: 'xfetch-bg', latency_ms: Date.now() - t0bg, worker: r.worker });
+      }
+      return r;
+    }).catch((err) => log.warn(`xfetch bg refresh failed: ${err.message}`));
+  };
+  const cached = await cacheGet(ckey, task.action, onEarlyRefresh);
   if (cached) {
     const latency = Date.now() - t0;
     telemetry({ action: task.action, user: username || '-', source: 'redis-cache', latency_ms: latency });
@@ -356,12 +497,15 @@ async function scrapeWithCache(task, username) {
 
   // 2. Singleflight: coalesce duplicate concurrent requests
   return singleflight(ckey, async () => {
+    const tWorker = Date.now();
     const result = await dispatchToWorker(task, username);
+    const recomputeMs = Date.now() - tWorker;
     const latency = Date.now() - t0;
     if (result.ok) {
-      // Don't await — fire and forget
-      cacheSet(task.action, ckey, result.items);
-      telemetry({ action: task.action, user: username || '-', source: 'cluster', latency_ms: latency, worker: result.worker });
+      // recompute_ms is passed so XFetch knows the cost — drives refresh probability
+      cacheSet(task.action, ckey, result.items, recomputeMs);
+      bridgePublishCache(ckey, task.action);
+      telemetry({ action: task.action, user: username || '-', source: 'cluster', latency_ms: latency, worker: result.worker, recompute_ms: recomputeMs });
       return { ok: true, items: result.items, source: 'cluster', worker: result.worker, cacheHit: false };
     }
     telemetry({ action: task.action, user: username || '-', source: 'error', latency_ms: latency, error: result.error });

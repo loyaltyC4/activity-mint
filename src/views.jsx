@@ -22,7 +22,19 @@ import {
   UserPlus,
   Loader2,
   ExternalLink,
+  Heart,
 } from 'lucide-react';
+import {
+  normalizeFollower,
+  computeCategories,
+  applyFilters as applyUnfollowerFilters,
+  DEFAULT_FILTERS as DEFAULT_UNFOLLOWER_FILTERS,
+  loadWhitelist,
+  toggleWhitelist,
+  isWithoutProfilePicture,
+  downloadCsv,
+  copyUsernamesToClipboard,
+} from './lib/unfollowers';
 import {
   fetchInstagramProfile,
   fetchFollowersList,
@@ -1028,13 +1040,9 @@ const getStoredSnapshot = (username) => {
   return snaps.length > 0 ? snaps[snaps.length - 1] : null;
 };
 
-const normalizeFollower = (f) => ({
-  username: f.username || f.handle || f.login || f.user_name || f.userName || '',
-  fullName: f.full_name || f.fullName || f.name || f.displayName || '',
-  profilePicUrl: f.profile_pic_url || f.profilePicUrl || f.profilePicture || f.avatar || '',
-  isVerified: f.is_verified || f.isVerified || false,
-  isPrivate: f.is_private || f.isPrivate || false,
-});
+// normalizeFollower + computeCategories + filters + whitelist all live in
+// src/lib/unfollowers.js (imported at top of file) so every surface
+// agrees on the same math + shape.
 
 const storeSnapshot = (username, followers) => {
   const snapshot = {
@@ -1353,24 +1361,21 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [error, setError] = useState(null);
-  const [followers, setFollowers] = useState([]);
-  const [following, setFollowing] = useState([]);
-  const [dontFollowBack, setDontFollowBack] = useState([]); // you follow them, they don't follow you
-  const [fans, setFans] = useState([]); // they follow you, you don't follow them
-  const [mutuals, setMutuals] = useState([]);
+  // Canonical categories from src/lib/unfollowers.js (every surface uses the same math)
+  const [categories, setCategories] = useState(null); // { followers, following, mutuals, nonFollowers, fans, counts }
   const [fetchTime, setFetchTime] = useState(null);
   const [fetchProgress, setFetchProgress] = useState('');
   const [activeResultTab, setActiveResultTab] = useState('not-following-back');
-
-  const dedup = (list) => {
-    const seen = new Set();
-    return list.filter(f => {
-      const key = f.username.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  };
+  // Filters mirror davidarroyo1234/InstagramUnfollowers' ScanningFilter
+  const [filters, setFilters] = useState({
+    showVerified: true,
+    showPrivate: true,
+    showWithoutProfilePicture: true,
+    search: '',
+  });
+  // Whitelist tracked in state (also persisted to localStorage via the engine)
+  const [whitelist, setWhitelist] = useState(() => loadWhitelist());
+  const [copiedHint, setCopiedHint] = useState(false);
 
   const handleSearch = async () => {
     if (!input.trim()) return;
@@ -1378,24 +1383,22 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
 
     setStatus('loading');
     setError(null);
-    setDontFollowBack([]);
-    setFans([]);
-    setMutuals([]);
+    setCategories(null);
 
     try {
       // Step 1: Fetch PROFILE first to get real follower/following counts
       setFetchProgress('Fetching profile to determine list sizes...');
       const profileData = await fetchInstagramProfile(username).catch(() => null);
-      const realFollowerCount = profileData?.[0]?.followersCount || profileData?.[0]?.follower_count || 5000;
-      const realFollowingCount = profileData?.[0]?.followsCount || profileData?.[0]?.followingCount || profileData?.[0]?.following_count || 5000;
+      const realFollowerCount = profileData?.[0]?.followers || profileData?.[0]?.followersCount || profileData?.[0]?.follower_count || 5000;
+      const realFollowingCount = profileData?.[0]?.following || profileData?.[0]?.followsCount || profileData?.[0]?.followingCount || profileData?.[0]?.following_count || 5000;
 
-      // Cap at 5000 per list to avoid excessive scraping time — warn user for very large accounts
+      // Cap at 5000 per list to avoid excessive scraping time — flag partial below
       const MAX_FETCH = 5000;
-      const followerLimit = Math.min(realFollowerCount + 100, MAX_FETCH); // +100 buffer for race conditions
+      const followerLimit = Math.min(realFollowerCount + 100, MAX_FETCH);
       const followingLimit = Math.min(realFollowingCount + 100, MAX_FETCH);
 
-      // Step 2: Fetch BOTH COMPLETE lists in parallel with real limits
-      setFetchProgress(`Fetching all ${realFollowerCount.toLocaleString()} followers & ${realFollowingCount.toLocaleString()} following...`);
+      // Step 2: Fetch BOTH lists in parallel
+      setFetchProgress(`Fetching ${Math.min(realFollowerCount, MAX_FETCH).toLocaleString()} followers & ${Math.min(realFollowingCount, MAX_FETCH).toLocaleString()} following...`);
       const [followerRaw, followingRaw] = await Promise.all([
         fetchFollowersList(username, 'followers', followerLimit),
         fetchFollowersList(username, 'following', followingLimit),
@@ -1407,35 +1410,17 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
 
       setFetchProgress('Comparing lists...');
 
-      // Normalize and dedup both lists
-      const followerList = dedup((followerRaw || []).map(normalizeFollower).filter(f => f.username));
-      const followingList = dedup((followingRaw || []).map(normalizeFollower).filter(f => f.username));
-
-      setFollowers(followerList);
-      setFollowing(followingList);
-
-      // Step 3: Set comparison — accurate because we fetched COMPLETE lists
-      const followerSet = new Set(followerList.map(f => f.username.toLowerCase()));
-      const followingSet = new Set(followingList.map(f => f.username.toLowerCase()));
-
-      // People this account follows who DON'T follow back
-      const notFollowingBack = followingList.filter(f => !followerSet.has(f.username.toLowerCase()));
-      // People who follow this account but this account doesn't follow back (fans)
-      const fansList = followerList.filter(f => !followingSet.has(f.username.toLowerCase()));
-      // Mutual follows
-      const mutualList = followerList.filter(f => followingSet.has(f.username.toLowerCase()));
-
-      setDontFollowBack(notFollowingBack);
-      setFans(fansList);
-      setMutuals(mutualList);
+      // Canonical engine: one call returns mutuals + nonFollowers + fans
+      // with fully normalized + deduped user records.
+      const result = computeCategories(followerRaw, followingRaw);
+      setCategories(result);
       setFetchTime(new Date().toISOString());
 
-      // Also store follower snapshot for historical tracking
-      storeSnapshot(username, followerList);
+      // Store follower snapshot for Ship 2 (historical recent-unfollower detection)
+      storeSnapshot(username, result.followers);
 
       setStatus('success');
       setFetchProgress('');
-
     } catch (err) {
       console.error('Unfollower fetch error:', err);
       setError(err.message || 'Failed to fetch data. The account may be private.');
@@ -1444,9 +1429,40 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
     }
   };
 
-  const activeList = activeResultTab === 'not-following-back' ? dontFollowBack
-    : activeResultTab === 'fans' ? fans
-    : mutuals;
+  // Pick the active raw list based on which tab is open
+  const rawActive = !categories ? [] :
+      activeResultTab === 'not-following-back' ? categories.nonFollowers
+    : activeResultTab === 'fans'                ? categories.fans
+    :                                              categories.mutuals;
+
+  // Apply filters + search + whitelist
+  const filteredActive = applyUnfollowerFilters(rawActive, { ...filters, whitelist });
+
+  // Toggle a username's whitelist membership, refresh local state, force re-render
+  const onToggleWhitelist = (username) => {
+    const next = toggleWhitelist(username);
+    setWhitelist(next);
+  };
+
+  const handleCopy = async () => {
+    const ok = await copyUsernamesToClipboard(filteredActive);
+    if (ok) {
+      setCopiedHint(true);
+      setTimeout(() => setCopiedHint(false), 2000);
+    }
+  };
+
+  const handleDownload = () => {
+    const name = `${input.trim().replace('@','')}-${activeResultTab}.csv`;
+    downloadCsv(filteredActive, name);
+  };
+
+  // For the summary stats grid (use unfiltered counts so the user sees the real picture)
+  const followers     = categories?.followers     || [];
+  const following     = categories?.following     || [];
+  const dontFollowBack = categories?.nonFollowers || [];
+  const fans          = categories?.fans          || [];
+  const mutuals       = categories?.mutuals       || [];
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -1593,34 +1609,109 @@ export const UnfollowerView = ({ searchQuery, setSearchQuery, setActiveTab }) =>
                 </div>
 
                 <div className="p-4">
-                  {activeResultTab === 'not-following-back' && dontFollowBack.length > 0 && (
+                  {/* Filter toggle row + search + export */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filters.showVerified}
+                        onChange={(e) => setFilters({ ...filters, showVerified: e.target.checked })}
+                        className="rounded accent-rose-600"
+                      />
+                      Verified
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filters.showPrivate}
+                        onChange={(e) => setFilters({ ...filters, showPrivate: e.target.checked })}
+                        className="rounded accent-rose-600"
+                      />
+                      Private
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer" title="Hide likely-bot accounts using Instagram's default avatar">
+                      <input
+                        type="checkbox"
+                        checked={filters.showWithoutProfilePicture}
+                        onChange={(e) => setFilters({ ...filters, showWithoutProfilePicture: e.target.checked })}
+                        className="rounded accent-rose-600"
+                      />
+                      No profile pic
+                    </label>
+                    <input
+                      type="text"
+                      value={filters.search}
+                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                      placeholder="Search username or name…"
+                      className="flex-1 min-w-[180px] px-2.5 py-1 text-[12px] rounded-lg border border-slate-200 focus:outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400/30"
+                    />
+                    <button
+                      onClick={handleCopy}
+                      disabled={filteredActive.length === 0}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Copy username list to clipboard"
+                    >
+                      {copiedHint ? '✓ Copied' : 'Copy'}
+                    </button>
+                    <button
+                      onClick={handleDownload}
+                      disabled={filteredActive.length === 0}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      title="Download as CSV"
+                    >
+                      CSV
+                    </button>
+                  </div>
+
+                  {/* Result description with filtered vs total */}
+                  {activeResultTab === 'not-following-back' && (
                     <p className="text-xs text-slate-500 mb-3">
-                      These {dontFollowBack.length} accounts are followed by @{input.trim()} but don't follow back.
+                      {filteredActive.length === dontFollowBack.length
+                        ? `These ${dontFollowBack.length} accounts are followed by @${input.trim()} but don't follow back.`
+                        : `Showing ${filteredActive.length} of ${dontFollowBack.length} non-followers (filters applied).`}
                     </p>
                   )}
-                  {activeResultTab === 'fans' && fans.length > 0 && (
+                  {activeResultTab === 'fans' && (
                     <p className="text-xs text-slate-500 mb-3">
-                      These {fans.length} accounts follow @{input.trim()} but aren't followed back.
+                      {filteredActive.length === fans.length
+                        ? `These ${fans.length} accounts follow @${input.trim()} but aren't followed back.`
+                        : `Showing ${filteredActive.length} of ${fans.length} fans (filters applied).`}
                     </p>
                   )}
-                  {activeResultTab === 'mutuals' && mutuals.length > 0 && (
+                  {activeResultTab === 'mutuals' && (
                     <p className="text-xs text-slate-500 mb-3">
-                      These {mutuals.length} accounts follow @{input.trim()} and are followed back (mutual connection).
+                      {filteredActive.length === mutuals.length
+                        ? `These ${mutuals.length} accounts follow @${input.trim()} and are followed back (mutual connection).`
+                        : `Showing ${filteredActive.length} of ${mutuals.length} mutuals (filters applied).`}
+                    </p>
+                  )}
+                  {whitelist.length > 0 && (
+                    <p className="text-[11px] text-emerald-600 mb-3 inline-flex items-center gap-1">
+                      <Heart className="w-3 h-3" /> {whitelist.length} whitelisted account{whitelist.length === 1 ? '' : 's'} hidden across all tabs
                     </p>
                   )}
 
-                  {activeList.length === 0 ? (
+                  {filteredActive.length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-sm">
-                      No users in this category.
+                      {rawActive.length === 0
+                        ? 'No users in this category.'
+                        : 'Filters hide every user in this category — try toggling Verified / Private / No profile pic back on.'}
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                      {activeList.map((user, i) => (
+                      {filteredActive.map((user, i) => (
                         <div key={user.username + i} className="flex items-center gap-3">
                           <span className="text-xs font-bold text-slate-400 w-6 text-right shrink-0">#{i + 1}</span>
                           <div className="flex-1">
                             <FollowerCard user={user} />
                           </div>
+                          <button
+                            onClick={() => onToggleWhitelist(user.username)}
+                            title="Whitelist this account (hide from all tabs)"
+                            className="shrink-0 grid place-items-center w-7 h-7 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                          >
+                            <Heart className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>

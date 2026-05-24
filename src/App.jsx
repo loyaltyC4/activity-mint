@@ -13,6 +13,7 @@ import {
 import { useAuth } from './context/AuthContext';
 import { useTier } from './context/TierContext';
 import { useI18n } from './lib/i18n';
+import { recordTransition as recordMarkovTransition } from './lib/markov';
 import { canAccess } from './lib/tiers';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import AccessGate from './components/AccessGate';
@@ -423,7 +424,17 @@ export default function App() {
   const { user, signOut } = useAuth();
   const { tier } = useTier();
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTabRaw] = useState('home');
+  // Wrap setActiveTab so every pane navigation records a Markov transition.
+  // Used by Pulse's idle-prefetch and predictNext() helper to fan out the
+  // next-most-likely page's data ahead of time. Self-transitions are
+  // filtered in recordTransition.
+  const setActiveTab = (next) => {
+    setActiveTabRaw((prev) => {
+      try { recordMarkovTransition(prev, next); } catch {}
+      return next;
+    });
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [demoResult, setDemoResult] = useState(null);

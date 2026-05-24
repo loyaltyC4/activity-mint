@@ -384,40 +384,99 @@ app.post('/scrape/batch', requireSecret, async (req, res) => {
 
   if (strategy === 'sequential') {
     for (let i = 0; i < tasks.length; i++) {
-      // Use single-task picker so sticky-by-username still applies
+      // Use single-task picker so sticky-by-username still applies, with
+      // failover on non-OK responses (same as single-task /scrape handler).
       const t = tasks[i];
       const uname = t?.payload?.username;
-      const { worker } = await pickWorker({ username: uname, excludeIds: [] });
-      if (!worker) {
-        results[i] = { action: t.action, payload: t.payload, ok: false, error: 'no_workers_available' };
-        continue;
+      const tried = [];
+      let r = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { worker } = await pickWorker({ username: uname, excludeIds: tried });
+        if (!worker) { r = { ok: false, error: 'no_workers_available' }; break; }
+        tried.push(worker.id);
+        log.info(`-> ${worker.id} (batch seq attempt ${attempt}) action=${t.action} user=${uname || '-'}`);
+        r = await runOne(t, worker);
+        if (r.ok) break;
       }
-      const r = await runOne(t, worker);
       results[i] = { action: t.action, payload: t.payload, ...r };
     }
   } else {
-    // PARALLEL: wave-based. Each wave assigns up to healthy.length tasks to
-    // different workers. We rotate the worker order between waves so the
-    // same worker isn't always doing task 0 of every wave (better balance).
-    let cursor = 0;
+    // PARALLEL with per-task failover.
+    // Each task gets up to 2 attempts on different healthy workers. We
+    // process the work in waves: in each wave, every pending task is
+    // assigned to a worker it has not tried, no two tasks share a worker
+    // in the same wave. Tasks that succeed leave the queue. Tasks that
+    // fail get re-queued with the failed worker added to their exclude
+    // list until they succeed or hit the attempt cap.
+    const MAX_ATTEMPTS = 2;
+    let queue = tasks.map((task, idx) => ({ task, idx, attempts: 0, excluded: new Set() }));
     let waveIdx = 0;
-    while (cursor < tasks.length) {
-      const waveSize = Math.min(healthy.length, tasks.length - cursor);
-      const wave = [];
-      for (let i = 0; i < waveSize; i++) {
-        const worker = healthy[(i + waveIdx) % healthy.length];
-        const idx = cursor + i;
-        const t = tasks[idx];
-        log.info(`-> ${worker.id} (batch wave ${waveIdx} #${i}) action=${t.action} user=${t?.payload?.username || '-'}`);
-        wave.push(
-          runOne(t, worker).then((r) => {
-            results[idx] = { action: t.action, payload: t.payload, ...r };
-          }),
-        );
+
+    while (queue.length > 0) {
+      // Re-snapshot healthy workers each wave (workers marked blocked in
+      // the previous wave should be excluded now).
+      const fresh = [];
+      for (const w of workers) {
+        if (!(await isWorkerBlocked(w.id))) fresh.push(w);
       }
-      await Promise.all(wave);
-      cursor += waveSize;
+      if (fresh.length === 0) {
+        for (const q of queue) {
+          results[q.idx] = {
+            action: q.task.action,
+            payload: q.task.payload,
+            ok: false,
+            error: 'no_workers_available',
+          };
+        }
+        break;
+      }
+
+      // Assign tasks to workers for this wave, never reusing a worker per wave
+      // and respecting per-task excluded set.
+      const usedWorkers = new Set();
+      const assigned = [];      // [{ q, worker }, ...]
+      const deferred = [];      // tasks that couldn't be assigned this wave
+      for (const q of queue) {
+        const w = fresh.find((wk) => !q.excluded.has(wk.id) && !usedWorkers.has(wk.id));
+        if (w) {
+          usedWorkers.add(w.id);
+          assigned.push({ q, worker: w });
+        } else {
+          deferred.push(q);
+        }
+      }
+
+      // Fire assigned tasks in parallel
+      await Promise.all(assigned.map(async ({ q, worker }) => {
+        q.attempts++;
+        log.info(`-> ${worker.id} (batch wave ${waveIdx} attempt ${q.attempts}) action=${q.task.action} user=${q.task?.payload?.username || '-'}`);
+        const r = await runOne(q.task, worker);
+        if (r.ok) {
+          results[q.idx] = { action: q.task.action, payload: q.task.payload, ...r };
+        } else {
+          q.excluded.add(worker.id);
+          if (q.attempts >= MAX_ATTEMPTS) {
+            results[q.idx] = { action: q.task.action, payload: q.task.payload, ok: false, error: r.error };
+          } else {
+            deferred.push(q);
+          }
+        }
+      }));
+
+      queue = deferred;
       waveIdx++;
+      // Safety valve against pathological loops
+      if (waveIdx > 12) {
+        for (const q of queue) {
+          results[q.idx] = {
+            action: q.task.action,
+            payload: q.task.payload,
+            ok: false,
+            error: 'batch_wave_cap_exceeded',
+          };
+        }
+        break;
+      }
     }
   }
 

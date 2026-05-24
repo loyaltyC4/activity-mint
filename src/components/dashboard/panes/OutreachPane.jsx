@@ -27,7 +27,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchTopCommenters, fetchAudienceEnrichment } from '../../../lib/apify'
+// Speed-v5: dashboard-context Apify path for top_commenters (faster cold,
+// edge-cached warm). audience_enrichment stays on cluster.
+import { fetchDashboardTopCommenters, fetchAudienceEnrichment } from '../../../lib/apify'
 import { proxyImg, fmt } from '../shared/utils'
 
 /* ─── Niche detection (same lexicon as AudiencePane) ─────────────────── */
@@ -448,7 +450,7 @@ export default function OutreachPane({ timeRange }) {
 
     setRefreshing(true)
 
-    fetchTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 16 })
+    fetchDashboardTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 16 })
       .then((items) => {
         const arr = items || []
         setTopCommenters({ items: arr, loading: false, error: null })

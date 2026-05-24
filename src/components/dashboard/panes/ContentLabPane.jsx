@@ -24,7 +24,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchInstagramProfile, fetchInstagramPosts } from '../../../lib/apify'
+// Speed-v5: dashboard-context Apify path. fetchDashboardProfile returns
+// profile + 12 latestPosts in ONE call — ContentLab needs both, so we
+// can drop the separate fetchInstagramPosts call entirely.
+import { fetchDashboardProfile, fetchDashboardPosts } from '../../../lib/apify'
 import { proxyImg, fmt } from '../shared/utils'
 
 /* ─── Caches ──────────────────────────────────────────────────────────── */
@@ -646,19 +649,27 @@ export default function ContentLabPane({ timeRange }) {
     setLoadingPosts(true)
     setError(null)
     try {
-      const [postsRes, profileRes] = await Promise.allSettled([
-        fetchInstagramPosts(h, 24),
-        fetchInstagramProfile(h),
-      ])
-      if (postsRes.status === 'fulfilled' && Array.isArray(postsRes.value)) {
-        setPosts(postsRes.value)
-        saveCache('posts', h, postsRes.value)
-      } else if (postsRes.status === 'rejected') {
-        console.warn('contentlab: posts fetch failed', postsRes.reason)
-      }
-      if (profileRes.status === 'fulfilled' && profileRes.value?.[0]) {
-        setProfile(profileRes.value[0])
-        saveCache('profile', h, profileRes.value[0])
+      // Speed-v5: ONE Apify call returns profile + 12 latestPosts. For deeper
+      // post lists we'd still hit fetchDashboardPosts separately. Default is 12.
+      const profileRes = await fetchDashboardProfile(h)
+      if (profileRes && profileRes[0]) {
+        const item = profileRes[0]
+        setProfile(item)
+        saveCache('profile', h, item)
+        // Apify latestPosts is in the same item — extract for the posts panel
+        if (Array.isArray(item.latestPosts) && item.latestPosts.length > 0) {
+          setPosts(item.latestPosts)
+          saveCache('posts', h, item.latestPosts)
+        } else {
+          // Fallback: dedicated posts call (gets more than 12 if needed)
+          try {
+            const posts = await fetchDashboardPosts(h, 24)
+            if (Array.isArray(posts)) {
+              setPosts(posts)
+              saveCache('posts', h, posts)
+            }
+          } catch (e) { console.warn('contentlab: posts fallback failed', e) }
+        }
       }
     } catch (err) {
       setError(err.message || 'Fetch failed')

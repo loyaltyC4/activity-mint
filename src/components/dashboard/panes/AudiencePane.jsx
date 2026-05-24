@@ -27,7 +27,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
 import {
-  fetchTopCommenters,
+  // Speed-v5: dashboard-context Apify path for top_commenters (faster cold,
+  // edge-cached warm). audience_enrichment + followers stay on cluster
+  // (Apify followers actor is expensive paid; enrichment is composite).
+  fetchDashboardTopCommenters,
   fetchAudienceEnrichment,
   fetchFollowersList,
 } from '../../../lib/apify'
@@ -637,8 +640,8 @@ export default function AudiencePane({ timeRange }) {
 
     setRefreshing(true)
 
-    // Top commenters
-    fetchTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 16 })
+    // Top commenters — Apify dashboard path (edge-cached on revisit)
+    fetchDashboardTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 16 })
       .then((items) => {
         const arr = items || []
         setTopCommenters({ items: arr, loading: false, error: null })

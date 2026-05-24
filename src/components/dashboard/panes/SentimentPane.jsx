@@ -24,7 +24,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchTopCommenters } from '../../../lib/apify'
+// Speed-v5: dashboard-context Apify path for top_commenters
+import { fetchDashboardTopCommenters } from '../../../lib/apify'
 import { proxyImg } from '../shared/utils'
 
 /* ─── Sentiment lexicons ──────────────────────────────────────────────── */
@@ -421,7 +422,7 @@ export default function SentimentPane({ timeRange }) {
     if (cached) setCommenters({ items: cached, loading: false, error: null })
     setRefreshing(true)
     try {
-      const items = await fetchTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 20 })
+      const items = await fetchDashboardTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 20 })
       const arr = items || []
       setCommenters({ items: arr, loading: false, error: null })
       try { localStorage.setItem(`audience:top_commenters:v1:${h}`, JSON.stringify({ t: Date.now(), payload: arr })) } catch {}

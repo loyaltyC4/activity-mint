@@ -1,15 +1,15 @@
 /**
- * Comments scraper (v2 - robust DOM after SPA render).
+ * Comments scraper (v3 - passive GraphQL interception).
  *
- * IG's post page is an SPA shell - inline JSON has no comment data, so we
- * navigate to /p/{shortcode}/ and wait for the comments list to mount in
- * the DOM. Then we click "View more comments" a few times to expand the
- * visible window, and walk the rendered tree to extract each commenter.
+ * Same insight as posts.js: IG's post page is an SPA shell, comments are
+ * loaded via /graphql/query POSTs whose request bodies use Meta-internal
+ * session params we can't replicate. We attach a response listener BEFORE
+ * navigation and harvest the bodies that look like comment-data.
  *
- * For an isolated comments fetch from a single post the DOM-scrape approach
- * is fast enough (~3-5s including a couple of expansion clicks). The
- * orchestrator's batch endpoint is the right place to parallelize comment
- * fetches across multiple posts of one target.
+ * Comment data is currently shipped under one of:
+ *   data.xdt_api__v1__media__N__comments__connection.edges[].node
+ *   data.media.edge_media_to_parent_comment.edges[].node
+ *   data.xdt_shortcode_media.edge_media_to_parent_comment.edges[].node
  *
  * payload: { shortcode | url, limit? (default 50, max 200) }
  *
@@ -34,114 +34,63 @@ function urlFromPayload(payload) {
   return null;
 }
 
-/**
- * Walk the post DOM and return comment rows. We assume the comments are
- * rendered as anchor + text spans inside one or more <ul> lists nested
- * under a section that ALSO contains the post's main image/video. The
- * post caption is the first such row by author == post owner; we skip it.
- */
-async function extractCommentsFromDom(page, limit, postOwnerUsername) {
-  return page.evaluate(({ max, owner }) => {
-    const out = [];
-    const seen = new Set();
-
-    // Comment rows: each has an <a> linking to /username/ and one or more
-    // <span> elements with the comment text. We walk every <a role="link">
-    // pointing to a profile URL, then look at its sibling/parent text spans.
-    const anchors = document.querySelectorAll('a[role="link"][href^="/"], a[href^="/"]');
-    for (const a of anchors) {
-      if (out.length >= max) break;
-      const href = a.getAttribute('href') || '';
-      const m = href.match(/^\/([A-Za-z0-9._]{1,30})\/?$/);
-      if (!m) continue;
-      const uname = m[1];
-      if (['explore', 'reels', 'direct', 'accounts', 'p', 'tv', 'stories', 'about', 'developer', 'web'].includes(uname)) continue;
-      // Skip the post owner's own caption row (first occurrence is usually them)
-      // Heuristic: an anchor whose closest <article> is the post itself, and
-      // whose text equals the username. We let the dedup loop below skip
-      // multiple captions from the same owner.
-
-      // Walk up to find a "row" container that includes text spans
-      let row = a;
-      for (let i = 0; i < 8 && row.parentElement; i++) {
-        row = row.parentElement;
-        // Heuristic: a comment row contains at least one <span> with text
-        // longer than the username itself, and not the global navigation
-        if (row.querySelectorAll('span').length >= 1) {
-          // Skip if this row is the top-level page chrome
-          if (row.tagName === 'HEADER' || row.tagName === 'NAV') { row = a; continue; }
-          break;
-        }
-      }
-      // Collect text from spans inside the row, filter out username, like counts, reply counts
-      let text = '';
-      const spans = row.querySelectorAll('span');
-      for (const sp of spans) {
-        const t = (sp.innerText || '').trim();
-        if (!t || t === uname) continue;
-        if (/^\d+\s*(likes?|replies?|reply|like|w|d|h|m|s|hour|min|sec|day|week)/i.test(t)) continue;
-        if (/^(reply|like|liked|view replies|see translation|view all|view more)/i.test(t)) continue;
-        if (t.length > 1500) continue;
-        text = t;
-        break;
-      }
-      if (!text) continue;
-      // Dedup by (username, first 80 chars of text)
-      const key = `${uname}::${text.slice(0, 80)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      // Skip the post owner's caption (first comment-like row from owner)
-      if (owner && uname === owner && !out.length) continue;
-
-      const img = row.querySelector('img');
-      const profilePicUrl = img ? (img.getAttribute('src') || null) : null;
-      const isVerified = !!row.querySelector('svg[aria-label="Verified"], svg[aria-label="verified"]');
-      // Like count: look for "<N> likes" or "1 like"
-      let likeCount = 0;
-      for (const sp of spans) {
-        const t = (sp.innerText || '').trim();
-        const lm = t.match(/^(\d+)\s*likes?$/i);
-        if (lm) { likeCount = parseInt(lm[1], 10); break; }
-      }
-      // Timestamp from <time datetime="...">
-      const time = row.querySelector('time[datetime]');
-      const timestamp = time ? time.getAttribute('datetime') : null;
-
-      out.push({
-        username: uname,
-        fullName: null,
-        profilePicUrl,
-        isVerified,
-        text,
-        likeCount,
-        timestamp,
-      });
-    }
-    return out;
-  }, { max: limit, owner: postOwnerUsername }).catch(() => []);
+function normalizeNode(n) {
+  if (!n) return null;
+  // New shape: { text, user: {username, full_name, profile_pic_url, is_verified}, created_at, comment_like_count }
+  // Old shape: { text, owner: {...}, created_at, edge_liked_by: {count} }
+  const user = n.user || n.owner || {};
+  const username = user.username || n.username || null;
+  if (!username) return null;
+  const text = typeof n.text === 'string' ? n.text : (n.text?.text || '');
+  if (!text) return null;
+  const ts = n.created_at ?? n.created_at_utc ?? null;
+  return {
+    username,
+    fullName: user.full_name || null,
+    profilePicUrl: user.profile_pic_url || user.profile_pic_url_hd || null,
+    isVerified: !!user.is_verified,
+    text,
+    likeCount: n.comment_like_count ?? n.edge_liked_by?.count ?? n.like_count ?? 0,
+    timestamp: ts ? new Date(ts * 1000).toISOString() : null,
+  };
 }
 
 /**
- * Click "View more comments" / "Load more" / down-arrow buttons up to N times
- * to grow the visible comment list.
+ * Walk an arbitrary JSON tree looking for any array of comment-shaped
+ * objects. Returns the first non-empty array found, or [].
+ *
+ * Comment-shape heuristic: has `text` + user/owner with username.
  */
-async function expandComments(page, rounds, log) {
-  for (let i = 0; i < rounds; i++) {
-    const candidates = [
-      page.getByRole('button', { name: /view (more|all) comments?/i }).first(),
-      page.getByRole('button', { name: /load more comments?/i }).first(),
-      page.locator('button[aria-label*="view comments" i], button[aria-label*="load more" i], button[aria-label*="more comments" i]').first(),
-    ];
-    let clicked = false;
-    for (const c of candidates) {
-      if (await c.isVisible({ timeout: 600 }).catch(() => false)) {
-        try { await c.click({ timeout: 2000 }); clicked = true; break; } catch (_) {}
+function findCommentsInTree(node, depth = 0) {
+  if (!node || depth > 12) return null;
+  if (Array.isArray(node)) {
+    // If this looks like an array of comment nodes / edges
+    let candidate = [];
+    for (const el of node) {
+      const obj = el && typeof el === 'object' ? (el.node || el) : null;
+      if (!obj) continue;
+      const u = obj.user || obj.owner;
+      if (typeof obj.text === 'string' && u && u.username) {
+        candidate.push(obj);
+      } else if (obj.text && typeof obj.text === 'object' && obj.text.text && u && u.username) {
+        candidate.push(obj);
       }
     }
-    if (!clicked) break;
-    await sleep(700 + randInt(50, 250));
+    if (candidate.length >= 1) return candidate;
+    // Otherwise recurse into the array elements
+    for (const el of node) {
+      const r = findCommentsInTree(el, depth + 1);
+      if (r) return r;
+    }
+    return null;
   }
+  if (typeof node === 'object') {
+    for (const k of Object.keys(node)) {
+      const r = findCommentsInTree(node[k], depth + 1);
+      if (r) return r;
+    }
+  }
+  return null;
 }
 
 async function scrapeComments(page, payload, log) {
@@ -149,44 +98,96 @@ async function scrapeComments(page, payload, log) {
   if (!postUrl) throw new Error('payload.shortcode or payload.url is required');
   const limit = Math.max(1, Math.min(parseInt(payload?.limit ?? 50, 10) || 50, 200));
 
-  log.info(`scrape comments -> ${postUrl} (limit=${limit})`);
-  const resp = await page.goto(postUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await humanDelay(1200, 2200);
+  // Set up the GraphQL response capture BEFORE navigation
+  const captured = [];
+  const onResponse = async (resp) => {
+    const url = resp.url();
+    if (!/instagram\.com\/(graphql\/query|api\/graphql)/.test(url)) return;
+    try {
+      const txt = await resp.text();
+      // Pre-filter for likely comment-bearing responses
+      if (
+        txt.includes('edge_media_to_parent_comment') ||
+        txt.includes('xdt_api__v1__media') ||
+        (txt.includes('"text":') && txt.includes('"user":') && txt.includes('"username":'))
+      ) {
+        captured.push(txt);
+      }
+    } catch (_) {}
+  };
+  page.on('response', onResponse);
 
-  const status = resp ? resp.status() : 0;
-  if (status === 404) throw new Error(`post_not_found:${postUrl}`);
-
-  const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
-  if (isBlockedSignal(bodyText)) {
-    const err = new Error('blocked_signal_on_post');
-    err.blocked = true;
-    throw err;
-  }
-
-  // Wait for the SPA to mount the comments list. Use the presence of any
-  // image inside an <article> as a proxy for "post page is rendered".
   try {
-    await page.waitForSelector('article img, main img', { timeout: 12000 });
-  } catch (_) {}
-  await humanDelay(700, 1400);
+    log.info(`scrape comments -> ${postUrl} (limit=${limit})`);
+    const resp = await page.goto(postUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const status = resp ? resp.status() : 0;
+    if (status === 404) throw new Error(`post_not_found:${postUrl}`);
 
-  // Identify the post owner from the page so we can skip the caption row.
-  // Owner is in the og:url meta tag as /username/.
-  let owner = null;
-  try {
-    const og = await page.locator('meta[property="og:url"]').first().getAttribute('content', { timeout: 1500 }).catch(() => null);
-    if (og) {
-      const m = og.match(/instagram\.com\/([A-Za-z0-9._]+)/);
-      if (m) owner = m[1];
+    const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
+    if (isBlockedSignal(bodyText)) {
+      const err = new Error('blocked_signal_on_post');
+      err.blocked = true;
+      throw err;
     }
-  } catch (_) {}
 
-  // Expand a few rounds to grow the visible list
-  await expandComments(page, 4, log);
+    // Poll captured responses until one yields commentlike rows
+    const deadline = Date.now() + 14000;
+    let found = null;
+    while (Date.now() < deadline) {
+      await page.waitForTimeout(500);
+      for (const body of captured) {
+        try {
+          const json = JSON.parse(body);
+          const arr = findCommentsInTree(json);
+          if (arr && arr.length > 0) { found = arr; break; }
+        } catch (_) {}
+      }
+      if (found) break;
+    }
 
-  const comments = await extractCommentsFromDom(page, limit, owner);
-  log.info(`extracted ${comments.length} comments for ${postUrl}`);
-  return comments.slice(0, limit);
+    if (found && found.length > 0) {
+      // Some responses include a single top comment - try to expand by
+      // scrolling the comments list so the SPA fires "load more" requests.
+      // Then re-scan.
+      if (found.length < Math.min(limit, 15)) {
+        log.info(`captured ${found.length} comments; scrolling for more`);
+        for (let i = 0; i < 3; i++) {
+          // Find the comments section and scroll it
+          await page.evaluate(() => {
+            // Find any scrollable container that has many anchor children
+            const lists = document.querySelectorAll('ul, [role="list"], div');
+            for (const el of lists) {
+              if (el.querySelectorAll('a[href^="/"]').length >= 5 && el.scrollHeight > el.clientHeight + 20) {
+                el.scrollTop = el.scrollHeight;
+                return;
+              }
+            }
+            // Otherwise just scroll window
+            window.scrollBy(0, 600);
+          }).catch(() => {});
+          await sleep(900);
+          // Rescan
+          for (const body of captured) {
+            try {
+              const json = JSON.parse(body);
+              const arr = findCommentsInTree(json);
+              if (arr && arr.length > found.length) { found = arr; break; }
+            } catch (_) {}
+          }
+          if (found.length >= limit) break;
+        }
+      }
+
+      const items = found.slice(0, limit).map(normalizeNode).filter(Boolean);
+      log.info(`extracted ${items.length} comments for ${postUrl}`);
+      return items;
+    }
+
+    log.warn(`no GraphQL comments captured for ${postUrl}`);
+    return [];
+  } finally {
+    page.off('response', onResponse);
+  }
 }
 
 module.exports = { scrapeComments };

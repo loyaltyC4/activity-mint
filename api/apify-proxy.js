@@ -228,47 +228,89 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, items });
     }
 
-    // top_commenters: composite action that uses /scrape/batch to fan out
-    // comment fetches across multiple workers in parallel. Steps:
+    // top_commenters: composite action.
     //   1. cluster: posts(username, limit=postLimit) on one worker
-    //   2. cluster: batch comments(shortcode, limit=commentLimit) across remaining workers
-    //   3. aggregate commenters by frequency, sort, return top N
+    //   2. cluster: batch comments(shortcode, limit=commentLimit) across workers
+    //   3. for any post that came back empty from the cluster, fan out an
+    //      Apify comments-actor call in parallel (Apify gives reliable data
+    //      where cluster GraphQL interception sometimes misses comments)
+    //   4. aggregate commenters across all posts, sort, return top N
     if (action === 'top_commenters') {
       const { username, postLimit = 6, commentLimit = 50, topN = 25 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
       const cleanUser = username.replace('@', '');
       const posts = await callScraperService('posts', { username: cleanUser, limit: postLimit });
       if (!posts || posts.length === 0) return res.status(200).json({ ok: true, items: [] });
+
+      // Cluster pass via batch
       const tasks = posts.map((p) => ({
         action: 'comments',
         payload: { shortcode: p.shortcode, limit: commentLimit },
       }));
-      const results = await callScraperBatch(tasks, 'parallel');
-      // Aggregate
+      const clusterResults = await callScraperBatch(tasks, 'parallel');
+
+      // Per-post Apify fallback for posts the cluster missed - in parallel
+      const needsFallback = [];
+      for (let i = 0; i < posts.length; i++) {
+        const r = clusterResults[i];
+        if (!r || !r.ok || !Array.isArray(r.items) || r.items.length === 0) {
+          needsFallback.push({ idx: i, post: posts[i] });
+        }
+      }
+      if (needsFallback.length > 0 && APIFY_TOKEN) {
+        const apifyResults = await Promise.all(needsFallback.map(async (nf) => {
+          try {
+            const url = `https://www.instagram.com/p/${nf.post.shortcode}/`;
+            const r = await startRun('apify/instagram-comment-scraper', {
+              directUrls: [url], resultsLimit: commentLimit,
+            });
+            const completed = await pollRun(r.id);
+            const itx = await getDatasetItems(completed.defaultDatasetId, commentLimit);
+            return { idx: nf.idx, items: itx };
+          } catch (err) {
+            console.warn(`[top_commenters] Apify fallback for ${nf.post.shortcode} failed: ${err.message}`);
+            return { idx: nf.idx, items: [] };
+          }
+        }));
+        for (const ar of apifyResults) {
+          clusterResults[ar.idx] = { ok: true, items: ar.items };
+        }
+      }
+
+      // Aggregate commenters across all posts. Normalize Apify shape
+      // (ownerUsername, ownerProfilePicUrl, likesCount) into cluster shape
+      // (username, profilePicUrl, likeCount).
       const tally = new Map();
-      for (const r of results) {
-        if (!r.ok || !Array.isArray(r.items)) continue;
+      for (const r of clusterResults) {
+        if (!r || !r.ok || !Array.isArray(r.items)) continue;
         for (const c of r.items) {
-          if (!c.username || c.username === cleanUser) continue;
-          const cur = tally.get(c.username) || {
-            username: c.username,
-            fullName: c.fullName,
-            profilePicUrl: c.profilePicUrl,
-            isVerified: c.isVerified,
+          const u = c.username || c.ownerUsername || c.owner?.username;
+          if (!u || u === cleanUser) continue;
+          const cur = tally.get(u) || {
+            username: u,
+            fullName: c.fullName || c.owner?.full_name || null,
+            profilePicUrl: c.profilePicUrl || c.ownerProfilePicUrl || c.owner?.profile_pic_url || null,
+            isVerified: !!(c.isVerified || c.owner?.is_verified),
             commentCount: 0,
             totalLikes: 0,
             samples: [],
           };
           cur.commentCount += 1;
-          cur.totalLikes += c.likeCount || 0;
-          if (cur.samples.length < 3 && c.text) cur.samples.push(c.text.slice(0, 240));
-          tally.set(c.username, cur);
+          cur.totalLikes += (c.likeCount ?? c.likesCount ?? 0);
+          const txt = c.text || '';
+          if (cur.samples.length < 3 && txt) cur.samples.push(String(txt).slice(0, 240));
+          tally.set(u, cur);
         }
       }
       const ranked = Array.from(tally.values())
         .sort((a, b) => b.commentCount - a.commentCount || b.totalLikes - a.totalLikes)
         .slice(0, topN);
-      return res.status(200).json({ ok: true, items: ranked, postsFetched: posts.length });
+      return res.status(200).json({
+        ok: true,
+        items: ranked,
+        postsFetched: posts.length,
+        fallbackUsed: needsFallback.length,
+      });
     }
 
     // dashboard_load: ONE call from the dashboard fetches profile + posts +

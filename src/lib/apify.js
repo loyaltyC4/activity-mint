@@ -14,7 +14,7 @@
 //     so we can inspect window.__amDataSources from devtools.
 
 const READ_ACTIONS_GET = new Set([
-  'profile', 'posts', 'followers', 'following', 'stories',
+  'profile', 'profile-with-posts', 'posts', 'followers', 'following', 'stories',
   'audience_enrichment', 'top_commenters', 'dashboard_load', 'comments',
 ]);
 

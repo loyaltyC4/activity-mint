@@ -196,6 +196,7 @@ function withSource(res, source, body) {
 //   followers / following:     60s fresh, 5 min SWR
 const CACHE_PROFILES = {
   profile:              { sMax:  60, swr: 300 },
+  'profile-with-posts': { sMax: 120, swr: 600 },
   posts:                { sMax:  60, swr: 300 },
   followers:            { sMax:  60, swr: 300 },
   following:            { sMax:  60, swr: 300 },
@@ -464,7 +465,7 @@ export default async function handler(req, res) {
         }
         // normalizeApifyProfile already includes latestPosts converted to our shape
         const merged = [normalizeApifyProfile(raw[0])];
-        setEdgeCache(res, 'profile');
+        setEdgeCache(res, 'profile-with-posts');
         return res.status(200).json(withSource(res, 'apify', { ok: true, items: merged }));
       } catch (err) {
         console.warn(`[profile-with-posts via apify] failed: ${err.message}, falling back to cluster`);
@@ -496,7 +497,7 @@ export default async function handler(req, res) {
         ...normalizeProfile(p),
         latestPosts: postsRes?.items || [],
       }];
-      setEdgeCache(res, 'profile');
+      setEdgeCache(res, 'profile-with-posts');
       return res.status(200).json(withSource(res, 'cluster', { ok: true, items: merged }));
     }
 

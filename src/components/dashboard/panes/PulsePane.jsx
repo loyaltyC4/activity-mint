@@ -20,17 +20,22 @@ import { useAuth } from '../../../context/AuthContext'
 import { useTier } from '../../../context/TierContext'
 import { supabase } from '../../../lib/supabase'
 import {
+  // Speed-v5: dashboard-context fetchers (Apify path, faster cold, instant warm via edge cache)
+  fetchDashboardProfile,
+  fetchDashboardTopCommenters,
+  // Cluster-side: stories stays on cluster (faster + free), enrichment too
+  fetchInstagramStoriesSWR,
+  fetchAudienceEnrichmentSWR,
+  // Legacy fallbacks kept in case any caller needs them
   fetchInstagramProfile,
   fetchInstagramProfileSWR,
   fetchInstagramProfileWithPosts,
   fetchInstagramStories,
-  fetchInstagramStoriesSWR,
   fetchInstagramPosts,
   fetchInstagramPostsSWR,
   fetchTopCommenters,
   fetchTopCommentersSWR,
   fetchAudienceEnrichment,
-  fetchAudienceEnrichmentSWR,
 } from '../../../lib/apify'
 import KpiCard from '../shared/KpiCard'
 import InsightCard from '../shared/InsightCard'
@@ -247,26 +252,16 @@ export default function PulsePane({ timeRange }) {
     }
     setRefresh(true)
 
-    // b. Staged refresh — profile first via SWR (instant if cached, else cluster ~5s).
-    // The SWR fetcher returns the cached value IMMEDIATELY when warm and revalidates
-    // in the background, so the KPIs paint without waiting for the network.
+    // b. SPEED-V5: ONE Apify call for profile + 12 posts (~6s warm-cluster, 133ms cached).
+    // Stories stays cluster (1-2s) and runs in parallel. Edge cache makes
+    // warm reads instant.
     let profileNext = cached?.profile || null
-    try {
-      const items = await fetchInstagramProfileSWR(h, {
+    const [profileRes, storiesRes] = await Promise.allSettled([
+      fetchDashboardProfile(h, {
         onUpdate: (fresh) => {
           if (fresh && fresh[0]) setProfile((cur) => ({ ...cur, ...fresh[0] }))
         },
-      })
-      if (items && items[0]) {
-        profileNext = items[0]
-        setProfile(profileNext)
-      }
-    } catch (err) {
-      console.warn('pulse: profile fetch failed', err)
-    }
-
-    // c. Stories via SWR (instant warm load) + full profile (Apify, no SWR — has latestPosts)
-    const [storiesRes, postsRes] = await Promise.allSettled([
+      }),
       fetchInstagramStoriesSWR(h, {
         onUpdate: (fresh) => {
           if (Array.isArray(fresh)) {
@@ -275,8 +270,19 @@ export default function PulsePane({ timeRange }) {
           }
         },
       }),
-      fetchInstagramProfileWithPosts(h),
     ])
+
+    // profile result includes latestPosts (Apify bundles them in one call)
+    const postsRes = { status: 'fulfilled', value: null }
+    if (profileRes.status === 'fulfilled' && profileRes.value?.[0]) {
+      const item = profileRes.value[0]
+      profileNext = item
+      setProfile(item)
+      // Synthesize posts result so the downstream merge code keeps working
+      if (Array.isArray(item.latestPosts)) {
+        postsRes.value = [{ ...item, latestPosts: item.latestPosts }]
+      }
+    }
 
     let storiesNext = cached?.stories || []
     if (storiesRes.status === 'fulfilled') {
@@ -325,10 +331,10 @@ export default function PulsePane({ timeRange }) {
     }
     const run = () => {
       if (cancelled) return
-      // Use SWR variants so re-prefetches are free (instant from local cache);
-      // each fetcher ALSO stashes to the new am:proxy:v3:* keys, doubling our
-      // cache coverage — so when a pane mounts both legacy and new keys hit.
-      fetchTopCommentersSWR(handle, { postLimit: 4, commentLimit: 30, topN: 16 })
+      // Speed-v5 prefetch: dashboard-context Apify path for top_commenters.
+      // Audience enrichment + posts stay on cluster (cheaper). All three feed
+      // both legacy cache keys (audience:* contentlab:*) AND the new SWR keys.
+      fetchDashboardTopCommenters(handle, { postLimit: 4, commentLimit: 30, topN: 16 })
         .then((items) => !cancelled && stash('top_commenters', items || []))
         .catch(() => {})
       fetchAudienceEnrichmentSWR(handle, 25, 0)

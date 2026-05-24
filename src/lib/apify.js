@@ -190,8 +190,10 @@ export async function fetchInstagramProfileSWR(username, opts) {
 }
 
 /**
- * Fetch Instagram profile data + recent posts. Uses Apify (slower, ~60s)
- * because only Apify returns latestPosts. Used by PostViewerView.
+ * Fetch Instagram profile data + recent posts via the cluster.
+ * The `profile-with-posts` action is now a cluster-composed parallel call
+ * (profile + posts merged into one item with a `latestPosts` array).
+ * Same return shape as before — backwards compatible.
  */
 export async function fetchInstagramProfileWithPosts(username) {
   return callProxy('profile-with-posts', { username: username.replace('@', '') });

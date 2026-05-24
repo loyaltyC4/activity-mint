@@ -4,7 +4,7 @@ import {
   Image as ImageIcon, Video, AlertCircle, RefreshCw, ExternalLink,
   CheckCircle, Clock, ChevronDown, Lock, ArrowRight,
 } from 'lucide-react';
-import { fetchInstagramProfile, fetchInstagramProfileWithPosts, fetchInstagramStories, fetchProfileWithClusterPosts } from './lib/apify';
+import { fetchInstagramProfile, fetchInstagramStories, fetchProfileWithClusterPosts } from './lib/apify';
 
 const FREE_POST_LIMIT = 6;
 
@@ -348,21 +348,15 @@ export const PostViewerView = () => {
     setError('');
     setSearched(username.trim());
     try {
-      // Cluster-first: profile + posts in parallel (~13s vs ~60s via Apify)
+      // CLUSTER-ONLY. Apify fallback removed — if the cluster can't fetch
+      // the profile, we surface the error directly rather than waiting 60s
+      // on Apify.
       const result = await fetchProfileWithClusterPosts(username.trim(), 12);
       if (!result.profile) {
-        // Fallback: Apify profile-with-posts (legacy path)
-        const items = await fetchInstagramProfileWithPosts(username.trim());
-        if (!items || items.length === 0) {
-          throw new Error('No profile data returned. The account may not exist or may be private.');
-        }
-        setProfile(items[0]);
-        // Apify returns latestPosts inside the profile item
-        setPosts(items[0].latestPosts || []);
-      } else {
-        setProfile(result.profile);
-        setPosts(result.posts);
+        throw new Error('No profile data returned. The account may not exist or may be private.');
       }
+      setProfile(result.profile);
+      setPosts(result.posts);
       setStatus('success');
     } catch (err) {
       setError(err.message || 'Something went wrong. The account may be private.');

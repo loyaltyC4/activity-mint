@@ -56,20 +56,40 @@ function normalizeStoryNode(n) {
 }
 
 /**
- * Walk a parsed JSON tree, return the first array of objects that look
- * like story media nodes (have media_type or image_versions2).
+ * Walk a parsed JSON tree, return the first array of STORY-specific media
+ * nodes. A node is a story only if it has an `expiring_at` timestamp OR a
+ * `story_type` field — those are exclusive to story media. Posts have
+ * `image_versions2 + taken_at` too but never `expiring_at` (posts don't
+ * expire). This is the guard that prevents the "story viewer shows posts"
+ * regression.
  */
+function isStoryNode(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (!(obj.image_versions2 || obj.video_versions)) return false;
+  // Strong story-only signals — at least ONE must be present:
+  //   expiring_at        : stories expire 24h after upload, posts never expire
+  //   story_type         : reels v1/v2 surface
+  //   is_reel_media      : explicit boolean
+  //   reel_mentions      : story-only tagging
+  // We also accept media_type=2 (video) within a context that already had
+  // a story marker — that's enforced by the caller's pre-filter.
+  if (obj.expiring_at) return true;
+  if (obj.story_type != null) return true;
+  if (obj.is_reel_media === true) return true;
+  if (Array.isArray(obj.reel_mentions) && obj.reel_mentions.length > 0) return true;
+  if (Array.isArray(obj.story_locations) && obj.story_locations.length > 0) return true;
+  // Explicit anti-pattern: posts carry shortcode/code, stories don't.
+  if (obj.shortcode || obj.code) return false;
+  return false;
+}
+
 function findStoriesInTree(node, depth = 0) {
   if (!node || depth > 12) return null;
   if (Array.isArray(node)) {
     const candidate = [];
     for (const el of node) {
       const obj = el && typeof el === 'object' ? (el.node || el) : null;
-      if (!obj) continue;
-      // Story node signature: has image_versions2 OR video_versions, AND media_type
-      if ((obj.image_versions2 || obj.video_versions) && (obj.media_type != null || obj.taken_at != null)) {
-        candidate.push(obj);
-      }
+      if (isStoryNode(obj)) candidate.push(obj);
     }
     if (candidate.length >= 1) return candidate;
     for (const el of node) {
@@ -106,21 +126,26 @@ async function scrapeStories(page, payload, log) {
   if (!username) throw new Error('payload.username is required');
   const limit = Math.max(1, Math.min(parseInt(payload?.limit ?? 50, 10) || 50, 200));
 
-  // Set up GraphQL response capture BEFORE navigation
+  // Set up GraphQL response capture BEFORE navigation. Pre-filter requires
+  // an explicit STORY marker — the previous "image_versions2 + taken_at"
+  // fallback also matched POST GraphQL responses, which caused the story
+  // viewer to display posts when the user had no active stories.
   const captured = [];
   const onResponse = async (resp) => {
     const url = resp.url();
     if (!/instagram\.com\/(graphql\/query|api\/graphql|api\/v1\/feed)/.test(url)) return;
     try {
       const txt = await resp.text();
-      // Pre-filter for responses that mention reel_media / story_feed / image_versions2
+      // STRICT story-only markers. Posts can have image_versions2+taken_at,
+      // so we require something story-exclusive: `expiring_at` (stories
+      // expire), `reel_media` / `reels_media` (story tray API), or
+      // `xdt_api__v1__feed__reels` (the 2026 SPA reels endpoint).
       if (
         txt.includes('reel_media') ||
         txt.includes('reels_media') ||
         txt.includes('xdt_api__v1__feed__reels') ||
-        (txt.includes('image_versions2') && txt.includes('taken_at')) ||
-        txt.includes('story_feed') ||
-        txt.includes('expiring_at')
+        txt.includes('expiring_at') ||
+        txt.includes('story_feed_tray')
       ) {
         captured.push(txt);
       }

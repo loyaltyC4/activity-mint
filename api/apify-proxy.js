@@ -1,25 +1,24 @@
-// Vercel Serverless Function: Apify Actor Proxy + CloakBrowser Scraper Router
+// Vercel Serverless Function: CloakBrowser Scraper Router (+ legacy Apify for non-IG)
 //
-// Routes:
-//   - followers, following, stories, profile, posts, audience_enrichment,
-//     top_commenters, dashboard_load → CloakBrowser scraper cluster (Hetzner)
-//   - profile-with-posts → Apify (needed for latestPosts)
-//   - comments → cluster first, instrumented Apify fallback
-//   - facebook, tiktok, linkedin, youtube → Apify actors
+// INSTAGRAM ACTIONS — 100% cluster-only, ZERO Apify fallback:
+//   - profile, profile-with-posts, posts, stories, followers, following,
+//     audience_enrichment, top_commenters, comments, dashboard_load
 //
-// The Hetzner orchestrator on :3001 is responsible for picking which of the 5
-// workers handles each scrape (sticky-by-username with least-loaded fallback).
+// NON-IG ACTIONS — still Apify (no worker cluster for these platforms):
+//   - facebook-posts, tiktok, linkedin-posts, linkedin-profile, youtube-transcript
 //
-// SPEED PASS v3:
-//   - Observability: every read response carries `x-data-source` HTTP header
-//     AND `_dataSource` JSON field. Values: cluster | redis-cache | apify |
-//     apify-fallback | apify-partial | error.
-//   - Apify fallback REMOVED from `profile` action (cluster is reliable).
-//     If cluster fails, we return 502 — no more silent 60s Apify wait.
-//   - Vercel edge cache: cacheable read actions set Cache-Control with
+// The Hetzner orchestrator on :3001 picks which of the 5 workers handles
+// each scrape (sticky-by-username with least-loaded fallback). Per-worker
+// failover is built in so an unhealthy worker (1 & 4 currently) doesn't
+// break the request.
+//
+// Observability (added speed-v3):
+//   - Every response carries `x-data-source` HTTP header AND `_dataSource`
+//     JSON field. Values: cluster | redis-cache | cluster-empty | apify |
+//     error. ("apify" only appears on non-IG actions.)
+//   - Vercel edge cache: cacheable reads set Cache-Control with
 //     stale-while-revalidate. Edge cache only fires for GET requests.
-//   - GET support: GET /api/apify-proxy?action=X&payload=URL_ENCODED_JSON
-//     enables Vercel edge cache. POST still works.
+//   - GET support: GET /api/apify-proxy?action=X&payload=URL_ENCODED_JSON.
 //
 // Env vars (Vercel Settings → Environment Variables):
 //   APIFY_TOKEN          — your Apify API token
@@ -270,18 +269,37 @@ export default async function handler(req, res) {
       return res.status(200).json(withSource(res, r.source, { ok: true, items: normalized }));
     }
 
-    // profile-with-posts: Apify-only — used by Post Viewer for latestPosts.
-    // The cluster posts action covers most needs; this is the holdout.
+    // profile-with-posts: CLUSTER-ONLY. Apify path removed — we now compose
+    // the response from parallel cluster `profile` + `posts` calls. The
+    // resulting item has the same shape Post Viewer expects (latestPosts).
     if (action === 'profile-with-posts') {
-      const { username } = payload;
+      const { username, postLimit = 12 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
-      if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
-      run = await startRun('apify/instagram-profile-scraper', {
-        usernames: [username.replace('@', '')],
-      });
-      completed = await pollRun(run.id);
-      items = await getDatasetItems(completed.defaultDatasetId, 1);
-      return res.status(200).json(withSource(res, 'apify', { ok: true, items }));
+      const cleanUser = username.replace('@', '');
+      const tasks = [
+        { action: 'profile', payload: { username: cleanUser } },
+        { action: 'posts',   payload: { username: cleanUser, limit: postLimit } },
+      ];
+      const results = await callScraperBatch(tasks, 'parallel');
+      const profileRes = results.find((r) => r.action === 'profile');
+      const postsRes   = results.find((r) => r.action === 'posts');
+      if (!profileRes?.ok || !profileRes?.items?.length) {
+        res.setHeader('x-data-source', 'error');
+        return res.status(502).json({ ok: false, error: 'Cluster returned empty profile', _dataSource: 'error' });
+      }
+      const p = profileRes.items[0];
+      // Shape: legacy Apify consumers expect a single item with latestPosts
+      // embedded plus the standard profile keys. Synthesize that.
+      const merged = [{
+        ...p,
+        profilePicUrlHD: p.profilePicUrl,
+        followsCount: p.followingCount,
+        verified: p.isVerified,
+        private: p.isPrivate,
+        latestPosts: postsRes?.items || [],
+      }];
+      setEdgeCache(res, 'profile');
+      return res.status(200).json(withSource(res, 'cluster', { ok: true, items: merged }));
     }
 
     if (action === 'posts') {
@@ -302,10 +320,10 @@ export default async function handler(req, res) {
       return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items }));
     }
 
-    // top_commenters: cluster posts + cluster comments batch, with INSTRUMENTED
-    // Apify fallback for missed posts. Each fallback call is logged AND the
-    // response reports how many posts needed Apify rescue so we can monitor
-    // cluster comments-scraper reliability over time.
+    // top_commenters: CLUSTER-ONLY. The inline Apify fallback for missed-post
+    // comments was removed — if the cluster comments scraper misses, we now
+    // report it via clusterEmpty count and the UI shows whatever commenters
+    // came back from the posts the cluster DID succeed on. No silent slowness.
     if (action === 'top_commenters') {
       const { username, postLimit = 6, commentLimit = 50, topN = 25 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
@@ -323,56 +341,34 @@ export default async function handler(req, res) {
       }));
       const clusterResults = await callScraperBatch(tasks, 'parallel');
 
-      // Track which posts the cluster failed on — these go through Apify.
-      const needsFallback = [];
+      // Count empties so the UI knows when the cluster comments scraper is
+      // struggling on a handle (and operator knows to investigate comments.js).
+      let clusterHits = 0;
+      let clusterEmpty = 0;
       for (let i = 0; i < posts.length; i++) {
         const r = clusterResults[i];
-        if (!r || !r.ok || !Array.isArray(r.items) || r.items.length === 0) {
-          needsFallback.push({ idx: i, post: posts[i] });
-        }
-      }
-      let apifyHits = 0;
-      let apifyFails = 0;
-      if (needsFallback.length > 0 && APIFY_TOKEN) {
-        const apifyResults = await Promise.all(needsFallback.map(async (nf) => {
-          try {
-            const url = `https://www.instagram.com/p/${nf.post.shortcode}/`;
-            const r2 = await startRun('apify/instagram-comment-scraper', {
-              directUrls: [url], resultsLimit: commentLimit,
-            });
-            const c = await pollRun(r2.id);
-            const itx = await getDatasetItems(c.defaultDatasetId, commentLimit);
-            apifyHits += 1;
-            return { idx: nf.idx, items: itx };
-          } catch (err) {
-            apifyFails += 1;
-            console.warn(`[top_commenters] Apify fallback for ${nf.post.shortcode} failed: ${err.message}`);
-            return { idx: nf.idx, items: [] };
-          }
-        }));
-        for (const ar of apifyResults) {
-          clusterResults[ar.idx] = { ok: true, items: ar.items };
-        }
+        if (r && r.ok && Array.isArray(r.items) && r.items.length > 0) clusterHits += 1;
+        else clusterEmpty += 1;
       }
 
-      // Aggregate commenters
+      // Aggregate commenters from cluster-only results
       const tally = new Map();
       for (const r of clusterResults) {
         if (!r || !r.ok || !Array.isArray(r.items)) continue;
         for (const c of r.items) {
-          const u = c.username || c.ownerUsername || c.owner?.username;
+          const u = c.username || c.owner?.username;
           if (!u || u === cleanUser) continue;
           const cur = tally.get(u) || {
             username: u,
             fullName: c.fullName || c.owner?.full_name || null,
-            profilePicUrl: c.profilePicUrl || c.ownerProfilePicUrl || c.owner?.profile_pic_url || null,
+            profilePicUrl: c.profilePicUrl || c.owner?.profile_pic_url || null,
             isVerified: !!(c.isVerified || c.owner?.is_verified),
             commentCount: 0,
             totalLikes: 0,
             samples: [],
           };
           cur.commentCount += 1;
-          cur.totalLikes += (c.likeCount ?? c.likesCount ?? 0);
+          cur.totalLikes += (c.likeCount ?? 0);
           const txt = c.text || '';
           if (cur.samples.length < 3 && txt) cur.samples.push(String(txt).slice(0, 240));
           tally.set(u, cur);
@@ -382,23 +378,13 @@ export default async function handler(req, res) {
         .sort((a, b) => b.commentCount - a.commentCount || b.totalLikes - a.totalLikes)
         .slice(0, topN);
 
-      // Source labeling:
-      //   - all cluster:     'cluster'  / 'redis-cache' (from postsResp)
-      //   - some Apify hits: 'apify-partial' (cluster + Apify fallback)
-      //   - all Apify hits:  'apify-fallback' (cluster posts but all comments via Apify)
-      let source = postsResp.source;
-      if (apifyHits > 0) {
-        source = (apifyHits === posts.length) ? 'apify-fallback' : 'apify-partial';
-      }
       setEdgeCache(res, 'top_commenters');
-      return res.status(200).json(withSource(res, source, {
+      return res.status(200).json(withSource(res, postsResp.source, {
         ok: true,
         items: ranked,
         postsFetched: posts.length,
-        clusterHits: posts.length - apifyHits,
-        apifyHits,
-        apifyFails,
-        fallbackUsed: needsFallback.length,
+        clusterHits,
+        clusterEmpty,
       }));
     }
 
@@ -422,46 +408,31 @@ export default async function handler(req, res) {
       return res.status(200).json(withSource(res, 'cluster', { ok: true, byAction }));
     }
 
-    // ── APIFY ACTORS (working fine, but instrumented) ───────────────────────
-    if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
-
-    // comments: cluster first (fast, free). Instrumented Apify fallback only
-    // when cluster fails. Response reports which source served the data so
-    // we can monitor cluster comments-scraper reliability.
+    // comments: CLUSTER-ONLY. Apify fallback removed. Returns [] if the
+    // cluster can't capture comments — the frontend treats empty as
+    // "no commenters extracted" rather than waiting 30s on Apify.
     if (action === 'comments') {
       const { postUrl, shortcode, limit = 50 } = payload;
       if (!postUrl && !shortcode) return res.status(400).json({ error: 'Missing postUrl or shortcode' });
-
-      // Cluster attempt
-      let clusterErr = null;
-      if (SCRAPER_SERVICE_URL) {
-        try {
-          const clusterPayload = shortcode ? { shortcode, limit } : { url: postUrl, limit };
-          const r = await callScraperService('comments', clusterPayload);
-          if (r.items && r.items.length > 0) {
-            setEdgeCache(res, 'comments');
-            return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items }));
-          }
-        } catch (err) {
-          clusterErr = err.message;
-          console.warn(`[comments] Cluster failed: ${err.message}`);
-        }
+      const clusterPayload = shortcode ? { shortcode, limit } : { url: postUrl, limit };
+      try {
+        const r = await callScraperService('comments', clusterPayload);
+        setEdgeCache(res, 'comments');
+        return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items || [] }));
+      } catch (err) {
+        console.warn(`[comments] Cluster failed: ${err.message}`);
+        setEdgeCache(res, 'comments');
+        return res.status(200).json(withSource(res, 'cluster-empty', {
+          ok: true, items: [], clusterError: err.message,
+        }));
       }
-
-      // Apify fallback — explicitly labeled so the frontend can see it
-      console.log(`[comments] Falling back to Apify (cluster_err=${clusterErr || 'empty'})`);
-      const apifyUrl = postUrl || `https://www.instagram.com/p/${shortcode}/`;
-      run = await startRun('apify/instagram-comment-scraper', {
-        directUrls: [apifyUrl],
-        resultsLimit: limit,
-      });
-      completed = await pollRun(run.id);
-      items = await getDatasetItems(completed.defaultDatasetId, limit);
-      setEdgeCache(res, 'comments');
-      return res.status(200).json(withSource(res, 'apify-fallback', {
-        ok: true, items, clusterError: clusterErr,
-      }));
     }
+
+    // ── APIFY ACTORS (non-IG, no worker cluster available) ──────────────────
+    // These platforms don't have a worker cluster yet. Listed clearly so the
+    // operator can see exactly what still touches Apify: Facebook, TikTok,
+    // LinkedIn, YouTube. All Instagram actions are now cluster-only.
+    if (!APIFY_TOKEN) return res.status(500).json({ error: 'Server misconfigured: APIFY_TOKEN not set' });
 
     if (action === 'facebook-posts') {
       const { pageUrl, limit = 50 } = payload;

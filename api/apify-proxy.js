@@ -255,6 +255,27 @@ export default async function handler(req, res) {
   const { action, payload = {} } = parseRequest(req);
   if (!action) return res.status(400).json({ error: 'Missing action' });
 
+  // ── Internal: /perf passthrough (Phase 8 observability) ────────────────
+  // GET /api/apify-proxy?action=_perf  → returns the orchestrator's live
+  // p50/p95/p99 per (action, source) from its telemetry stream.
+  if (action === '_perf') {
+    if (!SCRAPER_SERVICE_URL) {
+      return res.status(503).json({ error: 'SCRAPER_SERVICE_URL not configured' });
+    }
+    try {
+      const url = `${SCRAPER_SERVICE_URL}/perf?limit=${payload.limit || 5000}`;
+      const r = await fetch(url, {
+        headers: SCRAPER_SECRET ? { 'X-Secret': SCRAPER_SECRET } : {},
+      });
+      const body = await r.json();
+      // Short cache so dashboards can poll without hammering the orchestrator
+      res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5');
+      return res.status(r.status).json(body);
+    } catch (err) {
+      return res.status(502).json({ error: `orchestrator unreachable: ${err.message}` });
+    }
+  }
+
   try {
     let run, completed, items;
 

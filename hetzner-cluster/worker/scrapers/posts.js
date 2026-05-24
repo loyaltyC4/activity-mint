@@ -41,21 +41,38 @@ function extractMentions(caption) {
   return m ? [...new Set(m.map((s) => s.slice(1).toLowerCase()))] : [];
 }
 
-/** Pick the best display URL out of image_versions2 candidates (largest). */
+/**
+ * Phase 6 HD media: pick the largest image_versions2 candidate (sorted by
+ * width*height). The candidates array isn't guaranteed sorted — sometimes
+ * the first entry is a 320px thumb. We pick the biggest sane variant and
+ * the smallest one separately for thumbnail.
+ */
 function pickImageUrl(n) {
   const cands = n?.image_versions2?.candidates || [];
   if (cands.length === 0) return null;
-  // candidates[0] is usually highest resolution
-  return cands[0]?.url || null;
+  const sorted = [...cands]
+    .filter((c) => c && c.url)
+    .map((c) => ({ ...c, _px: (c.width || 0) * (c.height || 0) }))
+    .filter((c) => c._px === 0 || (c.width <= 2160 && c.height <= 2160))
+    .sort((a, b) => b._px - a._px);
+  return sorted[0]?.url || cands[0]?.url || null;
 }
 function pickThumbnailUrl(n) {
   const cands = n?.image_versions2?.candidates || [];
   if (cands.length === 0) return null;
-  return cands[cands.length - 1]?.url || cands[0]?.url || null;
+  const sorted = [...cands]
+    .filter((c) => c && c.url)
+    .map((c) => ({ ...c, _px: (c.width || 0) * (c.height || 0) }))
+    .sort((a, b) => a._px - b._px);
+  return sorted[0]?.url || cands[cands.length - 1]?.url || null;
 }
 function pickVideoUrl(n) {
   const vs = n?.video_versions || [];
-  return vs[0]?.url || null;
+  if (vs.length === 0) return null;
+  const sorted = [...vs]
+    .filter((v) => v && v.url)
+    .sort((a, b) => (b.width || 0) - (a.width || 0) || (a.type || 999) - (b.type || 999));
+  return sorted[0]?.url || vs[0]?.url || null;
 }
 
 function normalizeNode(n) {
@@ -66,6 +83,27 @@ function normalizeNode(n) {
   const isCarousel = mt === 8 || n.__typename === 'GraphSidecar';
   const isVideo = mt === 2 || !!(n.video_versions && n.video_versions.length);
   const ts = n.taken_at ?? n.taken_at_timestamp ?? null;
+
+  // Phase 6: expand carousel children with their own HD media.
+  // carousel_media is the new path; edge_sidecar_to_children was the
+  // pre-SPA shape.
+  let carouselItems = null;
+  if (isCarousel) {
+    const children = n.carousel_media || n.edge_sidecar_to_children?.edges?.map((e) => e.node) || [];
+    if (children.length > 0) {
+      carouselItems = children.map((c) => {
+        const cIsVideo = c.media_type === 2 || !!(c.video_versions && c.video_versions.length);
+        return {
+          mediaType: cIsVideo ? 'video' : 'image',
+          imageUrl: pickImageUrl(c),
+          videoUrl: cIsVideo ? pickVideoUrl(c) : null,
+          videoDashManifest: c.video_dash_manifest || null,
+          duration: c.video_duration ?? null,
+        };
+      });
+    }
+  }
+
   return {
     shortcode: code,
     url: code ? `${IG_BASE}/p/${code}/` : null,
@@ -80,8 +118,13 @@ function normalizeNode(n) {
     timestamp: ts ? new Date(ts * 1000).toISOString() : null,
     mediaUrl: pickImageUrl(n) || pickVideoUrl(n) || n.display_url || null,
     thumbnailUrl: pickThumbnailUrl(n) || n.thumbnail_src || null,
+    // Phase 6: HD-specific fields. Frontends that want full quality use these.
+    imageUrlHD: pickImageUrl(n),
+    videoUrlHD: pickVideoUrl(n),
+    videoDashManifest: n.video_dash_manifest || null,
     isVideo,
     isCarousel,
+    carouselItems,
   };
 }
 

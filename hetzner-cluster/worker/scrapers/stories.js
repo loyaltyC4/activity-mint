@@ -22,13 +22,32 @@ const { humanDelay, sleep, isBlockedSignal, safeWaitForSelector, randInt, ensure
 
 const IG_BASE = 'https://www.instagram.com';
 
+/**
+ * Phase 6: pick the HIGHEST-RESOLUTION media. IG's image_versions2 returns
+ * 3-7 candidates sorted in no particular order — the first one is sometimes
+ * a 240px thumbnail, sometimes a 1080px hero. We sort by width*height
+ * descending and pick the largest sane variant (cap at 2160 to avoid
+ * pathologically huge versions that some accounts have).
+ */
 function pickImageUrl(node) {
   const cands = node?.image_versions2?.candidates || [];
-  return cands[0]?.url || null;
+  if (cands.length === 0) return null;
+  const sorted = [...cands]
+    .filter((c) => c && c.url)
+    .map((c) => ({ ...c, _pixels: (c.width || 0) * (c.height || 0) }))
+    .filter((c) => c._pixels === 0 || (c.width <= 2160 && c.height <= 2160))
+    .sort((a, b) => b._pixels - a._pixels);
+  return sorted[0]?.url || cands[0]?.url || null;
 }
 function pickVideoUrl(node) {
   const vs = node?.video_versions || [];
-  return vs[0]?.url || null;
+  if (vs.length === 0) return null;
+  // Pick highest width version (IG returns multiple bitrates: type 101=high,
+  // 102=mid, 103=low). Sort by width desc, then by type asc (101 wins ties).
+  const sorted = [...vs]
+    .filter((v) => v && v.url)
+    .sort((a, b) => (b.width || 0) - (a.width || 0) || (a.type || 999) - (b.type || 999));
+  return sorted[0]?.url || vs[0]?.url || null;
 }
 
 function normalizeStoryNode(n) {

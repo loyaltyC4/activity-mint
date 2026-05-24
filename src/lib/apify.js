@@ -61,6 +61,39 @@ export async function fetchInstagramPosts(username, limit = 12) {
 }
 
 /**
+ * Top commenters across a target's recent posts. Composite action that
+ * fans comment-fetches across multiple workers in parallel and aggregates
+ * the resulting commenters by frequency. Returns ranked list with
+ * { username, fullName, profilePicUrl, isVerified, commentCount, totalLikes, samples }.
+ *
+ * @param {string} username
+ * @param {object} opts  { postLimit, commentLimit, topN }
+ */
+export async function fetchTopCommenters(username, opts = {}) {
+  const { postLimit = 6, commentLimit = 50, topN = 25 } = opts;
+  return callProxy('top_commenters', {
+    username: username.replace('@', ''),
+    postLimit, commentLimit, topN,
+  });
+}
+
+/**
+ * Audience enrichment: sample N followers + enrich each with bio + city
+ * signal + bio hashtags + verified/private flags. Returns array of
+ * { username, fullName, bio, followerCount, citySignal, bioHashtags, ... }.
+ *
+ * @param {string} username  target handle
+ * @param {number} sample    default 20, max 50
+ * @param {number} offset    default 0, useful for batch-fanout across workers
+ */
+export async function fetchAudienceEnrichment(username, sample = 20, offset = 0) {
+  return callProxy('audience_enrichment', {
+    username: username.replace('@', ''),
+    sample, offset,
+  });
+}
+
+/**
  * Composite: profile + posts in one call. Used by Post Viewer for the
  * default "show me the profile + their recent posts" view. The proxy
  * runs both as cluster calls; profile falls back to Apify if cluster

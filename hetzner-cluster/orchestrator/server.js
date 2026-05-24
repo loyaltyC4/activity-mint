@@ -11,6 +11,7 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const Redis = require('ioredis');
+const crypto = require('crypto');
 
 // ─── Config ──────────────────────────────────────────────────────────────
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET || '';
@@ -22,6 +23,32 @@ const STICKY_TTL_SECONDS = 7 * 24 * 60 * 60;       // 7 days
 const BLOCK_TTL_SECONDS = 60 * 60;                  // 1 hour
 const WORKER_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;    // 5 minutes (followers list can be slow)
 const HEALTH_TIMEOUT_MS = 5 * 1000;
+
+// ─── Response cache (Phase 4 / Ship C) ───────────────────────────────────
+// Per-action TTL in seconds. 0 = no caching. The defaults are tuned to be
+// long enough to absorb pane-stampede on quick navigation but short enough
+// that scrapes feel fresh. Override via env CACHE_TTL_OVERRIDES like
+// "profile=120,posts=90".
+const DEFAULT_CACHE_TTLS = {
+  profile:             60,
+  posts:               60,
+  followers:           45,
+  following:           45,
+  stories:             30,
+  comments:            60,
+  audience_enrichment: 180,
+};
+const CACHE_TTLS = (() => {
+  const out = { ...DEFAULT_CACHE_TTLS };
+  const env = process.env.CACHE_TTL_OVERRIDES;
+  if (env) {
+    for (const part of env.split(',')) {
+      const [k, v] = part.split('=');
+      if (k && v) out[k.trim()] = parseInt(v.trim(), 10) || 0;
+    }
+  }
+  return out;
+})();
 
 // ─── Logger ──────────────────────────────────────────────────────────────
 function ts() { return new Date().toISOString(); }
@@ -110,6 +137,36 @@ async function setStickyTarget(username, workerId) {
   await redis.set(`target:${username}`, workerId, 'EX', STICKY_TTL_SECONDS).catch((err) => {
     log.warn(`redis set sticky failed: ${err.message}`);
   });
+}
+
+// ─── Response cache helpers ──────────────────────────────────────────────
+// Cache hit returns the items array immediately without going to a worker.
+// Cache write fires async after a successful worker response. Keys are
+// hash(action + canonical-JSON of payload) so logically-identical payloads
+// share a cache entry regardless of property ordering.
+function cacheKey(action, payload) {
+  const canon = JSON.stringify(payload || {}, Object.keys(payload || {}).sort());
+  return `cache:${action}:${crypto.createHash('sha1').update(canon).digest('hex')}`;
+}
+async function getCached(action, payload) {
+  const ttl = CACHE_TTLS[action] | 0;
+  if (!ttl) return null;
+  try {
+    const raw = await redis.get(cacheKey(action, payload));
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    log.warn(`cache get failed for ${action}: ${err.message}`);
+    return null;
+  }
+}
+async function setCached(action, payload, items) {
+  const ttl = CACHE_TTLS[action] | 0;
+  if (!ttl || !Array.isArray(items)) return;
+  try {
+    await redis.set(cacheKey(action, payload), JSON.stringify(items), 'EX', ttl);
+  } catch (err) {
+    log.warn(`cache set failed for ${action}: ${err.message}`);
+  }
 }
 
 /**
@@ -253,6 +310,16 @@ app.post('/scrape', requireSecret, async (req, res) => {
     return res.status(400).json({ ok: false, error: 'action_required' });
   }
   const username = payload && typeof payload.username === 'string' ? payload.username.trim().replace(/^@/, '') : null;
+  const cacheBypass = !!(body.cache_bypass || req.header('X-Cache-Bypass'));
+
+  // Cache hit fast-path: return immediately without touching any worker
+  if (!cacheBypass) {
+    const cached = await getCached(action, payload);
+    if (cached) {
+      log.info(`cache HIT  ${action} user=${username || '-'}`);
+      return res.json({ ok: true, items: cached, cached: true });
+    }
+  }
 
   const tried = [];
   // Try up to 3 workers: first pick + two failovers. Generous because we want
@@ -278,6 +345,8 @@ app.post('/scrape', requireSecret, async (req, res) => {
     if (fwd.status >= 200 && fwd.status < 300 && fwd.body && fwd.body.ok) {
       await bumpWorkerRequests(worker.id);
       if (username) await setStickyTarget(username, worker.id);
+      // Write to cache async, don't block the response
+      setCached(action, payload, fwd.body.items).catch(() => {});
       return res.status(fwd.status).json(fwd.body);
     }
 
@@ -337,12 +406,36 @@ app.post('/scrape/batch', requireSecret, async (req, res) => {
   const body = req.body || {};
   const tasks = Array.isArray(body.tasks) ? body.tasks : [];
   const strategy = (body.strategy || 'parallel').toLowerCase();
+  const cacheBypass = !!(body.cache_bypass || req.header('X-Cache-Bypass'));
 
   if (tasks.length === 0) {
     return res.status(400).json({ ok: false, error: 'tasks_array_required' });
   }
   if (tasks.length > 32) {
     return res.status(400).json({ ok: false, error: 'too_many_tasks (max 32)' });
+  }
+
+  // Cache check per-task BEFORE we touch any worker. Tasks that hit the cache
+  // get pre-filled results and skip routing entirely. Big win when the user
+  // navigates back to a recently-loaded handle - whole batch can be all-hits.
+  const results = new Array(tasks.length).fill(null);
+  const pendingIndices = [];
+  if (!cacheBypass) {
+    await Promise.all(tasks.map(async (t, i) => {
+      const cached = await getCached(t.action, t.payload);
+      if (cached) {
+        results[i] = { action: t.action, payload: t.payload, ok: true, items: cached, cached: true };
+      } else {
+        pendingIndices.push(i);
+      }
+    }));
+    if (pendingIndices.length === 0) {
+      log.info(`batch all cache HIT (${tasks.length} tasks)`);
+      return res.json({ ok: true, results });
+    }
+    log.info(`batch cache: ${tasks.length - pendingIndices.length}/${tasks.length} hits, ${pendingIndices.length} pending`);
+  } else {
+    for (let i = 0; i < tasks.length; i++) pendingIndices.push(i);
   }
 
   // Pre-fetch healthy worker pool (one batch = one snapshot of who's available).
@@ -367,6 +460,8 @@ app.post('/scrape/batch', requireSecret, async (req, res) => {
       await bumpWorkerRequests(worker.id);
       const uname = task?.payload?.username;
       if (uname) await setStickyTarget(uname, worker.id);
+      // Write to cache async so next batch can hit-fast-path
+      setCached(task.action, task.payload, fwd.body.items).catch(() => {});
       return { ok: true, items: fwd.body.items, worker: worker.id };
     }
     const errMsg = (fwd.body && fwd.body.error) || (fwd.networkError ? 'network_error' : `worker_status_${fwd.status}`);
@@ -380,13 +475,12 @@ app.post('/scrape/batch', requireSecret, async (req, res) => {
     return { ok: false, error: errMsg, worker: worker.id };
   }
 
-  const results = new Array(tasks.length).fill(null);
+  // results array was already pre-filled with cache hits; pending tasks
+  // are the ones still needing worker dispatch.
+  const pendingTasks = pendingIndices.map((i) => ({ task: tasks[i], origIdx: i }));
 
   if (strategy === 'sequential') {
-    for (let i = 0; i < tasks.length; i++) {
-      // Use single-task picker so sticky-by-username still applies, with
-      // failover on non-OK responses (same as single-task /scrape handler).
-      const t = tasks[i];
+    for (const { task: t, origIdx } of pendingTasks) {
       const uname = t?.payload?.username;
       const tried = [];
       let r = null;
@@ -398,7 +492,7 @@ app.post('/scrape/batch', requireSecret, async (req, res) => {
         r = await runOne(t, worker);
         if (r.ok) break;
       }
-      results[i] = { action: t.action, payload: t.payload, ...r };
+      results[origIdx] = { action: t.action, payload: t.payload, ...r };
     }
   } else {
     // PARALLEL with per-task failover.
@@ -409,7 +503,7 @@ app.post('/scrape/batch', requireSecret, async (req, res) => {
     // fail get re-queued with the failed worker added to their exclude
     // list until they succeed or hit the attempt cap.
     const MAX_ATTEMPTS = 2;
-    let queue = tasks.map((task, idx) => ({ task, idx, attempts: 0, excluded: new Set() }));
+    let queue = pendingTasks.map(({ task, origIdx }) => ({ task, idx: origIdx, attempts: 0, excluded: new Set() }));
     let waveIdx = 0;
 
     while (queue.length > 0) {

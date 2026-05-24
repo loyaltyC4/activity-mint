@@ -101,12 +101,15 @@ const state = {
   blockedReason: null, // string
 };
 
-let browserContext = null;        // CloakBrowser BrowserContext (persistent)
-let workPage = null;              // single re-used Page
+let browserContext = null;        // CloakBrowser BrowserContext (persistent, warm across requests)
+let pagePool = [];                // [{page, busy}] - N parallel scrape slots per worker
 let bootPromise = null;           // promise for the in-flight boot
 let lastResetDayUTC = currentUTCDay();
-const jobQueue = [];              // single-flight queue
-let jobInFlight = false;
+// Pool size: how many concurrent scrapes a single worker handles. 2 doubles
+// throughput per worker at the cost of running two browser tabs at once
+// against IG with the same logged-in account. Higher than 2 starts to make
+// IG suspicious of the account; 2 is the sweet spot empirically.
+const POOL_SIZE = Math.max(1, Math.min(parseInt(process.env.WORKER_POOL_SIZE || '2', 10) || 2, 4));
 
 function currentUTCDay() {
   const now = new Date();
@@ -123,26 +126,23 @@ function maybeResetCounter() {
 }
 setInterval(maybeResetCounter, 60 * 1000).unref();
 
-// ─── Browser bootstrap ───────────────────────────────────────────────────
+// ─── Browser bootstrap (warm context + page pool) ────────────────────────
+// Boot is idempotent and reuses an existing context whenever possible. The
+// pool of N pages is created up front so all N slots are warm by the time
+// the first request lands. Cookies/storage are shared across pages in one
+// BrowserContext, so we only run the IG login once on the first page.
 async function bootBrowser() {
   if (bootPromise) return bootPromise;
   bootPromise = (async () => {
     const proxyUrl = `http://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_HTTP_PORT}`;
-    log.info(`launching CloakBrowser (proxy=${PROXY_HOST}:${PROXY_HTTP_PORT}, profileDir=${PROFILE_DIR})`);
+    log.info(`launching CloakBrowser (proxy=${PROXY_HOST}:${PROXY_HTTP_PORT}, poolSize=${POOL_SIZE})`);
     try {
       const { launchPersistentContext } = await getCloakbrowser();
       const ctx = await launchPersistentContext({
         userDataDir: PROFILE_DIR,
         headless: true,
         proxy: proxyUrl,
-        // CloakBrowser-specific:
-        geoip: true,        // auto timezone+locale from proxy exit IP, auto WebRTC IP spoof
-        // humanize is intentionally NOT enabled — when combined with per-char
-        // locator.type() calls it can interleave keystrokes and scramble the
-        // typed value (saw "orqyzdatby" instead of "qyzdartoby"). The login
-        // flow already adds its own jitter via humanType in scrapers/utils.js,
-        // which is sufficient for stealth typing on Instagram.
-        // Standard Playwright options (passed straight through):
+        geoip: true,
         viewport: { width: 1366, height: 800 },
         deviceScaleFactor: 1,
         args: [
@@ -151,25 +151,32 @@ async function bootBrowser() {
         ],
       });
 
-      // Reasonable default timeouts for all pages spawned from this context
       ctx.setDefaultTimeout(15000);
       ctx.setDefaultNavigationTimeout(30000);
 
-      // Reuse an existing page if persistent context restored one; else open one
-      let page = ctx.pages()[0];
-      if (!page) page = await ctx.newPage();
+      // Reuse any pages the persistent profile dir restored; pad to POOL_SIZE.
+      const existing = ctx.pages();
+      const firstPage = existing[0] || await ctx.newPage();
+      pagePool = [{ page: firstPage, busy: false }];
+      for (let i = 1; i < POOL_SIZE; i++) {
+        const p = await ctx.newPage();
+        pagePool.push({ page: p, busy: false });
+      }
 
-      // Crash handlers
+      // Crash handlers - drop the whole pool when the context dies.
       ctx.on('close', () => {
         log.warn('browser context closed');
         browserContext = null;
-        workPage = null;
+        pagePool = [];
         state.loggedIn = false;
       });
-      page.on('crash', () => log.warn('page crashed'));
+      for (const slot of pagePool) {
+        slot.page.on('crash', () => log.warn(`pool page crashed`));
+      }
 
-      // Attempt login (idempotent — no-op if already authed via profile)
-      const result = await ensureLoggedIn(page, {
+      // Login once on the first page. Cookies/storage propagate across the
+      // whole context so the other N-1 pages are immediately logged in too.
+      const result = await ensureLoggedIn(firstPage, {
         username: IG_USERNAME,
         password: IG_PASSWORD,
         totpSecret: IG_2FA_SECRET,
@@ -181,22 +188,21 @@ async function bootBrowser() {
         if (result.blocked) {
           state.blocked = true;
           state.blockedReason = result.reason || 'login_blocked';
-          log.warn(`login marked us blocked — reason=${state.blockedReason}`);
+          log.warn(`login marked us blocked - reason=${state.blockedReason}`);
         }
       } else {
         state.loggedIn = true;
         state.lastError = null;
-        log.info(`logged in OK as ${IG_USERNAME}`);
+        log.info(`logged in OK as ${IG_USERNAME} (${POOL_SIZE} pages warm)`);
       }
 
       browserContext = ctx;
-      workPage = page;
-      return { ctx, page };
+      return { ctx, pageCount: pagePool.length };
     } catch (err) {
       log.error(`browser boot failed: ${err.message}`);
       state.lastError = `boot_failed:${err.message}`;
       browserContext = null;
-      workPage = null;
+      pagePool = [];
       throw err;
     } finally {
       bootPromise = null;
@@ -206,8 +212,11 @@ async function bootBrowser() {
 }
 
 async function ensureBrowser() {
-  if (browserContext && workPage && !workPage.isClosed()) {
-    return { ctx: browserContext, page: workPage };
+  if (browserContext && pagePool.length > 0) {
+    // Re-check every slot is still alive
+    const dead = pagePool.filter((s) => s.page.isClosed());
+    if (dead.length === 0) return { ctx: browserContext };
+    log.warn(`${dead.length}/${pagePool.length} pool pages closed; recreating pool`);
   }
   return bootBrowser();
 }
@@ -217,32 +226,29 @@ async function teardownBrowser() {
   log.info('tearing down browser context');
   try { await browserContext.close(); } catch (err) { log.warn(`ctx.close errored: ${err.message}`); }
   browserContext = null;
-  workPage = null;
+  pagePool = [];
   state.loggedIn = false;
 }
 
-// ─── Job queue (single-flight) ───────────────────────────────────────────
-async function runJob(fn) {
-  return new Promise((resolve, reject) => {
-    jobQueue.push({ fn, resolve, reject });
-    pump();
-  });
+// ─── Page acquisition + release (replaces single-flight queue) ────────────
+// Wait for an idle slot, mark it busy, return the slot. Caller MUST call
+// releasePage() in a finally block. Concurrency cap = POOL_SIZE.
+async function acquirePage(timeoutMs = 60000) {
+  await ensureBrowser();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const idle = pagePool.find((s) => !s.busy && !s.page.isClosed());
+    if (idle) {
+      idle.busy = true;
+      return idle;
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error('page_acquire_timeout');
 }
 
-async function pump() {
-  if (jobInFlight) return;
-  const next = jobQueue.shift();
-  if (!next) return;
-  jobInFlight = true;
-  try {
-    const r = await next.fn();
-    next.resolve(r);
-  } catch (err) {
-    next.reject(err);
-  } finally {
-    jobInFlight = false;
-    setImmediate(pump);
-  }
+function releasePage(slot) {
+  if (slot) slot.busy = false;
 }
 
 // ─── HTTP server ─────────────────────────────────────────────────────────
@@ -287,45 +293,51 @@ app.post('/scrape', requireSecret, async (req, res) => {
     return res.status(400).json({ ok: false, error: 'action_required' });
   }
 
+  // Acquire one of the pool's idle pages and run the scrape on it. Multiple
+  // /scrape requests can run concurrently (up to POOL_SIZE), each on its own
+  // Page so navigations don't race.
+  let slot = null;
   try {
-    const items = await runJob(async () => {
-      const { page } = await ensureBrowser();
+    slot = await acquirePage();
+    const page = slot.page;
 
-      // Confirm we're still logged in (cheap check). If not, re-login.
-      if (!state.loggedIn || !(await isLoggedIn(page, log))) {
-        log.warn('session not logged in at job start — re-running login');
-        const r = await ensureLoggedIn(page, {
-          username: IG_USERNAME,
-          password: IG_PASSWORD,
-          totpSecret: IG_2FA_SECRET,
-        }, log);
-        if (!r.ok) {
-          if (r.blocked) {
-            state.blocked = true;
-            state.blockedReason = r.reason || 'login_blocked';
-          }
-          const e = new Error(`login_failed:${r.reason || 'unknown'}`);
-          if (r.blocked) e.blocked = true;
-          throw e;
+    // Confirm we're still logged in on THIS page. Login state is per-context
+    // (shared cookies) so it's usually fine, but a stale cookie or session
+    // expiry can still surface here.
+    if (!state.loggedIn || !(await isLoggedIn(page, log))) {
+      log.warn('session not logged in at job start - re-running login');
+      const r = await ensureLoggedIn(page, {
+        username: IG_USERNAME,
+        password: IG_PASSWORD,
+        totpSecret: IG_2FA_SECRET,
+      }, log);
+      if (!r.ok) {
+        if (r.blocked) {
+          state.blocked = true;
+          state.blockedReason = r.reason || 'login_blocked';
         }
-        state.loggedIn = true;
+        const e = new Error(`login_failed:${r.reason || 'unknown'}`);
+        if (r.blocked) e.blocked = true;
+        throw e;
       }
+      state.loggedIn = true;
+    }
 
-      switch (action) {
-        case 'profile':              return scrapeProfile(page, payload || {}, log);
-        case 'followers':            return scrapeFollowers(page, payload || {}, log);
-        case 'following':            return scrapeFollowing(page, payload || {}, log);
-        case 'stories':              return scrapeStories(page, payload || {}, log);
-        case 'posts':                return scrapePosts(page, payload || {}, log);
-        case 'comments':             return scrapeComments(page, payload || {}, log);
-        case 'audience_enrichment':  return enrichAudience(page, payload || {}, log);
-        default: {
-          const e = new Error(`unknown_action:${action}`);
-          e.statusCode = 400;
-          throw e;
-        }
+    let items;
+    switch (action) {
+      case 'profile':              items = await scrapeProfile(page, payload || {}, log); break;
+      case 'followers':            items = await scrapeFollowers(page, payload || {}, log); break;
+      case 'following':            items = await scrapeFollowing(page, payload || {}, log); break;
+      case 'stories':              items = await scrapeStories(page, payload || {}, log); break;
+      case 'posts':                items = await scrapePosts(page, payload || {}, log); break;
+      case 'comments':             items = await scrapeComments(page, payload || {}, log); break;
+      case 'audience_enrichment':  items = await enrichAudience(page, payload || {}, log); break;
+      default: {
+        const e = new Error(`unknown_action:${action}`);
+        e.statusCode = 400;
+        throw e;
       }
-    });
+    }
 
     state.requestsToday += 1;
     state.lastSuccess = new Date().toISOString();
@@ -353,6 +365,8 @@ app.post('/scrape', requireSecret, async (req, res) => {
     const status = err?.statusCode || 500;
     log.error(`scrape failed (${action}): ${msg}`);
     return res.status(status).json({ ok: false, error: msg });
+  } finally {
+    releasePage(slot);
   }
 });
 

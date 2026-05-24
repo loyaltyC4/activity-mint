@@ -23,6 +23,9 @@ import {
   fetchInstagramProfile,
   fetchInstagramProfileWithPosts,
   fetchInstagramStories,
+  fetchInstagramPosts,
+  fetchTopCommenters,
+  fetchAudienceEnrichment,
 } from '../../../lib/apify'
 import KpiCard from '../shared/KpiCard'
 import InsightCard from '../shared/InsightCard'
@@ -286,6 +289,51 @@ export default function PulsePane({ timeRange }) {
     if (!handle) return
     hydrate(handle)
   }, [handle, hydrate])
+
+  // ─── Prefetch adjacent-pane data in idle time ──────────────────────────
+  // While Pulse renders, kick off the heavy fetches that Audience / Content
+  // Lab / Outreach panes will need. Results land in the localStorage caches
+  // those panes consult on mount, so by the time the user navigates the data
+  // is already warm. Orchestrator-side Redis cache means the prefetch costs
+  // ~zero on subsequent loads of the same handle.
+  useEffect(() => {
+    if (!handle || typeof window === 'undefined') return
+    let cancelled = false
+    const stash = (kind, payload) => {
+      try { localStorage.setItem(`audience:${kind}:v1:${handle}`, JSON.stringify({ t: Date.now(), payload })) } catch {}
+    }
+    const stashContent = (kind, payload) => {
+      try { localStorage.setItem(`contentlab:${kind}:v1:${handle}`, JSON.stringify({ t: Date.now(), payload })) } catch {}
+    }
+    const run = () => {
+      if (cancelled) return
+      // Audience + Sentiment + Outreach all read top_commenters
+      fetchTopCommenters(handle, { postLimit: 4, commentLimit: 30, topN: 16 })
+        .then((items) => !cancelled && stash('top_commenters', items || []))
+        .catch(() => {})
+      // Audience + Outreach read audience_enrichment
+      fetchAudienceEnrichment(handle, 25, 0)
+        .then((items) => !cancelled && stash('audience_enrichment', items || []))
+        .catch(() => {})
+      // ContentLab reads posts
+      fetchInstagramPosts(handle, 24)
+        .then((items) => !cancelled && stashContent('posts', items || []))
+        .catch(() => {})
+    }
+    // Schedule via requestIdleCallback so we don't block Pulse's first paint.
+    // Fall back to setTimeout(2000) on browsers without rIC.
+    const handleId = 'requestIdleCallback' in window
+      ? window.requestIdleCallback(run, { timeout: 4000 })
+      : setTimeout(run, 2000)
+    return () => {
+      cancelled = true
+      if ('cancelIdleCallback' in window && typeof handleId === 'number') {
+        try { window.cancelIdleCallback(handleId) } catch {}
+      } else {
+        try { clearTimeout(handleId) } catch {}
+      }
+    }
+  }, [handle])
 
   // Empty state: no handle tracked yet
   if (!handleLoading && !handle) {

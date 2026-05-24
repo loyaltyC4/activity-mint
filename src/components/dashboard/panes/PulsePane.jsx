@@ -21,11 +21,16 @@ import { useTier } from '../../../context/TierContext'
 import { supabase } from '../../../lib/supabase'
 import {
   fetchInstagramProfile,
+  fetchInstagramProfileSWR,
   fetchInstagramProfileWithPosts,
   fetchInstagramStories,
+  fetchInstagramStoriesSWR,
   fetchInstagramPosts,
+  fetchInstagramPostsSWR,
   fetchTopCommenters,
+  fetchTopCommentersSWR,
   fetchAudienceEnrichment,
+  fetchAudienceEnrichmentSWR,
 } from '../../../lib/apify'
 import KpiCard from '../shared/KpiCard'
 import InsightCard from '../shared/InsightCard'
@@ -242,10 +247,16 @@ export default function PulsePane({ timeRange }) {
     }
     setRefresh(true)
 
-    // b. Staged refresh — profile first (fast cluster call), then stories + posts in parallel
+    // b. Staged refresh — profile first via SWR (instant if cached, else cluster ~5s).
+    // The SWR fetcher returns the cached value IMMEDIATELY when warm and revalidates
+    // in the background, so the KPIs paint without waiting for the network.
     let profileNext = cached?.profile || null
     try {
-      const items = await fetchInstagramProfile(h)
+      const items = await fetchInstagramProfileSWR(h, {
+        onUpdate: (fresh) => {
+          if (fresh && fresh[0]) setProfile((cur) => ({ ...cur, ...fresh[0] }))
+        },
+      })
       if (items && items[0]) {
         profileNext = items[0]
         setProfile(profileNext)
@@ -254,9 +265,16 @@ export default function PulsePane({ timeRange }) {
       console.warn('pulse: profile fetch failed', err)
     }
 
-    // c. Now fetch stories + full profile (with posts) in parallel
+    // c. Stories via SWR (instant warm load) + full profile (Apify, no SWR — has latestPosts)
     const [storiesRes, postsRes] = await Promise.allSettled([
-      fetchInstagramStories(h),
+      fetchInstagramStoriesSWR(h, {
+        onUpdate: (fresh) => {
+          if (Array.isArray(fresh)) {
+            const mapped = fresh.map((s, i) => ({ thumb: ['🎬','✨','📸','🎨'][i % 4], label: `Story ${i + 1}` }))
+            setStories(mapped)
+          }
+        },
+      }),
       fetchInstagramProfileWithPosts(h),
     ])
 
@@ -307,16 +325,16 @@ export default function PulsePane({ timeRange }) {
     }
     const run = () => {
       if (cancelled) return
-      // Audience + Sentiment + Outreach all read top_commenters
-      fetchTopCommenters(handle, { postLimit: 4, commentLimit: 30, topN: 16 })
+      // Use SWR variants so re-prefetches are free (instant from local cache);
+      // each fetcher ALSO stashes to the new am:proxy:v3:* keys, doubling our
+      // cache coverage — so when a pane mounts both legacy and new keys hit.
+      fetchTopCommentersSWR(handle, { postLimit: 4, commentLimit: 30, topN: 16 })
         .then((items) => !cancelled && stash('top_commenters', items || []))
         .catch(() => {})
-      // Audience + Outreach read audience_enrichment
-      fetchAudienceEnrichment(handle, 25, 0)
+      fetchAudienceEnrichmentSWR(handle, 25, 0)
         .then((items) => !cancelled && stash('audience_enrichment', items || []))
         .catch(() => {})
-      // ContentLab reads posts
-      fetchInstagramPosts(handle, 24)
+      fetchInstagramPostsSWR(handle, 24)
         .then((items) => !cancelled && stashContent('posts', items || []))
         .catch(() => {})
     }

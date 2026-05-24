@@ -1,27 +1,182 @@
 // All follower/profile calls are proxied through /api/apify-proxy (server-side)
 // so the Apify token never appears in browser JS bundles.
+//
+// SPEED PASS v3 — Frontend layer:
+//   - Read actions use GET → Vercel edge cache fires (the proxy sets
+//     `s-maxage` + `stale-while-revalidate` so warm calls are served from
+//     the CDN in ~50ms instead of 13s).
+//   - localStorage SWR layer: every successful response is stashed with a
+//     timestamp. fetchCached() returns the stash instantly + fires a
+//     background revalidation, so the UI is *literally* instant on warm
+//     panes even before the edge cache hits.
+//   - dataSourceMonitor: every call records which path served it
+//     (cluster / redis-cache / apify-fallback / cache:edge / cache:local)
+//     so we can inspect window.__amDataSources from devtools.
 
-/**
- * Internal helper: POST to the server-side Apify proxy.
- * @param {'followers'|'following'|'profile'} action
- * @param {object} payload - { username, limit? }
- * @returns {Promise<Array>} items array
- */
-async function callProxy(action, payload) {
-  const res = await fetch('/api/apify-proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, payload }),
+const READ_ACTIONS_GET = new Set([
+  'profile', 'posts', 'followers', 'following', 'stories',
+  'audience_enrichment', 'top_commenters', 'dashboard_load', 'comments',
+]);
+
+// Per-action defaults (ms). The cache is *additional* protection on top of
+// the edge cache — if the user's network is slow, localStorage still hits
+// instantly. Stays in sync with CACHE_PROFILES in apify-proxy.js.
+const LOCAL_CACHE_DEFAULTS = {
+  profile:              { ttlMs:  60_000, swrMs:  300_000 },
+  posts:                { ttlMs:  60_000, swrMs:  300_000 },
+  followers:            { ttlMs:  60_000, swrMs:  300_000 },
+  following:            { ttlMs:  60_000, swrMs:  300_000 },
+  stories:              { ttlMs:  30_000, swrMs:   60_000 },
+  top_commenters:       { ttlMs: 120_000, swrMs:  600_000 },
+  audience_enrichment:  { ttlMs: 300_000, swrMs:  900_000 },
+  dashboard_load:       { ttlMs:  60_000, swrMs:  300_000 },
+  comments:             { ttlMs: 120_000, swrMs:  600_000 },
+};
+
+// ─── observability ─────────────────────────────────────────────────────────
+function recordSource(action, payload, source, latencyMs) {
+  if (typeof window === 'undefined') return;
+  const arr = window.__amDataSources = window.__amDataSources || [];
+  arr.push({
+    t: Date.now(), action,
+    user: payload?.username || payload?.shortcode || null,
+    source, latencyMs,
   });
+  if (arr.length > 200) arr.shift();
+}
+
+// ─── localStorage cache layer ──────────────────────────────────────────────
+function cacheKey(action, payload) {
+  // Stable key: sort payload entries so { a:1, b:2 } === { b:2, a:1 }
+  const norm = Object.entries(payload || {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&');
+  return `am:proxy:v3:${action}:${norm}`;
+}
+
+function readCache(action, payload) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(cacheKey(action, payload));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.t !== 'number') return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function writeCache(action, payload, items, dataSource) {
+  if (typeof window === 'undefined') return;
+  try {
+    const entry = { t: Date.now(), items, _dataSource: dataSource || null };
+    window.localStorage.setItem(cacheKey(action, payload), JSON.stringify(entry));
+  } catch {}
+}
+
+// ─── core proxy call ───────────────────────────────────────────────────────
+// Internal. Returns { items, source }. Source is taken from x-data-source
+// header (set by the proxy) so we can tell cluster vs apify-fallback apart.
+async function callProxyRaw(action, payload) {
+  const useGet = READ_ACTIONS_GET.has(action);
+  const start = (typeof performance !== 'undefined' ? performance : Date).now();
+  let res;
+  if (useGet) {
+    const qs = new URLSearchParams({ action, payload: JSON.stringify(payload || {}) }).toString();
+    res = await fetch(`/api/apify-proxy?${qs}`, { method: 'GET' });
+  } else {
+    res = await fetch('/api/apify-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, payload }),
+    });
+  }
+  const end = (typeof performance !== 'undefined' ? performance : Date).now();
+  const latencyMs = Math.round(end - start);
+
   let body;
   try { body = await res.json(); } catch { throw new Error(`Proxy error: HTTP ${res.status}`); }
   if (!res.ok || !body.ok) throw new Error(body.error || `Proxy request failed (${res.status})`);
-  return body.items;
+
+  // Data source: prefer header, fall back to body field. Augment with
+  // Vercel cache header if we hit the edge cache (this is the magic that
+  // turns a 13s scrape into a 50ms CDN hit on warm reads).
+  const headerSource = res.headers?.get?.('x-data-source') || body._dataSource || 'unknown';
+  const vercelCache = res.headers?.get?.('x-vercel-cache') || '';
+  const finalSource = (vercelCache === 'HIT' || vercelCache === 'STALE')
+    ? `edge-cache:${vercelCache.toLowerCase()}`
+    : headerSource;
+
+  recordSource(action, payload, finalSource, latencyMs);
+  return { items: body.items, source: finalSource, body };
+}
+
+// Default export: same behaviour as before (returns items array). Maintains
+// backwards compat with everything that did `await callProxy(...)`. New code
+// should prefer callProxyCached for SWR.
+async function callProxy(action, payload) {
+  const { items, source } = await callProxyRaw(action, payload);
+  // Always stash successful responses — even non-SWR callers contribute to
+  // the cache, so the next SWR caller gets an instant hit.
+  if (items) writeCache(action, payload, items, source);
+  return items;
 }
 
 /**
+ * SWR-style fetch:
+ *   1. If fresh cache exists (<ttlMs old): return immediately, no network
+ *   2. If stale cache exists (<swrMs old): return immediately AND fire a
+ *      background revalidation — onUpdate(newItems) fires when it returns
+ *   3. If no cache: await the network call, return result
+ *
+ * @param {string} action
+ * @param {object} payload
+ * @param {object} opts - { ttlMs?, swrMs?, onUpdate?, force? }
+ * @returns {Promise<Array>} items
+ */
+export async function callProxyCached(action, payload, opts = {}) {
+  const defaults = LOCAL_CACHE_DEFAULTS[action] || { ttlMs: 60_000, swrMs: 300_000 };
+  const ttlMs = opts.ttlMs ?? defaults.ttlMs;
+  const swrMs = opts.swrMs ?? defaults.swrMs;
+  const onUpdate = typeof opts.onUpdate === 'function' ? opts.onUpdate : null;
+
+  const cached = opts.force ? null : readCache(action, payload);
+  const now = Date.now();
+
+  if (cached) {
+    const age = now - cached.t;
+    if (age < ttlMs) {
+      // Fresh: serve cache, no revalidation
+      recordSource(action, payload, 'cache:local-fresh', 0);
+      return cached.items;
+    }
+    if (age < swrMs) {
+      // Stale: serve cache, revalidate in background
+      recordSource(action, payload, 'cache:local-stale', 0);
+      callProxyRaw(action, payload)
+        .then(({ items, source }) => {
+          if (items) writeCache(action, payload, items, source);
+          if (onUpdate) onUpdate(items);
+        })
+        .catch((err) => {
+          // Silent — we already returned cached value. Log for observability.
+          console.warn(`[callProxyCached] background revalidation failed for ${action}:`, err.message);
+        });
+      return cached.items;
+    }
+  }
+
+  // No cache or expired beyond SWR window: network call
+  const { items, source } = await callProxyRaw(action, payload);
+  if (items) writeCache(action, payload, items, source);
+  return items;
+}
+
+// ─── public API (backwards compatible) ─────────────────────────────────────
+
+/**
  * Fetch Instagram profile data for a public username.
- * Routed through the self-hosted scraper (fast, ~7s) with Apify fallback.
+ * Routed through the cluster — Apify fallback has been removed.
  * Returns an array (usually 1 item) with profilePicUrl, stats, etc.
  * NOTE: Does not include latestPosts. Use fetchInstagramProfileWithPosts for that.
  */
@@ -29,43 +184,41 @@ export async function fetchInstagramProfile(username) {
   return callProxy('profile', { username: username.replace('@', '') });
 }
 
+/** SWR variant. Identical signature except returns instantly from cache when warm. */
+export async function fetchInstagramProfileSWR(username, opts) {
+  return callProxyCached('profile', { username: username.replace('@', '') }, opts);
+}
+
 /**
- * Fetch Instagram profile data + recent posts for a public username.
- * Uses Apify (slower, ~60s) because only Apify returns latestPosts.
- * Used by PostViewerView which displays the post grid.
+ * Fetch Instagram profile data + recent posts. Uses Apify (slower, ~60s)
+ * because only Apify returns latestPosts. Used by PostViewerView.
  */
 export async function fetchInstagramProfileWithPosts(username) {
   return callProxy('profile-with-posts', { username: username.replace('@', '') });
 }
 
-/**
- * Fetch Instagram Stories for a public username.
- * Routed server-side through the self-hosted CloakBrowser scraper service.
- * Returns story items with imageUrl, videoUrl, mediaType, etc.
- */
+/** Fetch Instagram Stories for a public username. */
 export async function fetchInstagramStories(username) {
   return callProxy('stories', { username: username.replace('@', '') });
 }
+export async function fetchInstagramStoriesSWR(username, opts) {
+  return callProxyCached('stories', { username: username.replace('@', '') }, opts);
+}
 
 /**
- * Fetch the target's most recent posts with engagement metrics
- * (likes, comments, video views, caption, hashtags, posting time).
- * Cluster-only: extracted via passive GraphQL interception in posts.js,
- * much faster than the legacy fetchInstagramProfileWithPosts (~13s vs ~60s).
- *
+ * Recent posts with engagement metrics. Cluster-only.
  * @param {string} username
  * @param {number} limit  default 12, max 36
  */
 export async function fetchInstagramPosts(username, limit = 12) {
   return callProxy('posts', { username: username.replace('@', ''), limit });
 }
+export async function fetchInstagramPostsSWR(username, limit = 12, opts) {
+  return callProxyCached('posts', { username: username.replace('@', ''), limit }, opts);
+}
 
 /**
- * Top commenters across a target's recent posts. Composite action that
- * fans comment-fetches across multiple workers in parallel and aggregates
- * the resulting commenters by frequency. Returns ranked list with
- * { username, fullName, profilePicUrl, isVerified, commentCount, totalLikes, samples }.
- *
+ * Top commenters across a target's recent posts.
  * @param {string} username
  * @param {object} opts  { postLimit, commentLimit, topN }
  */
@@ -76,31 +229,29 @@ export async function fetchTopCommenters(username, opts = {}) {
     postLimit, commentLimit, topN,
   });
 }
+export async function fetchTopCommentersSWR(username, opts = {}, swrOpts) {
+  const { postLimit = 6, commentLimit = 50, topN = 25 } = opts;
+  return callProxyCached('top_commenters', {
+    username: username.replace('@', ''),
+    postLimit, commentLimit, topN,
+  }, swrOpts);
+}
 
-/**
- * Audience enrichment: sample N followers + enrich each with bio + city
- * signal + bio hashtags + verified/private flags. Returns array of
- * { username, fullName, bio, followerCount, citySignal, bioHashtags, ... }.
- *
- * @param {string} username  target handle
- * @param {number} sample    default 20, max 50
- * @param {number} offset    default 0, useful for batch-fanout across workers
- */
+/** Audience enrichment: sample N followers + bio + city + hashtags. */
 export async function fetchAudienceEnrichment(username, sample = 20, offset = 0) {
   return callProxy('audience_enrichment', {
     username: username.replace('@', ''),
     sample, offset,
   });
 }
+export async function fetchAudienceEnrichmentSWR(username, sample = 20, offset = 0, opts) {
+  return callProxyCached('audience_enrichment', {
+    username: username.replace('@', ''),
+    sample, offset,
+  }, opts);
+}
 
-/**
- * Composite: profile + posts in one call. Used by Post Viewer for the
- * default "show me the profile + their recent posts" view. The proxy
- * runs both as cluster calls; profile falls back to Apify if cluster
- * misses, posts is cluster-only.
- *
- * Returns { profile, posts }.
- */
+/** Composite: profile + posts in one call (used by Post Viewer). */
 export async function fetchProfileWithClusterPosts(username, postLimit = 12) {
   const cleanUser = username.replace('@', '');
   const [profileItems, posts] = await Promise.all([
@@ -115,71 +266,72 @@ export async function fetchProfileWithClusterPosts(username, postLimit = 12) {
 
 /**
  * Fetch followers or following list for a public Instagram account.
- * Routed server-side through /api/apify-proxy to keep the token hidden.
- *
  * @param {string} username - Instagram username
  * @param {'followers'|'following'} listType - Which list to fetch
  * @param {number} limit - Max number of users to fetch (default 200)
- * @returns {Promise<Array>} Array of user objects with username, full_name, profile_pic_url, etc.
  */
 export async function fetchFollowersList(username, listType = 'followers', limit = 200) {
   return callProxy(listType, { username: username.replace('@', ''), limit });
 }
+export async function fetchFollowersListSWR(username, listType = 'followers', limit = 200, opts) {
+  return callProxyCached(listType, { username: username.replace('@', ''), limit }, opts);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NEW SCRAPERS
+// NEW SCRAPERS (Apify-backed; no SWR variant)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// fetchInstagramStoriesReal removed — fetchInstagramStories now calls stories directly
-
-/**
- * Fetch comments from an Instagram post URL.
- * @param {string} postUrl - Full Instagram post URL (e.g. https://instagram.com/p/xyz)
- * @param {number} limit - Max comments to fetch (default 50)
- */
+/** Fetch comments from an Instagram post URL. */
 export async function fetchInstagramComments(postUrl, limit = 50) {
   return callProxy('comments', { postUrl, limit });
 }
 
-/**
- * Fetch posts from a Facebook page.
- * @param {string} pageUrl - Full Facebook page URL
- * @param {number} limit - Max posts to fetch (default 50)
- */
+/** Fetch posts from a Facebook page. */
 export async function fetchFacebookPosts(pageUrl, limit = 50) {
   return callProxy('facebook-posts', { pageUrl, limit });
 }
 
-/**
- * Fetch TikTok videos from a profile or hashtag.
- * @param {object} options - { username?, hashtag?, limit? }
- */
+/** Fetch TikTok videos from a profile or hashtag. */
 export async function fetchTikTokVideos({ username, hashtag, limit = 50 }) {
   return callProxy('tiktok', { username, hashtag, limit });
 }
 
-/**
- * Fetch LinkedIn posts from a profile or company page.
- * @param {string} profileUrl - Full LinkedIn profile/company URL
- * @param {number} limit - Max posts to fetch (default 10)
- */
+/** Fetch LinkedIn posts from a profile or company page. */
 export async function fetchLinkedInPosts(profileUrl, limit = 10) {
   return callProxy('linkedin-posts', { profileUrl, limit });
 }
 
-/**
- * Fetch LinkedIn profile data (requires cookies for auth).
- * @param {string} profileUrl - Full LinkedIn profile URL
- * @param {Array} cookies - LinkedIn session cookies array
- */
+/** Fetch LinkedIn profile data (requires cookies for auth). */
 export async function fetchLinkedInProfile(profileUrl, cookies) {
   return callProxy('linkedin-profile', { profileUrl, cookies });
 }
 
-/**
- * Fetch YouTube video transcript.
- * @param {string} videoUrl - Full YouTube video URL
- */
+/** Fetch YouTube video transcript. */
 export async function fetchYouTubeTranscript(videoUrl) {
   return callProxy('youtube-transcript', { videoUrl });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Debug helpers (window.__amDataSources, window.amSpeedSummary)
+// ═══════════════════════════════════════════════════════════════════════════
+if (typeof window !== 'undefined') {
+  window.amSpeedSummary = function () {
+    const arr = window.__amDataSources || [];
+    if (arr.length === 0) {
+      console.log('No proxy calls recorded yet.');
+      return;
+    }
+    const byAction = {};
+    for (const e of arr) {
+      const k = `${e.action}:${e.source}`;
+      byAction[k] = byAction[k] || { count: 0, totalMs: 0 };
+      byAction[k].count += 1;
+      byAction[k].totalMs += e.latencyMs;
+    }
+    const rows = Object.entries(byAction).map(([k, v]) => ({
+      key: k, count: v.count, avgMs: Math.round(v.totalMs / v.count),
+    }));
+    console.table(rows);
+    return rows;
+  };
 }

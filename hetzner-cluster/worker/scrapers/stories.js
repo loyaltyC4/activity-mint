@@ -121,6 +121,56 @@ async function findStoryEntryPoint(page, username) {
   return null;
 }
 
+/**
+ * Try the canonical IG API for stories first: feed/reels_media by user PK.
+ * Needs the user's numeric ID, which web_profile_info returns. Returns null
+ * if anything fails so the caller falls back to the navigation path.
+ */
+async function fetchReelsMediaApi(page, username, log) {
+  try {
+    // Step 1: get the user ID via web_profile_info
+    const userInfo = await page.evaluate(async (u) => {
+      const r = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`, {
+        credentials: 'include',
+        headers: { 'x-ig-app-id': '936619743392459', 'accept': '*/*' },
+      });
+      if (!r.ok) return { __error: `HTTP ${r.status}` };
+      return await r.json();
+    }, username);
+    const userId = userInfo?.data?.user?.id;
+    if (!userId) {
+      log.info(`reels_media: no user id for ${username}`);
+      return null;
+    }
+
+    // Step 2: hit /api/v1/feed/reels_media/?reel_ids=ID
+    const reelsResp = await page.evaluate(async (id) => {
+      const r = await fetch(`https://www.instagram.com/api/v1/feed/reels_media/?reel_ids=${id}`, {
+        credentials: 'include',
+        headers: { 'x-ig-app-id': '936619743392459', 'accept': '*/*' },
+      });
+      if (!r.ok) return { __error: `HTTP ${r.status}` };
+      return await r.json();
+    }, userId);
+    if (!reelsResp || reelsResp.__error) {
+      log.info(`reels_media: ${reelsResp?.__error || 'empty'}`);
+      return null;
+    }
+
+    const reels = reelsResp?.reels || reelsResp?.reels_media || {};
+    const reel = reels[userId] || (Array.isArray(reelsResp.reels_media) ? reelsResp.reels_media[0] : null);
+    const items = reel?.items;
+    if (!Array.isArray(items)) {
+      log.info(`reels_media: no items array for ${username}`);
+      return [];
+    }
+    return items;
+  } catch (err) {
+    log.warn(`reels_media exception: ${err.message}`);
+    return null;
+  }
+}
+
 async function scrapeStories(page, payload, log) {
   const username = (payload?.username || '').trim().replace(/^@/, '');
   if (!username) throw new Error('payload.username is required');
@@ -136,10 +186,6 @@ async function scrapeStories(page, payload, log) {
     if (!/instagram\.com\/(graphql\/query|api\/graphql|api\/v1\/feed)/.test(url)) return;
     try {
       const txt = await resp.text();
-      // STRICT story-only markers. Posts can have image_versions2+taken_at,
-      // so we require something story-exclusive: `expiring_at` (stories
-      // expire), `reel_media` / `reels_media` (story tray API), or
-      // `xdt_api__v1__feed__reels` (the 2026 SPA reels endpoint).
       if (
         txt.includes('reel_media') ||
         txt.includes('reels_media') ||
@@ -155,11 +201,13 @@ async function scrapeStories(page, payload, log) {
 
   try {
     log.info(`scrape stories -> ${username}`);
+    // Navigate to the user's profile first so we have a valid IG context
+    // for subsequent fetch() calls (cookies + same-origin).
     await page.goto(`${IG_BASE}/${encodeURIComponent(username)}/`, {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
-    await humanDelay(800, 1500);
+    await humanDelay(400, 800);
 
     const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
     if (isBlockedSignal(bodyText)) {
@@ -168,21 +216,28 @@ async function scrapeStories(page, payload, log) {
       throw err;
     }
 
-    // Try to click the story ring so IG fires the reel_media GraphQL call.
-    // If there's no active story, that's a legitimate empty result.
-    const entryPoint = await findStoryEntryPoint(page, username);
-    if (entryPoint) {
-      log.info(`clicking story ring (${entryPoint})`);
-      await page.locator(entryPoint).first().click({ timeout: 5000 }).catch((err) => {
-        log.warn(`story click failed: ${err.message}`);
-      });
-      // Wait for the story player to mount + load the reel_media data
-      await sleep(2500 + randInt(0, 500));
-    } else {
-      log.info(`no story ring visible for ${username}; checking captured responses anyway`);
+    // PRIMARY: hit the reels_media API directly. This is the same endpoint
+    // IG's web app uses when you click a story ring — but we skip the click
+    // and fetch it ourselves, riding the session cookies.
+    const apiItems = await fetchReelsMediaApi(page, username, log);
+    if (Array.isArray(apiItems) && apiItems.length > 0) {
+      const items = apiItems.slice(0, limit).map(normalizeStoryNode).filter(Boolean);
+      log.info(`reels_media API extracted ${items.length} stories for ${username}`);
+      return items;
+    }
+    if (Array.isArray(apiItems) && apiItems.length === 0) {
+      log.info(`reels_media API returned empty (no active stories) for ${username}`);
+      return [];
     }
 
-    // Poll captured responses (the page may continue firing fetches after the click)
+    // FALLBACK: navigate to /stories/USERNAME/ and harvest reel_media from
+    // captured GraphQL responses. If no stories exist, IG redirects back
+    // to the profile and no GraphQL fires.
+    log.info(`reels_media API unavailable; trying navigation fallback`);
+    const storiesUrl = `${IG_BASE}/stories/${encodeURIComponent(username)}/`;
+    await page.goto(storiesUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+    await sleep(2500 + randInt(0, 500));
+
     const deadline = Date.now() + 8000;
     let found = null;
     while (Date.now() < deadline) {
@@ -199,11 +254,11 @@ async function scrapeStories(page, payload, log) {
 
     if (found && found.length > 0) {
       const items = found.slice(0, limit).map(normalizeStoryNode).filter(Boolean);
-      log.info(`extracted ${items.length} stories for ${username}`);
+      log.info(`navigation fallback extracted ${items.length} stories for ${username}`);
       return items;
     }
 
-    log.info(`no stories for ${username} (no captured reel_media, no entry point)`);
+    log.info(`no stories for ${username}`);
     return [];
   } finally {
     page.off('response', onResponse);

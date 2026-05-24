@@ -35,6 +35,44 @@ if (!APIFY_TOKEN) console.error('APIFY_TOKEN environment variable is not configu
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Profile field normalization
+// ─────────────────────────────────────────────────────────────────────────────
+// The cluster scraper returns IG-style snake-ish keys: followers, following,
+// posts, bio, isVerified, isPrivate, fullName, profilePicUrl. The UI mostly
+// reads camelCase "...Count" variants. We alias everything in BOTH directions
+// so a consumer can read either form. This keeps the StoryViewer / PostViewer
+// / Pulse KPIs all rendering the right values.
+function normalizeProfile(p) {
+  if (!p || typeof p !== 'object') return p;
+  const followers = p.followersCount ?? p.followers ?? p.follower_count ?? null;
+  const following = p.followingCount ?? p.following ?? p.followsCount ?? p.follow_count ?? null;
+  const posts     = p.postsCount     ?? p.posts     ?? p.media_count    ?? null;
+  return {
+    ...p,
+    username: p.username,
+    fullName: p.fullName || p.full_name || null,
+    biography: p.biography || p.bio || null,
+    bio: p.bio || p.biography || null,
+    // Count aliases — every legacy consumer covered
+    followers,
+    followersCount: followers,
+    following,
+    followingCount: following,
+    followsCount: following,
+    posts,
+    postsCount: posts,
+    // Verification/private aliases
+    isVerified: !!(p.isVerified ?? p.is_verified ?? p.verified),
+    verified:   !!(p.isVerified ?? p.is_verified ?? p.verified),
+    isPrivate:  !!(p.isPrivate  ?? p.is_private  ?? p.private),
+    private:    !!(p.isPrivate  ?? p.is_private  ?? p.private),
+    // Avatar aliases
+    profilePicUrl:   p.profilePicUrl || p.profile_pic_url || p.profile_pic_url_hd || null,
+    profilePicUrlHD: p.profilePicUrlHD || p.profile_pic_url_hd || p.profilePicUrl || p.profile_pic_url || null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Observability + cache helpers
 // ─────────────────────────────────────────────────────────────────────────────
 // Returns a JSON body augmented with _dataSource and ensures the
@@ -246,9 +284,12 @@ export default async function handler(req, res) {
       return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items }));
     }
 
-    // profile: CLUSTER-ONLY. Apify fallback removed — cluster is reliable
-    // and the 60s Apify polling cost was the user's silent slowness.
-    // If cluster fails, return 502 so the frontend can show a real error.
+    // profile: CLUSTER-ONLY. Apify fallback removed.
+    // Field normalization: the cluster returns { followers, following, posts,
+    // bio, isVerified, isPrivate, fullName, profilePicUrl } but the UI reads
+    // { followersCount, followingCount, postsCount, biography, verified,
+    // private, fullName, profilePicUrlHD }. We alias here so every UI path
+    // (PostViewer, StoryViewer, Pulse KPIs) finds what it expects.
     if (action === 'profile') {
       const { username } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
@@ -258,13 +299,7 @@ export default async function handler(req, res) {
         return res.status(502).json({ ok: false, error: 'Cluster returned empty profile', _dataSource: 'error' });
       }
       const p = r.items[0];
-      const normalized = [{
-        ...p,
-        profilePicUrlHD: p.profilePicUrl,
-        followsCount: p.followingCount,
-        verified: p.isVerified,
-        private: p.isPrivate,
-      }];
+      const normalized = [normalizeProfile(p)];
       setEdgeCache(res, 'profile');
       return res.status(200).json(withSource(res, r.source, { ok: true, items: normalized }));
     }
@@ -291,11 +326,7 @@ export default async function handler(req, res) {
       // Shape: legacy Apify consumers expect a single item with latestPosts
       // embedded plus the standard profile keys. Synthesize that.
       const merged = [{
-        ...p,
-        profilePicUrlHD: p.profilePicUrl,
-        followsCount: p.followingCount,
-        verified: p.isVerified,
-        private: p.isPrivate,
+        ...normalizeProfile(p),
         latestPosts: postsRes?.items || [],
       }];
       setEdgeCache(res, 'profile');

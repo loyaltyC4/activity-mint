@@ -147,6 +147,64 @@ async function extractCountsFromDom(page) {
   }).catch(() => ({}));
 }
 
+/**
+ * Canonical fetch: IG's own `web_profile_info` endpoint. Returns the
+ * authoritative user record (counts, full_name, biography, is_verified,
+ * profile_pic_url_hd) in one call. We fetch it FROM INSIDE the page so the
+ * session cookies are present.
+ *
+ * This is the primary source. The HTML/inline-JSON extraction in
+ * extractFromInlineJSON() exists as a fallback for the rare case where
+ * the API returns 401/403.
+ */
+async function fetchWebProfileInfo(page, username, log) {
+  const apiUrl = `${IG_BASE}/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+  try {
+    const data = await page.evaluate(async (url) => {
+      const r = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'x-ig-app-id': '936619743392459',
+          'x-asbd-id': '129477',
+          'x-requested-with': 'XMLHttpRequest',
+          'accept': '*/*',
+        },
+      });
+      if (!r.ok) return { __error: `HTTP ${r.status}` };
+      return await r.json();
+    }, apiUrl);
+    if (!data || data.__error) {
+      log.warn(`web_profile_info failed: ${data?.__error || 'no body'}`);
+      return null;
+    }
+    const u = data?.data?.user;
+    if (!u) {
+      log.warn('web_profile_info returned no user');
+      return null;
+    }
+    return {
+      username: u.username || username,
+      fullName: u.full_name || null,
+      followers: u.edge_followed_by?.count ?? null,
+      following: u.edge_follow?.count ?? null,
+      posts: u.edge_owner_to_timeline_media?.count ?? null,
+      bio: u.biography || null,
+      biography: u.biography || null,
+      isVerified: !!u.is_verified,
+      isPrivate: !!u.is_private,
+      profilePicUrl: u.profile_pic_url_hd || u.profile_pic_url || null,
+      profilePicUrlHD: u.profile_pic_url_hd || u.profile_pic_url || null,
+      externalUrl: u.external_url || null,
+      category: u.category_name || u.business_category_name || null,
+      pk: u.id || null,
+    };
+  } catch (err) {
+    log.warn(`web_profile_info threw: ${err.message}`);
+    return null;
+  }
+}
+
 async function scrapeProfile(page, payload, log) {
   const username = (payload?.username || '').trim().replace(/^@/, '');
   if (!username) {
@@ -156,7 +214,7 @@ async function scrapeProfile(page, payload, log) {
   const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
   log.info(`scrape profile -> ${username}`);
   const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await humanDelay(800, 1600);
+  await humanDelay(400, 800);
 
   const status = resp ? resp.status() : 0;
   if (status === 404) {
@@ -171,12 +229,21 @@ async function scrapeProfile(page, payload, log) {
     throw err;
   }
 
+  // PRIMARY: web_profile_info — canonical API, returns every field we need.
+  const api = await fetchWebProfileInfo(page, username, log);
+  if (api && (api.followers != null || api.posts != null)) {
+    log.info(`web_profile_info OK: followers=${api.followers} following=${api.following} posts=${api.posts} verified=${api.isVerified}`);
+    return [api];
+  }
+
+  // FALLBACK 1: inline JSON regex
   const data = await extractFromInlineJSON(page, username);
   if (data && (data.followers != null || data.following != null || data.posts != null)) {
+    log.info(`inline-JSON fallback OK: followers=${data.followers}`);
     return [data];
   }
 
-  // Fallback: DOM scrape
+  // FALLBACK 2: DOM scrape
   const fallback = await extractCountsFromDom(page);
   const merged = {
     username,
@@ -185,9 +252,11 @@ async function scrapeProfile(page, payload, log) {
     following: data?.following ?? (typeof fallback.following === 'string' ? parseCount(fallback.following) : fallback.following ?? null),
     posts: data?.posts ?? (typeof fallback.posts === 'string' ? parseCount(fallback.posts) : fallback.posts ?? null),
     bio: data?.bio || null,
+    biography: data?.bio || null,
     isVerified: data?.isVerified ?? false,
     isPrivate: data?.isPrivate ?? false,
     profilePicUrl: data?.profilePicUrl || null,
+    profilePicUrlHD: data?.profilePicUrl || null,
   };
   return [merged];
 }

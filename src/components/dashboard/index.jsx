@@ -27,6 +27,7 @@ export const PANES = {
   sentiment:   { group: 'Overview', label: 'Sentiment' },
   // Growth
   trends:      { group: 'Growth',   label: 'Trends & Insights', badge: 'new' },
+  adlab:       { group: 'Growth',   label: 'Ad Lab', badge: 'new' },
   outreach:    { group: 'Growth',   label: 'Outreach Ideas' },
   toolkit:     { group: 'Growth',   label: 'Tools' },
   competitors: { group: 'Growth',   label: 'Competitors', badge: 'pro' },

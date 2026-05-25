@@ -16,7 +16,7 @@
 const READ_ACTIONS_GET = new Set([
   'profile', 'profile-with-posts', 'posts', 'followers', 'following', 'stories',
   'audience_enrichment', 'top_commenters', 'dashboard_load', 'comments',
-  'script_studio',
+  'script_studio', 'ad_library',
 ]);
 
 // Per-action defaults (ms). The cache is *additional* protection on top of
@@ -34,6 +34,7 @@ const LOCAL_CACHE_DEFAULTS = {
   comments:             { ttlMs: 120_000, swrMs:  600_000 },
   // Script Studio analyses change very slowly (4h fresh, 24h stale-revalidate)
   script_studio:        { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000 },
+  ad_library:           { ttlMs: 6 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000 },
 };
 
 // ─── observability ─────────────────────────────────────────────────────────
@@ -245,6 +246,19 @@ export async function fetchScriptStudio(username, opts) {
     { username: username.replace('@', ''), context: 'dashboard' },
     { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000, ...opts },
   );
+}
+
+/**
+ * Meta Ad Library longevity tracker. Pass a Facebook page URL or page ID.
+ * Returns ads sorted by days_running with scaling-indicator metadata.
+ */
+export async function fetchAdLibrary({ pageUrl, pageId, country = 'US', limit = 30 } = {}, opts) {
+  const payload = { country, limit, context: 'dashboard' };
+  if (pageUrl) payload.pageUrl = pageUrl;
+  if (pageId) payload.pageId = pageId;
+  return callProxyCached('ad_library', payload, {
+    ttlMs: 6 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000, ...opts,
+  });
 }
 
 /** Dashboard one-shot loader (profile + posts via Apify, stories + followers via cluster). */

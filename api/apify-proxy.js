@@ -778,6 +778,81 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── AD LIBRARY (Phase F) — Meta Ad Library longevity tracker ──────────
+    // Given a page URL/ID, returns ads ranked by days_running. Long-running
+    // ads (>7 days) AND ads with multiple creative variants are heuristics
+    // for "actively scaling" — distinguishing real winners from burned cash.
+    if (action === 'ad_library') {
+      const { pageUrl, pageId, country = 'US', limit = 30 } = payload;
+      if (!pageUrl && !pageId) return res.status(400).json({ error: 'Missing pageUrl or pageId' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      // Build the canonical Meta Ad Library URL from pageId if not provided
+      const url = pageUrl || `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=${country}&search_type=page&view_all_page_id=${pageId}`;
+      try {
+        run = await startRun('apify/facebook-ads-scraper', {
+          startUrls: [{ url }],
+          count: Math.min(Math.max(limit, 5), 100),
+        });
+        completed = await pollRun(run.id);
+        const ads = await getDatasetItems(completed.defaultDatasetId, Math.min(limit, 100));
+        const now = Date.now();
+        // Compute days_running per ad + extract a clean shape for the UI
+        const enriched = (ads || []).map((a) => {
+          const startMs = a.startDateFormatted ? Date.parse(a.startDateFormatted) : null;
+          const endMs   = a.endDateFormatted   ? Date.parse(a.endDateFormatted)   : null;
+          const days_running = startMs ? Math.round((Math.min(now, endMs || now) - startMs) / 86400000) : null;
+          const snap = a.snapshot || {};
+          const images = Array.isArray(snap.images) ? snap.images : [];
+          const videos = Array.isArray(snap.videos) ? snap.videos : [];
+          const firstImg = images[0]?.original_image_url || images[0]?.resized_image_url || null;
+          const firstVid = videos[0]?.video_hd_url || videos[0]?.video_sd_url || null;
+          // body can be string OR { text } object
+          let bodyText = null;
+          if (snap.body) bodyText = (typeof snap.body === 'string') ? snap.body : (snap.body.text || null);
+          else if (snap.bodyText) bodyText = snap.bodyText;
+          return {
+            ad_id: a.adArchiveID || a.adArchiveId,
+            page_id: a.pageID || a.pageId,
+            page_name: a.pageName,
+            is_active: !!a.isActive,
+            start_date: a.startDateFormatted,
+            end_date: a.endDateFormatted,
+            days_running,
+            title: snap.title || snap.link_title || null,
+            body_text: bodyText ? bodyText.slice(0, 600) : null,
+            cta: snap.cta_text || snap.ctaText || null,
+            link_url: snap.link_url || snap.linkUrl || null,
+            image_url: firstImg,
+            video_url: firstVid,
+            categories: a.categories || [],
+            reach: a.reachEstimate || null,
+            currency: a.currency || null,
+          };
+        });
+        // Sort by days_running desc (scaling indicators)
+        enriched.sort((a, b) => (b.days_running || 0) - (a.days_running || 0));
+        // Compute scaling-indicator summary
+        const scaling = enriched.filter((e) => (e.days_running || 0) >= 7);
+        // Edge cache: ad library data changes daily, cache 6h fresh + 24h SWR
+        try {
+          const directive = 'public, max-age=0, s-maxage=21600, stale-while-revalidate=86400';
+          res.setHeader('Cache-Control', directive);
+          res.setHeader('CDN-Cache-Control', directive);
+          res.setHeader('Vercel-CDN-Cache-Control', directive);
+        } catch {}
+        return res.status(200).json(withSource(res, 'apify', {
+          ok: true,
+          ads: enriched,
+          total: enriched.length,
+          scaling_count: scaling.length,
+          page_name: enriched[0]?.page_name || null,
+        }));
+      } catch (err) {
+        console.error(`[ad_library] failed: ${err.message}`);
+        return res.status(500).json({ error: err.message, _dataSource: 'error' });
+      }
+    }
+
     // ── SCRIPT STUDIO — performance calc + NLP on the user's recent posts ──
     // Fetches ~50 posts via apify/instagram-post-scraper, runs the analysis
     // pipeline (engagement score → median baseline → delta → bucket → log-odds

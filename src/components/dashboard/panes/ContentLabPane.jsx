@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
+import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { supabase } from '../../../lib/supabase'
 import { fetchDeconstructProfile, fetchAIInsights, fetchGenerateSlides } from '../../../lib/apify'
 import { proxyImg } from '../shared/utils'
@@ -504,23 +505,11 @@ function TopPerformerCard({ template, rank, onSave }) {
 
 export default function ContentLabPane({ timeRange }) {
   const { user } = useAuth()
-  const [handle, setHandle] = useState(null)
+  const { handle } = useTrackedAccount()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    ;(async () => {
-      const { data: row } = await supabase
-        .from('tracked_accounts').select('username')
-        .eq('user_id', user.id).order('created_at', { ascending: false })
-        .limit(1).maybeSingle()
-      if (!cancelled) setHandle(row?.username || null)
-    })()
-    return () => { cancelled = true }
-  }, [user])
 
   const hydrate = useCallback(async (h, opts = {}) => {
     setLoading(true)

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
+import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { supabase } from '../../../lib/supabase'
 // Speed-v5: dashboard-context Apify path for top_commenters
 import { fetchDashboardTopCommenters } from '../../../lib/apify'
@@ -385,30 +386,11 @@ function WatchList({ comments, loading }) {
 /* ─── Main pane ───────────────────────────────────────────────────────── */
 export default function SentimentPane({ timeRange }) {
   const { user } = useAuth()
-  const [handle, setHandle] = useState(null)
-  const [handleLoading, setHL] = useState(true)
+  const { handle, loading: handleLoading } = useTrackedAccount()
   const [commenters, setCommenters] = useState({ items: [], loading: true, error: null })
   const [refreshing, setRefreshing] = useState(false)
 
   // Resolve tracked handle
-  useEffect(() => {
-    if (!user) { setHL(false); return }
-    let cancelled = false
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('tracked_accounts')
-        .select('username')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (cancelled) return
-      setHL(false)
-      if (error || !data) { setHandle(null); return }
-      setHandle(data.username)
-    })()
-    return () => { cancelled = true }
-  }, [user])
 
   // Fetch top_commenters
   const hydrate = useCallback(async (h) => {

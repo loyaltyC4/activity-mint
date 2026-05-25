@@ -26,6 +26,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { useAuth } from '../../../context/AuthContext'
+import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { supabase } from '../../../lib/supabase'
 // Speed-v5: dashboard-context Apify path for top_commenters (faster cold,
 // edge-cached warm). audience_enrichment stays on cluster.
@@ -422,24 +423,6 @@ export default function OutreachPane({ timeRange }) {
   const [sheetOpen, setSheetOpen] = useState(false)
 
   // Resolve tracked handle
-  useEffect(() => {
-    if (!user) { setHandleLoading(false); return }
-    let cancelled = false
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('tracked_accounts')
-        .select('username')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (cancelled) return
-      setHandleLoading(false)
-      if (error || !data) { setHandle(null); return }
-      setHandle(data.username)
-    })()
-    return () => { cancelled = true }
-  }, [user])
 
   // Hydrate: shared cache with AudiencePane and SentimentPane
   const hydrate = useCallback(async (h) => {

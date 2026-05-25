@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
+import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { supabase } from '../../../lib/supabase'
 import {
   // Speed-v5: dashboard-context Apify path for top_commenters (faster cold,
@@ -611,24 +612,6 @@ export default function AudiencePane({ timeRange }) {
   const [audience, setAudience] = useState({ items: [], loading: true, error: null })
 
   // Resolve tracked handle
-  useEffect(() => {
-    if (!user) { setHandleLoading(false); return }
-    let cancelled = false
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('tracked_accounts')
-        .select('username')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (cancelled) return
-      setHandleLoading(false)
-      if (error || !data) { setHandle(null); return }
-      setHandle(data.username)
-    })()
-    return () => { cancelled = true }
-  }, [user])
 
   // Fetch top_commenters + audience_enrichment in parallel, with cache
   const hydrate = useCallback(async (h) => {

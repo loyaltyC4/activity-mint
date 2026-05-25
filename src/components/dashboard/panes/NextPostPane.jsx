@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
+import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { supabase } from '../../../lib/supabase'
 import { fetchDashboardProfile, fetchInstagramPostsSWR, fetchAIInsights } from '../../../lib/apify'
 import { proxyImg } from '../shared/utils'
@@ -363,25 +364,13 @@ function DeadPhrasesCard({ studio, loading }) {
 
 export default function NextPostPane({ timeRange, onPaneChange }) {
   const { user } = useAuth()
-  const [handle, setHandle] = useState(null)
+  const { handle } = useTrackedAccount()
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [studio, setStudio] = useState(null)
 
   // Resolve tracked handle
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    ;(async () => {
-      const { data } = await supabase
-        .from('tracked_accounts').select('username')
-        .eq('user_id', user.id).order('created_at', { ascending: false })
-        .limit(1).maybeSingle()
-      if (!cancelled) setHandle(data?.username || null)
-    })()
-    return () => { cancelled = true }
-  }, [user])
 
   // Fetch profile + posts
   useEffect(() => {

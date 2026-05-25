@@ -17,6 +17,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell, Sparkles, Radio, Smile, Brain, Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
+import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { useTier } from '../../../context/TierContext'
 import { supabase } from '../../../lib/supabase'
 import {
@@ -331,24 +332,6 @@ export default function PulsePane({ timeRange }) {
   const [refreshing, setRefresh] = useState(false)
 
   // 1) Resolve the user's tracked handle from Supabase (fast — DB query <200ms)
-  useEffect(() => {
-    if (!user) { setHL(false); return }
-    let cancelled = false
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('tracked_accounts')
-        .select('username')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (cancelled) return
-      setHL(false)
-      if (error || !data) { setHandle(null); return }
-      setHandle(data.username)
-    })()
-    return () => { cancelled = true }
-  }, [user])
 
   // 2) Once we have a handle: hydrate from cache instantly, then refresh in background
   const hydrate = useCallback(async (h) => {

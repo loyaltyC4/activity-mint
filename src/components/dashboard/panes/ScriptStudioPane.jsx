@@ -202,24 +202,37 @@ function BlueprintCard({ blueprint }) {
   )
 }
 
-function ScriptsCard({ scripts }) {
+function ScriptsCard({ scripts, scriptsAi }) {
   const [copiedIdx, setCopiedIdx] = useState(-1)
-  if (!scripts || scripts.length === 0) {
+  if ((!scripts || scripts.length === 0) && (!scriptsAi || scriptsAi.length === 0)) {
     return <PlaceholderCard title="Steal This Script" subtitle="Templates appear once we have a structural blueprint" />
   }
+  const hasAi = Array.isArray(scriptsAi) && scriptsAi.length > 0
+  const list = hasAi ? scriptsAi : scripts
   return (
     <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600">
           <PenTool className="h-5 w-5" />
         </div>
-        <div>
-          <div className="text-base font-bold">Steal This Script</div>
-          <div className="text-xs text-[#64756f]">Fill-in-the-blank templates derived from your winning structure</div>
+        <div className="flex-1">
+          <div className="text-base font-bold flex items-center gap-2">
+            Steal This Script
+            {hasAi && (
+              <span className="rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5">
+                AI-written
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-[#64756f]">
+            {hasAi
+              ? 'Fully-written scripts that mirror your winning style and use your high-traction phrases'
+              : 'Fill-in-the-blank templates derived from your winning structure'}
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        {scripts.map((s, i) => (
+        {list.map((s, i) => (
           <div key={i} className="relative rounded-xl bg-slate-50 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
             <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#64756f]">Script {i + 1}</div>
             <pre className="whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800 font-medium">{s}</pre>
@@ -370,7 +383,7 @@ export default function ScriptStudioPane({ timeRange }) {
             <BlueprintCard blueprint={data.blueprint} />
           ) : <Skeleton className="h-32 w-full rounded-3xl" />}
           {ready ? (
-            <ScriptsCard scripts={data.scripts} />
+            <ScriptsCard scripts={data.scripts} scriptsAi={data.scripts_ai} />
           ) : <Skeleton className="h-48 w-full rounded-3xl" />}
         </div>
       )}

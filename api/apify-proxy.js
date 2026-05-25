@@ -28,10 +28,78 @@
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const SCRAPER_SERVICE_URL = process.env.SCRAPER_SERVICE_URL;
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;  // Phase H: optional LLM
 const BASE = 'https://api.apify.com/v2';
 
 // Script Studio backend — performance calc + NLP. Vercel ESM relative import.
 import scriptStudio from './_lib/scriptStudio.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase H: LLM script generation (optional, gated on ANTHROPIC_API_KEY)
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Generate 3 fully-written scripts using Claude Haiku. Returns null if
+ * ANTHROPIC_API_KEY isn't set. Uses the structural blueprint + lexicon as
+ * the system prompt so output mirrors the user's winning style.
+ */
+async function llmGenerateScripts({ blueprint, lexicon, samples, topic = null }) {
+  if (!ANTHROPIC_API_KEY) return null;
+  const topWinners = (lexicon?.winners || []).slice(0, 8).map((w) => w.phrase);
+  const topLosers  = (lexicon?.losers  || []).slice(0, 8).map((l) => l.phrase);
+  const winnerSamples = (samples?.winners || []).slice(0, 2)
+    .map((s) => `- "${(s.caption || '').slice(0, 200)}" (Δ_P=${s.delta?.toFixed(2)})`).join('\n');
+  const sys = [
+    'You are a copywriting analyst. You will receive a quantitative analysis of an',
+    'Instagram account and must produce three fully-written caption scripts that',
+    'mirror the WINNING patterns in the analysis.',
+    '',
+    `Common opener style: ${blueprint?.common_opener?.label || 'plain statement'} (${Math.round((blueprint?.common_opener?.share || 0) * 100)}% of winners).`,
+    `Common ending style: ${blueprint?.common_ending?.id || 'none'} (${Math.round((blueprint?.common_ending?.share || 0) * 100)}% of winners).`,
+    `Avg winning caption length: ${blueprint?.avg_length || 300} chars.`,
+    `Uses bulleted lists: ${Math.round((blueprint?.uses_bullets_share || 0) * 100)}% of winners.`,
+    '',
+    'High-traction phrases (USE THESE where natural):',
+    topWinners.length ? topWinners.map((w) => `  - "${w}"`).join('\n') : '  (none identified)',
+    '',
+    'Dead phrases (AVOID these):',
+    topLosers.length ? topLosers.map((l) => `  - "${l}"`).join('\n') : '  (none identified)',
+    '',
+    'Reference winning posts from this account:',
+    winnerSamples || '  (none)',
+    '',
+    'Output: EXACTLY 3 caption scripts, separated by "\\n---\\n". No commentary.',
+    'Each script should mirror the winning structure (opener style, length, ending).',
+    topic ? `Topic to write about: ${topic}` : 'Choose 3 different angles relevant to the account.',
+  ].join('\n');
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-latest',
+        max_tokens: 1500,
+        system: sys,
+        messages: [{ role: 'user', content: 'Generate the 3 scripts now.' }],
+      }),
+    });
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      console.warn(`[llm] Anthropic ${resp.status}: ${errBody.slice(0, 200)}`);
+      return null;
+    }
+    const body = await resp.json();
+    const text = body?.content?.[0]?.text || '';
+    return text.split(/\n---\n/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
+  } catch (err) {
+    console.warn(`[llm] exception: ${err.message}`);
+    return null;
+  }
+}
 
 if (!APIFY_TOKEN) console.error('APIFY_TOKEN environment variable is not configured');
 
@@ -879,6 +947,19 @@ export default async function handler(req, res) {
         }
         // 2. Run the analysis pipeline (pure compute, ~15ms)
         const analysis = scriptStudio.analyze(posts);
+
+        // 2b. Phase H: optional LLM script generation (only if env key set
+        // AND payload.llm=true so we don't pay for every cold call).
+        if (analysis.ok && payload.llm === true && ANTHROPIC_API_KEY) {
+          const aiScripts = await llmGenerateScripts({
+            blueprint: analysis.blueprint,
+            lexicon: analysis.lexicon,
+            samples: analysis.samples,
+            topic: payload.topic || null,
+          });
+          if (aiScripts && aiScripts.length > 0) analysis.scripts_ai = aiScripts;
+        }
+
         // 3. Long edge cache — analyses change slowly. 4h fresh + 24h SWR.
         try {
           const directive = 'public, max-age=0, s-maxage=14400, stale-while-revalidate=86400';

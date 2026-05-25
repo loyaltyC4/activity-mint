@@ -413,8 +413,7 @@ function DMSheet({ open, onOpenChange, candidate, bucket, myHandle }) {
 /* ─── Main pane ───────────────────────────────────────────────────────── */
 export default function OutreachPane({ timeRange }) {
   const { user } = useAuth()
-  const [handle, setHandle] = useState(null)
-  const [handleLoading, setHandleLoading] = useState(true)
+  const { handle, loading: handleLoading } = useTrackedAccount()
   const [topCommenters, setTopCommenters] = useState({ items: [], loading: true, error: null })
   const [audience, setAudience] = useState({ items: [], loading: true, error: null })
   const [refreshing, setRefreshing] = useState(false)
@@ -422,7 +421,6 @@ export default function OutreachPane({ timeRange }) {
   const [sheetBucket, setSheetBucket] = useState(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  // Resolve tracked handle
 
   // Hydrate: shared cache with AudiencePane and SentimentPane
   const hydrate = useCallback(async (h) => {

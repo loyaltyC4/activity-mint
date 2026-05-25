@@ -324,14 +324,12 @@ export default function PulsePane({ timeRange }) {
   const { tier } = useTier()
   const isPaid = tier === 'standard' || tier === 'premium'
 
-  const [handle, setHandle]     = useState(null)
-  const [handleLoading, setHL]  = useState(true)
+  const { handle, loading: handleLoading } = useTrackedAccount()
   const [profile, setProfile]   = useState(null)
   const [stories, setStories]   = useState([])
   const [posts, setPosts]       = useState([])
   const [refreshing, setRefresh] = useState(false)
 
-  // 1) Resolve the user's tracked handle from Supabase (fast — DB query <200ms)
 
   // 2) Once we have a handle: hydrate from cache instantly, then refresh in background
   const hydrate = useCallback(async (h) => {

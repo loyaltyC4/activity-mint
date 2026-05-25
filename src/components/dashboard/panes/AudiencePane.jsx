@@ -604,14 +604,12 @@ function AudienceOverlapCard({ handle }) {
 export default function AudiencePane({ timeRange }) {
   const { user } = useAuth()
 
-  const [handle, setHandle] = useState(null)
-  const [handleLoading, setHandleLoading] = useState(true)
+  const { handle, loading: handleLoading } = useTrackedAccount()
   const [refreshing, setRefreshing] = useState(false)
 
   const [topCommenters, setTopCommenters] = useState({ items: [], loading: true, error: null })
   const [audience, setAudience] = useState({ items: [], loading: true, error: null })
 
-  // Resolve tracked handle
 
   // Fetch top_commenters + audience_enrichment in parallel, with cache
   const hydrate = useCallback(async (h) => {

@@ -274,17 +274,19 @@ function withSource(res, source, body) {
 //   top_commenters / audience: 120s fresh, 10 min SWR (heavy, slow to compute)
 //   stories:                   30s fresh, 1 min SWR (changes hourly)
 //   followers / following:     60s fresh, 5 min SWR
+// Speed-v7: edge cache TTLs bumped to match orchestrator. Target: >90%
+// of requests served from edge (50ms) or orchestrator Redis (3ms).
 const CACHE_PROFILES = {
-  profile:              { sMax:  60, swr: 300 },
-  'profile-with-posts': { sMax: 120, swr: 600 },
-  posts:                { sMax:  60, swr: 300 },
-  followers:            { sMax:  60, swr: 300 },
-  following:            { sMax:  60, swr: 300 },
-  stories:              { sMax:  30, swr:  60 },
-  top_commenters:       { sMax: 120, swr: 600 },
-  audience_enrichment:  { sMax: 300, swr: 900 },
-  dashboard_load:       { sMax:  60, swr: 300 },
-  comments:             { sMax: 120, swr: 600 },
+  profile:              { sMax: 300, swr: 900 },
+  'profile-with-posts': { sMax: 300, swr: 900 },
+  posts:                { sMax: 300, swr: 900 },
+  followers:            { sMax: 180, swr: 600 },
+  following:            { sMax: 180, swr: 600 },
+  stories:              { sMax:  90, swr: 300 },
+  top_commenters:       { sMax: 300, swr: 900 },
+  audience_enrichment:  { sMax: 600, swr: 1800 },
+  dashboard_load:       { sMax: 300, swr: 900 },
+  comments:             { sMax: 180, swr: 600 },
 };
 
 function setEdgeCache(res, action) {

@@ -19,6 +19,7 @@ const ScriptStudioPane = lazy(() => import('./panes/ScriptStudioPane'))
 const SentimentPane   = lazy(() => import('./panes/SentimentPane'))
 const TrendsPane      = lazy(() => import('./panes/TrendsPane'))
 const AdLabPane       = lazy(() => import('./panes/AdLabPane'))
+const NextPostPane    = lazy(() => import('./panes/NextPostPane'))
 const OutreachPane    = lazy(() => import('./panes/OutreachPane'))
 const ToolsPane       = lazy(() => import('./panes/ToolsPane'))
 const CompetitorsPane = lazy(() => import('./panes/CompetitorsPane'))
@@ -62,6 +63,7 @@ function PaneRouter({ paneId, timeRange }) {
     case 'sentiment':   return <SentimentPane   timeRange={timeRange} />
     case 'trends':      return <TrendsPane      timeRange={timeRange} />
     case 'adlab':       return <AdLabPane       timeRange={timeRange} />
+    case 'planner':     return <NextPostPane    timeRange={timeRange} />
     case 'outreach':    return <OutreachPane    timeRange={timeRange} />
     case 'toolkit':     return <ToolsPane />
     case 'competitors': return <CompetitorsPane timeRange={timeRange} />

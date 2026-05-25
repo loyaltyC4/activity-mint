@@ -1,7 +1,6 @@
 /**
- * Sticky sidebar (256px wide on desktop, hidden <lg).
- * 3 nav groups (Overview / Growth / You), profile card on top,
- * upsell card at the bottom (hidden for paid tiers).
+ * Sticky sidebar — 3 nav groups, profile card, upsell card.
+ * Updated to include Script Studio, Ad Lab, and Next Post planner.
  */
 
 'use strict'
@@ -11,24 +10,27 @@ import {
   Home, Users, LayoutGrid, MessageSquare,
   TrendingUp, Phone, Wrench, Globe,
   Award, Settings as Cog, Sparkles,
+  PenTool, Megaphone, CalendarDays,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { PANES } from './index'
 
 const NAV_GROUPS = [
   {
     label: 'Overview',
     items: [
-      { id: 'pulse',       Icon: Home,         label: 'Pulse' },
-      { id: 'audience',    Icon: Users,        label: 'Audience & Mood' },
-      { id: 'content',     Icon: LayoutGrid,   label: 'Content Lab' },
-      { id: 'sentiment',   Icon: MessageSquare,label: 'Sentiment' },
+      { id: 'pulse',     Icon: Home,          label: 'Pulse' },
+      { id: 'audience',  Icon: Users,         label: 'Audience & Mood' },
+      { id: 'content',   Icon: LayoutGrid,    label: 'Content Lab' },
+      { id: 'script',    Icon: PenTool,       label: 'Script Studio', badge: 'pro' },
+      { id: 'sentiment', Icon: MessageSquare, label: 'Sentiment' },
     ],
   },
   {
     label: 'Growth',
     items: [
+      { id: 'planner',     Icon: CalendarDays, label: 'Next Post',         badge: 'new' },
+      { id: 'adlab',       Icon: Megaphone,    label: 'Ad Lab',            badge: 'new' },
       { id: 'trends',      Icon: TrendingUp,   label: 'Trends & Insights', badge: 'new' },
       { id: 'outreach',    Icon: Phone,        label: 'Outreach Ideas' },
       { id: 'toolkit',     Icon: Wrench,       label: 'Tools' },
@@ -38,8 +40,8 @@ const NAV_GROUPS = [
   {
     label: 'You',
     items: [
-      { id: 'rewards',     Icon: Award, label: 'Rewards' },
-      { id: 'settings',    Icon: Cog,   label: 'Settings' },
+      { id: 'rewards',  Icon: Award, label: 'Rewards' },
+      { id: 'settings', Icon: Cog,   label: 'Settings' },
     ],
   },
 ]
@@ -73,7 +75,7 @@ function UpsellCard() {
           Go Mint Pro
         </div>
         <p className="mb-2.5 text-[11.5px] leading-[1.45] text-[#64756f]">
-          Competitor tracking, full AI ideas, unlimited history &amp; email alerts.
+          Script Studio, Ad Lab, competitor tracking, full AI + email alerts.
         </p>
         <button className="w-full rounded-[11px] bg-teal-950 py-2 text-xs font-semibold text-white transition-transform hover:scale-[1.02]">
           Upgrade — $9/mo
@@ -88,10 +90,10 @@ function NavItem({ id, Icon, label, badge, active, onClick }) {
     <button
       onClick={() => onClick(id)}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-all",
+        'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-all',
         active
-          ? "bg-teal-50 text-teal-600 shadow-[0_0_0_1px_rgba(20,184,166,0.28)]"
-          : "bg-transparent text-[#64756f] hover:bg-[#f0f4f3] hover:text-foreground"
+          ? 'bg-teal-50 text-teal-600 shadow-[0_0_0_1px_rgba(20,184,166,0.28)]'
+          : 'bg-transparent text-[#64756f] hover:bg-[#f0f4f3] hover:text-foreground'
       )}
     >
       <Icon className="h-[15px] w-[15px] shrink-0" />

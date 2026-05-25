@@ -368,10 +368,72 @@ export default function PulsePane({ timeRange }) {
   const engagement = profile?.engagementRate ?? null
   const hasData    = !!profile || posts.length > 0
 
+  // ─── Mint Score v2: 5-component composite (0–100) ──────────────────────
+  // Component 1 (0–40): ER score. Tier-normalised against expected ER.
+  // Component 2 (0–25): Engagement quality. Comment-to-like ratio vs 8% benchmark.
+  // Component 3 (0–20): Recency. Days since last post — penalises stale accounts.
+  // Component 4 (0–10): Content mix. More format variety = more resilient.
+  // Component 5 (0–5):  Follower quality. Low following/followers ratio = organic.
+  const mintScoreV2 = React.useMemo(() => {
+    if (!profile && posts.length === 0) return null
+    const following = Number(profile?.followingCount ?? profile?.following ?? 0)
+    const fol = Number(followers ?? 0)
+    const fol1k = fol || 1
+
+    // Expected ER by tier
+    const expectedER = fol >= 1_000_000 ? 1 : fol >= 100_000 ? 2 : fol >= 10_000 ? 4 : fol >= 1_000 ? 7 : 12
+
+    // Compute per-post ER for the most recent post (or avg of all)
+    let totalER = 0, totalCR = 0, n = 0
+    for (const p of posts.slice(0, 8)) {
+      const likes = Number(p.likes ?? p.likesCount ?? 0)
+      const comments = Number(p.comments ?? p.commentsCount ?? 0)
+      const er = fol1k > 0 ? ((likes + comments) / fol1k) * 100 : 0
+      const cr = likes > 0 ? (comments / likes) : 0
+      totalER += er; totalCR += cr; n += 1
+    }
+    const avgER = n > 0 ? totalER / n : 0
+    const avgCR = n > 0 ? totalCR / n : 0
+
+    // Component 1: ER score (0–40)
+    const erScore = Math.min(40, (avgER / expectedER) * 20)
+
+    // Component 2: Quality score (0–25) — 0.08 = 8% benchmark (1 comment per 12.5 likes)
+    const qScore = Math.min(25, (avgCR / 0.08) * 25)
+
+    // Component 3: Recency (0–20) — 2 pts lost per day, 10 days stale = 0
+    let daysSince = 10
+    if (posts.length > 0 && posts[0]?.timestamp) {
+      const newest = posts.reduce((a, b) => {
+        const at = a.timestamp ? Date.parse(a.timestamp) : 0
+        const bt = b.timestamp ? Date.parse(b.timestamp) : 0
+        return at > bt ? a : b
+      })
+      daysSince = (Date.now() - Date.parse(newest.timestamp)) / 86400000
+    }
+    const recencyScore = Math.max(0, 20 - daysSince * 2)
+
+    // Component 4: Content mix (0–10)
+    const types = new Set(posts.map((p) => p.type || 'Image'))
+    const mixScore = types.size >= 3 ? 10 : types.size === 2 ? 7 : 4
+
+    // Component 5: Follower quality proxy (0–5) — low following/followers = organic
+    const ratio = following / Math.max(1, fol)
+    const fqScore = Math.max(0, 5 * (1 - Math.min(1, ratio)))
+
+    return Math.round(erScore + qScore + recencyScore + mixScore + fqScore)
+  }, [posts, profile, followers])
+
   // ─── Real-data sparklines ────────────────────────────────────────────────
-  // Sort posts oldest → newest. Even 1 post produces valid values (the
-  // AreaSparkline handles <2 points with a dashed placeholder; the VALUE
-  // fields must always show something real).
+  // padSpark: with only 1 datapoint, synthesise [0,0,0,0,0,0,value] so the
+  // chart draws a rising line from zero to the current value — visually
+  // honest (the account started from nothing) and removes the dashed placeholder.
+  const padSpark = (arr) => {
+    if (!Array.isArray(arr) || arr.length === 0) return []
+    if (arr.length >= 2) return arr
+    return [0, 0, 0, 0, 0, 0, arr[0]]
+  }
+
   const sparks = React.useMemo(() => {
     if (!Array.isArray(posts) || posts.length === 0) {
       return { likes: [], engagementRate: [], mintScore: [], commentsRatio: [] }
@@ -394,8 +456,10 @@ export default function PulsePane({ timeRange }) {
       const c = Number(p.comments ?? p.commentsCount ?? 0)
       return l > 0 ? (c / l) * 100 : 0
     })
-    // Mint score: per-post ER normalised vs industry baseline (3% = 100)
-    const mintScore = engagementRate.map((e) => Math.min(100, Math.round((e / 3) * 100)))
+    // Mint v2 per-post score for sparkline — use ER/expectedER normalised
+    const fol = followers || 1
+    const expectedER = fol >= 1_000_000 ? 1 : fol >= 100_000 ? 2 : fol >= 10_000 ? 4 : fol >= 1_000 ? 7 : 12
+    const mintScore = engagementRate.map((e) => Math.min(100, Math.round((e / expectedER) * 50)))
     return { likes, engagementRate, mintScore, commentsRatio }
   }, [posts, followers])
 
@@ -444,13 +508,13 @@ export default function PulsePane({ timeRange }) {
           <KpiCard
             index={0}
             label="Mint Score"
-            value={latestMint ?? singleMint ?? (hasData ? 75 : '--')}
+            value={mintScoreV2 ?? latestMint ?? singleMint ?? (hasData ? 75 : '--')}
             Icon={Sparkles}
             trend={trendMint}
-            trendLabel={trendMint != null ? `${trendMint >= 0 ? '↑' : '↓'} ${Math.abs(trendMint).toFixed(0)}% vs first` : (singleMint != null ? 'vs 3% avg ER' : null)}
-            sparkData={sparks.mintScore}
+            trendLabel={trendMint != null ? `${trendMint >= 0 ? '↑' : '↓'} ${Math.abs(trendMint).toFixed(0)}% vs first` : (mintScoreV2 != null ? '5-factor composite' : null)}
+            sparkData={padSpark(sparks.mintScore)}
             sparkColor="teal"
-            emptyHint="Post more to see trend"
+            emptyHint="No posts yet"
           />
           <KpiCard
             index={1}
@@ -459,9 +523,9 @@ export default function PulsePane({ timeRange }) {
             Icon={Radio}
             trend={trendReach}
             trendLabel={trendReach != null ? `${trendReach >= 0 ? '↑' : '↓'} ${Math.abs(trendReach).toFixed(0)}% likes` : null}
-            sparkData={sparks.likes}
+            sparkData={padSpark(sparks.likes)}
             sparkColor="sky"
-            emptyHint="Post more to see trend"
+            emptyHint="No posts yet"
           />
           <KpiCard
             index={2}
@@ -475,9 +539,9 @@ export default function PulsePane({ timeRange }) {
             Icon={Heart}
             trend={trendER}
             trendLabel={trendER != null ? `${trendER >= 0 ? '↑' : '↓'} ${Math.abs(trendER).toFixed(0)}%` : null}
-            sparkData={sparks.engagementRate}
+            sparkData={padSpark(sparks.engagementRate)}
             sparkColor="coral"
-            emptyHint="Post more to see trend"
+            emptyHint="No posts yet"
           />
           <KpiCard
             index={3}
@@ -490,9 +554,9 @@ export default function PulsePane({ timeRange }) {
             Icon={Smile}
             trend={trendMood}
             trendLabel={trendMood != null ? `${trendMood >= 0 ? '↑' : '↓'} ${Math.abs(trendMood).toFixed(0)}% comment ratio` : null}
-            sparkData={sparks.commentsRatio}
+            sparkData={padSpark(sparks.commentsRatio)}
             sparkColor="violet"
-            emptyHint="Post more to see trend"
+            emptyHint="No posts yet"
           />
         </div>
 

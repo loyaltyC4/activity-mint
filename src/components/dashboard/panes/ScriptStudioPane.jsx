@@ -18,10 +18,11 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   PenTool, TrendingUp, TrendingDown, Sparkles, Copy, RefreshCw,
-  BarChart3, FileText, Loader2, AlertCircle,
+  BarChart3, FileText, Loader2, AlertCircle, Lock, Crown, ArrowRight,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
+import { useTier } from '../../../context/TierContext'
 import { supabase } from '../../../lib/supabase'
 import { fetchScriptStudio } from '../../../lib/apify'
 
@@ -267,8 +268,64 @@ function PlaceholderCard({ title, subtitle }) {
   )
 }
 
+function ProLockedHero() {
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-white to-violet-50 p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+      {/* Subtle decorative grid */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,1) 1px, transparent 0)',
+          backgroundSize: '16px 16px',
+        }}
+      />
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-white shadow-[0_8px_24px_-8px_rgba(245,158,11,0.6)]">
+            <Crown className="h-4 w-4" />
+          </span>
+          <span className="rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold px-2.5 py-1">Pro feature</span>
+        </div>
+        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Script Studio</h2>
+        <p className="mt-2 max-w-xl text-sm text-slate-600 leading-relaxed">
+          A mathematical copywriting blueprint built from your own engagement history.
+          We compute a per-post performance delta against your median baseline,
+          then run a log-odds analysis to surface the exact phrases driving your
+          winners — and the dead phrases dragging you down.
+        </p>
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <FeatureBullet Icon={BarChart3} title="Performance Distribution" copy="See exactly where every post lands vs your baseline" />
+          <FeatureBullet Icon={Sparkles}  title="Verified Lexicon" copy="High-traction phrases · dead phrases · with statistical lift %" />
+          <FeatureBullet Icon={PenTool}   title="Steal-This-Script" copy="3 fill-in-the-blank templates mirroring your winning structure" />
+        </div>
+        <button
+          onClick={() => alert('Upgrade flow coming — contact us to enable Pro')}
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-5 text-sm shadow-[0_8px_24px_-8px_rgba(15,23,42,0.5)] transition-transform hover:scale-[1.02]"
+        >
+          Upgrade to unlock <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function FeatureBullet({ Icon, title, copy }) {
+  return (
+    <div className="rounded-xl bg-white p-3 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+      <div className="flex items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-slate-700">
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <div className="text-xs font-bold text-slate-900">{title}</div>
+      </div>
+      <div className="mt-1.5 text-[11px] text-slate-600 leading-relaxed">{copy}</div>
+    </div>
+  )
+}
+
 export default function ScriptStudioPane({ timeRange }) {
   const { user } = useAuth()
+  const { tier } = useTier()
+  const isPaid = tier === 'standard' || tier === 'premium'
   const [handle, setHandle] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -326,6 +383,17 @@ export default function ScriptStudioPane({ timeRange }) {
     if (!handle) return
     hydrate(handle)
   }, [handle, hydrate])
+
+  // Pro gate — Script Studio is paid-only. Show a marketing hero with the
+  // value proposition for free users, full pane for standard/premium.
+  if (!isPaid) {
+    return (
+      <>
+        <PaneHeader title="Script Studio" subtitle="Mathematical copywriting blueprint from your post history" />
+        <ProLockedHero />
+      </>
+    )
+  }
 
   if (!handle) {
     return (

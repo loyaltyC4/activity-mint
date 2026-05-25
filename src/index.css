@@ -75,3 +75,11 @@
   .rotate-y-\[-5deg\] { transform: rotateY(-5deg); }
   .rotate-x-\[5deg\] { transform: rotateX(5deg); }
 }
+
+/* Speed-v6: shimmer keyframe used by Skeleton (sweep light bar
+   left-to-right across loading surfaces — gives a sleek warm-loading
+   feel instead of the static pulse). */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}

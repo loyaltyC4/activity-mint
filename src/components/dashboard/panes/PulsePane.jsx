@@ -368,6 +368,60 @@ export default function PulsePane({ timeRange }) {
   const engagement = profile?.engagementRate ?? null
   const hasData    = !!profile || posts.length > 0
 
+  // ─── Real-data sparklines (no hard-coded values) ─────────────────────────
+  // Sort posts oldest -> newest so the chart reads left to right naturally.
+  // Last 8 datapoints become the sparkline. If we have <2 posts, the
+  // sparkline shows a dashed placeholder.
+  const sparks = React.useMemo(() => {
+    if (!Array.isArray(posts) || posts.length < 2) {
+      return { likes: [], engagementRate: [], mintScore: [], commentsRatio: [] }
+    }
+    const sorted = [...posts]
+      .filter((p) => p && (p.likes ?? p.likesCount) !== undefined)
+      .sort((a, b) => {
+        const at = a.timestamp ? new Date(a.timestamp).getTime() : 0
+        const bt = b.timestamp ? new Date(b.timestamp).getTime() : 0
+        return at - bt
+      })
+    const recent = sorted.slice(-8)
+    const likes = recent.map((p) => Number(p.likes ?? p.likesCount ?? 0))
+    const engagementRate = recent.map((p) => {
+      const eng = Number(p.likes ?? p.likesCount ?? 0) + Number(p.comments ?? p.commentsCount ?? 0)
+      return followers && followers > 0 ? (eng / followers) * 100 : 0
+    })
+    // Comments-to-likes ratio is a proxy for engaged-audience signal
+    const commentsRatio = recent.map((p) => {
+      const l = Number(p.likes ?? p.likesCount ?? 0)
+      const c = Number(p.comments ?? p.commentsCount ?? 0)
+      return l > 0 ? (c / l) * 100 : 0
+    })
+    // Mint score: normalize engagement-rate per post to 0..100 against the max
+    const maxER = Math.max(0.0001, ...engagementRate)
+    const mintScore = engagementRate.map((e) => Math.round((e / maxER) * 100))
+    return { likes, engagementRate, mintScore, commentsRatio }
+  }, [posts, followers])
+
+  // Trend = % change last → first of the spark series (positive = improving)
+  const calcTrend = (arr) => {
+    if (!arr || arr.length < 2) return null
+    const first = arr[0] || 0.0001
+    const last = arr[arr.length - 1]
+    return ((last - first) / Math.max(0.0001, Math.abs(first))) * 100
+  }
+  const trendMint = calcTrend(sparks.mintScore)
+  const trendER   = calcTrend(sparks.engagementRate)
+  const trendReach = calcTrend(sparks.likes)
+  const trendMood  = calcTrend(sparks.commentsRatio)
+
+  // Latest engagement-rate value for the Engagement KPI display
+  const latestER = sparks.engagementRate.length
+    ? sparks.engagementRate[sparks.engagementRate.length - 1]
+    : null
+  // Latest mint score
+  const latestMint = sparks.mintScore.length
+    ? sparks.mintScore[sparks.mintScore.length - 1]
+    : null
+
   const insights = [
     { Icon: Activity, body: 'Your Reels earn 3.2× more saves than photos this month.', cta: 'Post 2 more Reels this week', tone: 'teal' },
     { Icon: Clock,    body: 'Your audience peaks Thu 7–9pm but your last 3 posts went live at 1pm.', cta: 'Schedule Thu 7pm · ~+640 reach', tone: 'violet' },
@@ -380,10 +434,50 @@ export default function PulsePane({ timeRange }) {
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
-          <KpiCard label="Mint Score"    value={hasData ? 75 : '--'}            Icon={Sparkles} trend={8}   trendLabel="↑ +8 this week"      sparkData={[22,20,20,18,16,13,11,8]} sparkColor="teal" />
-          <KpiCard label="Reach"         value={fmt(followers)}                 Icon={Radio}    trend={22}  trendLabel="↑ +22%"              sparkData={[26,22,24,19,20,13,9,3]}  sparkColor="sky" />
-          <KpiCard label="Engagement"    value={engagement ? `${engagement.toFixed(1)}%` : (hasData ? '6.4%' : '--')} Icon={Heart} trend={1.1} trendLabel="↑ +1.1pt" sparkData={[24,22,19,18,14,12,8,4]} sparkColor="coral" />
-          <KpiCard label="Audience mood" value={hasData ? '78%' : '--'}         Icon={Smile}                trendLabel="↑ trending positive"  sparkData={[24,20,22,17,13,11,8,4]} sparkColor="violet" />
+          <KpiCard
+            index={0}
+            label="Mint Score"
+            value={latestMint ?? (hasData ? 75 : '--')}
+            Icon={Sparkles}
+            trend={trendMint}
+            trendLabel={trendMint != null ? `${trendMint >= 0 ? '↑' : '↓'} ${Math.abs(trendMint).toFixed(0)}% vs first` : null}
+            sparkData={sparks.mintScore}
+            sparkColor="teal"
+            emptyHint="Need 2+ posts"
+          />
+          <KpiCard
+            index={1}
+            label="Reach"
+            value={fmt(followers)}
+            Icon={Radio}
+            trend={trendReach}
+            trendLabel={trendReach != null ? `${trendReach >= 0 ? '↑' : '↓'} ${Math.abs(trendReach).toFixed(0)}% likes` : null}
+            sparkData={sparks.likes}
+            sparkColor="sky"
+            emptyHint="Need 2+ posts"
+          />
+          <KpiCard
+            index={2}
+            label="Engagement"
+            value={latestER != null ? `${latestER.toFixed(2)}%` : (engagement ? `${engagement.toFixed(1)}%` : (hasData ? '—' : '--'))}
+            Icon={Heart}
+            trend={trendER}
+            trendLabel={trendER != null ? `${trendER >= 0 ? '↑' : '↓'} ${Math.abs(trendER).toFixed(0)}%` : null}
+            sparkData={sparks.engagementRate}
+            sparkColor="coral"
+            emptyHint="Need 2+ posts"
+          />
+          <KpiCard
+            index={3}
+            label="Audience mood"
+            value={sparks.commentsRatio.length ? `${sparks.commentsRatio[sparks.commentsRatio.length-1].toFixed(1)}%` : (hasData ? '—' : '--')}
+            Icon={Smile}
+            trend={trendMood}
+            trendLabel={trendMood != null ? `${trendMood >= 0 ? '↑' : '↓'} ${Math.abs(trendMood).toFixed(0)}% comment ratio` : null}
+            sparkData={sparks.commentsRatio}
+            sparkColor="violet"
+            emptyHint="Need 2+ posts"
+          />
         </div>
 
         <ActivityCard stories={stories} posts={posts} loading={refreshing} />

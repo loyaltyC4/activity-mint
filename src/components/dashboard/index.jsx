@@ -23,7 +23,7 @@ export const PANES = {
   pulse:       { group: 'Overview', label: 'Pulse' },
   audience:    { group: 'Overview', label: 'Audience & Mood' },
   content:     { group: 'Overview', label: 'Content Lab' },
-  script:      { group: 'Overview', label: 'Script Studio', badge: 'new' },
+  script:      { group: 'Overview', label: 'Script Studio', badge: 'pro' },
   sentiment:   { group: 'Overview', label: 'Sentiment' },
   // Growth
   trends:      { group: 'Growth',   label: 'Trends & Insights', badge: 'new' },

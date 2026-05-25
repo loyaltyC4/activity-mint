@@ -642,12 +642,24 @@ export default function ContentLabPane({ timeRange }) {
         </div>
       )}
 
-      {/* Only show data sections when we have real data */}
+      {/* Show friendly empty state when data returned ok:false (not enough posts) */}
       {!data?.ok && !loading && !error && (
         <div className="rounded-2xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
           <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
-          <h3 className="mt-3 text-base font-bold text-slate-900">Waiting for data</h3>
-          <p className="mt-1 text-sm text-slate-500">Content Lab will populate once your posts are analysed.</p>
+          <h3 className="mt-3 text-base font-bold text-slate-900">
+            {data?.reason === 'insufficient-posts' || data?.posts_count === 0
+              ? 'Not enough posts to analyse'
+              : 'Loading content intelligence'}
+          </h3>
+          <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto">
+            {data?.reason
+              ? 'Content Lab needs at least 3 public posts to deconstruct. Try tracking an account with more content like @natgeotravel or @moretolife.au.'
+              : 'Content Lab will populate once your posts are analysed. This can take 10-30 seconds on the first load.'}
+          </p>
+          <button onClick={() => hydrate(handle, { force: true })}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-200">
+            <RefreshCw className="h-3 w-3" /> Retry
+          </button>
         </div>
       )}
 

@@ -969,19 +969,27 @@ export default async function handler(req, res) {
         let followers = 0;
         let source = 'cluster';
 
-        // Path A: Apify (50 posts, best analysis)
+        // Path A: Apify (50 posts, best analysis) — skip if tokens exhausted
         if (APIFY_TOKEN) {
           try {
             const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
-            const profDone = await pollRun(profRun.id);
-            const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
-            followers = profRaw?.[0]?.followersCount || 0;
+            if (profRun?.id) {
+              const profDone = await pollRun(profRun.id);
+              if (profDone?.defaultDatasetId) {
+                const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
+                followers = profRaw?.[0]?.followersCount || 0;
+              }
+            }
             const postsRun = await startRun('apify/instagram-post-scraper', {
               username: [cleanUser], resultsLimit: Math.min(Math.max(postLimit, 10), 100),
             });
-            const postsDone = await pollRun(postsRun.id);
-            posts = await getDatasetItems(postsDone.defaultDatasetId, 100) || [];
-            source = 'apify';
+            if (postsRun?.id) {
+              const postsDone = await pollRun(postsRun.id);
+              if (postsDone?.defaultDatasetId) {
+                posts = await getDatasetItems(postsDone.defaultDatasetId, 100) || [];
+              }
+            }
+            if (posts.length > 0) source = 'apify';
           } catch (apifyErr) {
             console.warn(`[deconstruct] Apify failed (${apifyErr.message}), falling back to cluster`);
           }
@@ -1046,40 +1054,48 @@ export default async function handler(req, res) {
         // Script Studio's analysis (minimum threshold is 3).
         let finalPosts = [];
 
-        // Path A: Apify deep scrape
+        // Path A: Apify deep scrape (skip if tokens exhausted)
         if (APIFY_TOKEN) {
           try {
             run = await startRun('apify/instagram-post-scraper', {
               username: [cleanUser], resultsLimit: Math.min(Math.max(postLimit, 10), 100),
             });
-            completed = await pollRun(run.id);
-            finalPosts = await getDatasetItems(completed.defaultDatasetId, 100) || [];
+            if (run?.id) {
+              completed = await pollRun(run.id);
+              if (completed?.defaultDatasetId) {
+                finalPosts = await getDatasetItems(completed.defaultDatasetId, 100) || [];
+              }
+            }
           } catch (apifyErr) {
             console.warn(`[script_studio] Apify failed (${apifyErr.message}), trying cluster`);
           }
         }
 
-        // Path B: Cluster fallback (profile-with-posts gives 12 latestPosts)
+        // Path B: Cluster fallback (gets ~12 posts via GraphQL interception)
         if (finalPosts.length < 3 && SCRAPER_SERVICE_URL) {
           try {
             const tasks = [{ action: 'posts', payload: { username: cleanUser, limit: 12 } }];
             const results = await callScraperBatch(tasks, 'parallel');
-            const postsRes = results.find((r) => r.action === 'posts');
+            const postsRes = results?.find?.((r) => r.action === 'posts');
             if (postsRes?.ok && Array.isArray(postsRes.items) && postsRes.items.length > finalPosts.length) {
               finalPosts = postsRes.items;
             }
           } catch {}
         }
 
-        // Path C: last resort — profile-scraper latestPosts via Apify (cheaper than post-scraper)
+        // Path C: Apify profile-scraper latestPosts (cheaper, gives ~12)
         if (finalPosts.length < 3 && APIFY_TOKEN) {
           try {
             const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
-            const profDone = await pollRun(profRun.id);
-            const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
-            const latestPosts = profRaw?.[0]?.latestPosts;
-            if (Array.isArray(latestPosts) && latestPosts.length > finalPosts.length) {
-              finalPosts = latestPosts;
+            if (profRun?.id) {
+              const profDone = await pollRun(profRun.id);
+              if (profDone?.defaultDatasetId) {
+                const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
+                const latestPosts = profRaw?.[0]?.latestPosts;
+                if (Array.isArray(latestPosts) && latestPosts.length > finalPosts.length) {
+                  finalPosts = latestPosts;
+                }
+              }
             }
           } catch {}
         }

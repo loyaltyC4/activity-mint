@@ -479,7 +479,10 @@ export default function ScriptStudioPane({ timeRange }) {
   }
 
   const ready = data && data.ok
-  const insufficient = data && !data.ok && data.reason === 'insufficient-posts'
+  // Catch ALL non-ok states: explicit insufficient-posts, or any ok:false response
+  // that the SWR cache might return (the "Waiting for data" bug was caused by
+  // the cache returning { ok: false } which matched neither error nor ready).
+  const insufficient = data && !data.ok
 
   return (
     <>

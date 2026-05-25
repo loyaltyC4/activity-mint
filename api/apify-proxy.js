@@ -113,19 +113,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Dashboard context → Apify path for actions where Apify is faster/more
 // scalable. Free tools → cluster (HD media, session-state, sub-ms cache hits).
 // Stories stay on cluster regardless because cluster reels_media is 1-2s.
+// Speed-v7: Apify tokens exhausted. ALL Instagram actions routed through
+// cluster workers (Hetzner, self-hosted, $0/call). Apify reserved ONLY for
+// ad_library (no cluster equivalent) and script_studio/deconstruct_profile
+// (which need 50-post deep scrape — cluster does 12 max via GraphQL).
+// The caching stack (Redis + Bloom + singleflight + XFetch + edge cache)
+// still sits on top so warm reads are sub-second regardless of provider.
 const PROVIDER_MAP = {
   dashboard: {
-    profile:              'apify',
-    'profile-with-posts': 'apify',
-    posts:                'apify',
-    top_commenters:       'apify',
-    comments:             'apify',
-    dashboard_load:       'apify',
-    // these intentionally stay on cluster even in dashboard context:
+    profile:              'cluster',
+    'profile-with-posts': 'cluster',
+    posts:                'cluster',
+    top_commenters:       'cluster',
+    comments:             'cluster',
+    dashboard_load:       'cluster',
     stories:              'cluster',
     followers:            'cluster',
     following:            'cluster',
     audience_enrichment:  'cluster',
+    // These still use Apify — no cluster equivalent or need >12 posts:
+    // ad_library, script_studio, deconstruct_profile (handled separately)
   },
   freetools: {
     // Free tools are session-aware and want HD media — always cluster.
@@ -930,24 +937,53 @@ export default async function handler(req, res) {
     if (action === 'deconstruct_profile') {
       const { username, postLimit = 50 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
-      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
       const cleanUser = username.replace('@', '');
       try {
-        // Fetch profile for followers count
-        const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
-        const profDone = await pollRun(profRun.id);
-        const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
-        const followers = profRaw?.[0]?.followersCount || 0;
+        // Strategy: try Apify deep scrape first. If Apify tokens exhausted
+        // or APIFY_TOKEN missing, fall back to cluster profile-with-posts
+        // which gives 12 latestPosts (enough for basic analysis).
+        let posts = [];
+        let followers = 0;
+        let source = 'cluster';
 
-        // Fetch posts
-        const postsRun = await startRun('apify/instagram-post-scraper', {
-          username: [cleanUser],
-          resultsLimit: Math.min(Math.max(postLimit, 10), 100),
-        });
-        const postsDone = await pollRun(postsRun.id);
-        const posts = await getDatasetItems(postsDone.defaultDatasetId, 100);
-        if (!Array.isArray(posts) || posts.length === 0) {
-          return res.status(200).json(withSource(res, 'apify', { ok: false, reason: 'no-posts', posts_count: 0 }));
+        // Path A: Apify (50 posts, best analysis)
+        if (APIFY_TOKEN) {
+          try {
+            const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
+            const profDone = await pollRun(profRun.id);
+            const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
+            followers = profRaw?.[0]?.followersCount || 0;
+            const postsRun = await startRun('apify/instagram-post-scraper', {
+              username: [cleanUser], resultsLimit: Math.min(Math.max(postLimit, 10), 100),
+            });
+            const postsDone = await pollRun(postsRun.id);
+            posts = await getDatasetItems(postsDone.defaultDatasetId, 100) || [];
+            source = 'apify';
+          } catch (apifyErr) {
+            console.warn(`[deconstruct] Apify failed (${apifyErr.message}), falling back to cluster`);
+          }
+        }
+
+        // Path B: Cluster fallback (12 posts via profile-with-posts)
+        if (posts.length < 3 && SCRAPER_SERVICE_URL) {
+          try {
+            const tasks = [
+              { action: 'profile', payload: { username: cleanUser } },
+              { action: 'posts', payload: { username: cleanUser, limit: 12 } },
+            ];
+            const results = await callScraperBatch(tasks, 'parallel');
+            const profileRes = results.find((r) => r.action === 'profile');
+            const postsRes = results.find((r) => r.action === 'posts');
+            if (profileRes?.ok) followers = profileRes.items?.[0]?.followers || followers;
+            if (postsRes?.ok && Array.isArray(postsRes.items)) posts = postsRes.items;
+            source = 'cluster-fallback';
+          } catch {}
+        }
+
+        if (posts.length === 0) {
+          return res.status(200).json(withSource(res, source, {
+            ok: false, error: 'no-posts', reason: 'no-posts', posts_count: 0,
+          }));
         }
 
         // Run deconstruction pipeline
@@ -980,25 +1016,46 @@ export default async function handler(req, res) {
     if (action === 'script_studio') {
       const { username, postLimit = 50 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
-      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
       const cleanUser = username.replace('@', '');
       try {
-        // 1. Pull 50 posts via Apify post-scraper
-        run = await startRun('apify/instagram-post-scraper', {
-          username: [cleanUser],
-          resultsLimit: Math.min(Math.max(postLimit, 10), 100),
-        });
-        completed = await pollRun(run.id);
-        const posts = await getDatasetItems(completed.defaultDatasetId, 100);
-        // If no posts or too few, try the profile-scraper's latestPosts as fallback (12 posts)
-        let finalPosts = posts;
-        if (!Array.isArray(finalPosts) || finalPosts.length < 10) {
+        // Strategy: try Apify first (50 posts). If exhausted, fall back to
+        // cluster (12 posts via profile-with-posts). 12 posts is enough for
+        // Script Studio's analysis (minimum threshold is 3).
+        let finalPosts = [];
+
+        // Path A: Apify deep scrape
+        if (APIFY_TOKEN) {
+          try {
+            run = await startRun('apify/instagram-post-scraper', {
+              username: [cleanUser], resultsLimit: Math.min(Math.max(postLimit, 10), 100),
+            });
+            completed = await pollRun(run.id);
+            finalPosts = await getDatasetItems(completed.defaultDatasetId, 100) || [];
+          } catch (apifyErr) {
+            console.warn(`[script_studio] Apify failed (${apifyErr.message}), trying cluster`);
+          }
+        }
+
+        // Path B: Cluster fallback (profile-with-posts gives 12 latestPosts)
+        if (finalPosts.length < 3 && SCRAPER_SERVICE_URL) {
+          try {
+            const tasks = [{ action: 'posts', payload: { username: cleanUser, limit: 12 } }];
+            const results = await callScraperBatch(tasks, 'parallel');
+            const postsRes = results.find((r) => r.action === 'posts');
+            if (postsRes?.ok && Array.isArray(postsRes.items) && postsRes.items.length > finalPosts.length) {
+              finalPosts = postsRes.items;
+            }
+          } catch {}
+        }
+
+        // Path C: last resort — profile-scraper latestPosts via Apify (cheaper than post-scraper)
+        if (finalPosts.length < 3 && APIFY_TOKEN) {
           try {
             const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
             const profDone = await pollRun(profRun.id);
             const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
             const latestPosts = profRaw?.[0]?.latestPosts;
-            if (Array.isArray(latestPosts) && latestPosts.length > (finalPosts?.length || 0)) {
+            if (Array.isArray(latestPosts) && latestPosts.length > finalPosts.length) {
               finalPosts = latestPosts;
             }
           } catch {}

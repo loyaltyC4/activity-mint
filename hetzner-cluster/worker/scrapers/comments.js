@@ -1,25 +1,29 @@
 /**
- * Comments scraper (v3 - passive GraphQL interception).
+ * Comments scraper (v4 - direct API + click-to-expand + GraphQL interception).
  *
- * Same insight as posts.js: IG's post page is an SPA shell, comments are
- * loaded via /graphql/query POSTs whose request bodies use Meta-internal
- * session params we can't replicate. We attach a response listener BEFORE
- * navigation and harvest the bodies that look like comment-data.
+ * Three attack vectors, tried in order:
  *
- * Comment data is currently shipped under one of:
- *   data.xdt_api__v1__media__N__comments__connection.edges[].node
- *   data.media.edge_media_to_parent_comment.edges[].node
- *   data.xdt_shortcode_media.edge_media_to_parent_comment.edges[].node
+ *   1. DIRECT API: /api/v1/media/{media_id}/comments/ — same endpoint the
+ *      SPA calls, but we fetch it ourselves via page.evaluate(). Needs the
+ *      media_id which we extract from the page's inline JSON.
+ *      Fastest path (~1-2s if session cookies are valid).
+ *
+ *   2. CLICK-TO-EXPAND: IG lazy-loads comments behind a "View all X comments"
+ *      link. We click it, scroll down, and wait for the GraphQL response.
+ *      This is what the v3 scraper was MISSING — it waited for GraphQL
+ *      without ever triggering the comments load.
+ *
+ *   3. PASSIVE GRAPHQL INTERCEPTION: same as v3 — capture any GraphQL
+ *      response that looks like comments data. Still useful as a fallback
+ *      if the direct API fails or returns partial results.
  *
  * payload: { shortcode | url, limit? (default 50, max 200) }
- *
- * Returns array of:
- *   { username, fullName, profilePicUrl, isVerified, text, likeCount, timestamp }
+ * Returns array of: { username, fullName, profilePicUrl, isVerified, text, likeCount, timestamp }
  */
 
 'use strict';
 
-const { humanDelay, sleep, isBlockedSignal, randInt } = require('./utils');
+const { humanDelay, sleep, isBlockedSignal, randInt, ensureIGContext } = require('./utils');
 
 const IG_BASE = 'https://www.instagram.com';
 const SHORTCODE_RE = /^[A-Za-z0-9_-]{5,20}$/;
@@ -36,8 +40,6 @@ function urlFromPayload(payload) {
 
 function normalizeNode(n) {
   if (!n) return null;
-  // New shape: { text, user: {username, full_name, profile_pic_url, is_verified}, created_at, comment_like_count }
-  // Old shape: { text, owner: {...}, created_at, edge_liked_by: {count} }
   const user = n.user || n.owner || {};
   const username = user.username || n.username || null;
   if (!username) return null;
@@ -55,16 +57,9 @@ function normalizeNode(n) {
   };
 }
 
-/**
- * Walk an arbitrary JSON tree looking for any array of comment-shaped
- * objects. Returns the first non-empty array found, or [].
- *
- * Comment-shape heuristic: has `text` + user/owner with username.
- */
 function findCommentsInTree(node, depth = 0) {
   if (!node || depth > 12) return null;
   if (Array.isArray(node)) {
-    // If this looks like an array of comment nodes / edges
     let candidate = [];
     for (const el of node) {
       const obj = el && typeof el === 'object' ? (el.node || el) : null;
@@ -77,7 +72,6 @@ function findCommentsInTree(node, depth = 0) {
       }
     }
     if (candidate.length >= 1) return candidate;
-    // Otherwise recurse into the array elements
     for (const el of node) {
       const r = findCommentsInTree(el, depth + 1);
       if (r) return r;
@@ -93,22 +87,142 @@ function findCommentsInTree(node, depth = 0) {
   return null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VECTOR 1: Direct API call for comments
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract the media_id from the post page's inline JSON. IG embeds it in
+ * meta tags and script blocks.
+ */
+async function getMediaId(page, log) {
+  try {
+    return await page.evaluate(() => {
+      // Method 1: al:ios:url meta tag contains media?id=NNNNN
+      const meta = document.querySelector('meta[property="al:ios:url"]');
+      if (meta) {
+        const m = meta.content.match(/media\?id=(\d+)/);
+        if (m) return m[1];
+      }
+      // Method 2: og:url sometimes has the numeric form
+      const ogUrl = document.querySelector('meta[property="og:url"]');
+      if (ogUrl) {
+        const m2 = ogUrl.content.match(/\/p\/([A-Za-z0-9_-]+)/);
+        // Can't convert shortcode to media_id client-side without the algorithm
+      }
+      // Method 3: search all script tags for "media_id":"NNNN"
+      const scripts = document.querySelectorAll('script');
+      for (const s of scripts) {
+        const txt = s.textContent || '';
+        // Pattern: "pk":"12345" or "media_id":"12345" or "id":"12345"
+        const m3 = txt.match(/"(?:pk|media_id)"\s*:\s*"?(\d{10,})"?/);
+        if (m3) return m3[1];
+      }
+      // Method 4: structured data
+      const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (const s of ldScripts) {
+        try {
+          const d = JSON.parse(s.textContent);
+          if (d.identifier) return String(d.identifier);
+        } catch {}
+      }
+      return null;
+    });
+  } catch (err) {
+    log.warn(`getMediaId failed: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Fetch comments directly via IG's /api/v1/media/{id}/comments/ endpoint.
+ * Rides the page's session cookies — same as how we fetch reels_media.
+ */
+async function fetchCommentsAPI(page, mediaId, count, log) {
+  try {
+    const data = await page.evaluate(async (apiUrl) => {
+      try {
+        const r = await fetch(apiUrl, {
+          credentials: 'include',
+          headers: {
+            'x-ig-app-id': '936619743392459',
+            'x-requested-with': 'XMLHttpRequest',
+            'accept': '*/*',
+          },
+        });
+        if (!r.ok) return { __error: `HTTP ${r.status}` };
+        return await r.json();
+      } catch (e) {
+        return { __error: e.message };
+      }
+    }, `${IG_BASE}/api/v1/media/${mediaId}/comments/?count=${count}&can_support_threading=true`);
+
+    if (!data || data.__error) {
+      log.warn(`comments API failed: ${data?.__error || 'empty'}`);
+      return null;
+    }
+
+    // The API returns { comments: [...], comment_count, ... }
+    const comments = data.comments || data.edge_media_to_parent_comment?.edges?.map(e => e.node) || [];
+    return comments;
+  } catch (err) {
+    log.warn(`fetchCommentsAPI threw: ${err.message}`);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VECTOR 2: Click "View all comments" to trigger lazy load
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function clickViewAllComments(page, log) {
+  const selectors = [
+    // "View all X comments" link (most common)
+    'a[href*="/comments/"]',
+    // Text-based selectors for "View all" / "View more"
+    'span:has-text("View all")',
+    'button:has-text("View all")',
+    'span:has-text("comments")',
+    // The comment input area (clicking near it can trigger load)
+    'textarea[placeholder*="comment"]',
+    'input[placeholder*="comment"]',
+  ];
+
+  for (const sel of selectors) {
+    try {
+      const loc = page.locator(sel).first();
+      const visible = await loc.isVisible({ timeout: 1500 }).catch(() => false);
+      if (visible) {
+        log.info(`clicking comments trigger: ${sel}`);
+        await loc.click({ timeout: 3000 }).catch(() => {});
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN SCRAPER
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function scrapeComments(page, payload, log) {
   const postUrl = urlFromPayload(payload);
   if (!postUrl) throw new Error('payload.shortcode or payload.url is required');
   const limit = Math.max(1, Math.min(parseInt(payload?.limit ?? 50, 10) || 50, 200));
 
-  // Set up the GraphQL response capture BEFORE navigation
+  // Set up GraphQL response capture BEFORE navigation (Vector 3 — passive)
   const captured = [];
   const onResponse = async (resp) => {
     const url = resp.url();
-    if (!/instagram\.com\/(graphql\/query|api\/graphql)/.test(url)) return;
+    // Also capture /api/v1/media/*/comments/ responses
+    if (!/instagram\.com\/(graphql\/query|api\/graphql|api\/v1\/media)/.test(url)) return;
     try {
       const txt = await resp.text();
-      // Pre-filter for likely comment-bearing responses
       if (
         txt.includes('edge_media_to_parent_comment') ||
         txt.includes('xdt_api__v1__media') ||
+        txt.includes('"comment_count"') ||
         (txt.includes('"text":') && txt.includes('"user":') && txt.includes('"username":'))
       ) {
         captured.push(txt);
@@ -119,6 +233,8 @@ async function scrapeComments(page, payload, log) {
 
   try {
     log.info(`scrape comments -> ${postUrl} (limit=${limit})`);
+
+    // Navigate to the post page
     const resp = await page.goto(postUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const status = resp ? resp.status() : 0;
     if (status === 404) throw new Error(`post_not_found:${postUrl}`);
@@ -130,8 +246,39 @@ async function scrapeComments(page, payload, log) {
       throw err;
     }
 
-    // Poll captured responses until one yields commentlike rows
-    const deadline = Date.now() + 14000;
+    await humanDelay(500, 1000);
+
+    // ── VECTOR 1: Direct API (fastest, most reliable) ──────────────────
+    const mediaId = await getMediaId(page, log);
+    if (mediaId) {
+      log.info(`got media_id=${mediaId}, trying direct API`);
+      const apiComments = await fetchCommentsAPI(page, mediaId, Math.min(limit, 50), log);
+      if (Array.isArray(apiComments) && apiComments.length > 0) {
+        const items = apiComments.slice(0, limit).map(normalizeNode).filter(Boolean);
+        log.info(`direct API returned ${items.length} comments`);
+        return items;
+      }
+      log.info('direct API returned empty, falling back to click + GraphQL');
+    } else {
+      log.info('could not extract media_id, trying click + GraphQL');
+    }
+
+    // ── VECTOR 2: Click "View all comments" + scroll ───────────────────
+    // This triggers the GraphQL call that loads the comments.
+    const clicked = await clickViewAllComments(page, log);
+    if (clicked) {
+      await sleep(1500 + randInt(0, 500));
+    }
+
+    // Also scroll the page down to trigger any lazy-loaded sections
+    await page.evaluate(() => window.scrollBy(0, 600)).catch(() => {});
+    await sleep(800);
+    await page.evaluate(() => window.scrollBy(0, 400)).catch(() => {});
+
+    // ── VECTOR 3: Harvest captured GraphQL responses ───────────────────
+    // Extended deadline: 20s (was 14s in v3). The click + scroll give
+    // the SPA time to fire the actual comments request.
+    const deadline = Date.now() + 20000;
     let found = null;
     while (Date.now() < deadline) {
       await page.waitForTimeout(500);
@@ -139,34 +286,30 @@ async function scrapeComments(page, payload, log) {
         try {
           const json = JSON.parse(body);
           const arr = findCommentsInTree(json);
-          if (arr && arr.length > 0) { found = arr; break; }
+          if (arr && arr.length > 0) {
+            if (!found || arr.length > found.length) found = arr;
+          }
         } catch (_) {}
       }
-      if (found) break;
+      if (found && found.length >= Math.min(limit, 5)) break;
     }
 
     if (found && found.length > 0) {
-      // Some responses include a single top comment - try to expand by
-      // scrolling the comments list so the SPA fires "load more" requests.
-      // Then re-scan.
+      // Try scrolling for more if we have few comments
       if (found.length < Math.min(limit, 15)) {
         log.info(`captured ${found.length} comments; scrolling for more`);
         for (let i = 0; i < 3; i++) {
-          // Find the comments section and scroll it
           await page.evaluate(() => {
-            // Find any scrollable container that has many anchor children
             const lists = document.querySelectorAll('ul, [role="list"], div');
             for (const el of lists) {
-              if (el.querySelectorAll('a[href^="/"]').length >= 5 && el.scrollHeight > el.clientHeight + 20) {
+              if (el.querySelectorAll('a[href^="/"]').length >= 3 && el.scrollHeight > el.clientHeight + 20) {
                 el.scrollTop = el.scrollHeight;
                 return;
               }
             }
-            // Otherwise just scroll window
             window.scrollBy(0, 600);
           }).catch(() => {});
           await sleep(900);
-          // Rescan
           for (const body of captured) {
             try {
               const json = JSON.parse(body);
@@ -179,11 +322,26 @@ async function scrapeComments(page, payload, log) {
       }
 
       const items = found.slice(0, limit).map(normalizeNode).filter(Boolean);
-      log.info(`extracted ${items.length} comments for ${postUrl}`);
+      log.info(`extracted ${items.length} comments for ${postUrl} (click+GraphQL path)`);
       return items;
     }
 
-    log.warn(`no GraphQL comments captured for ${postUrl}`);
+    // ── LAST RESORT: try the API one more time with a broader search ───
+    // Sometimes the media_id extraction fails on first try but the page
+    // has loaded more data by now.
+    if (!mediaId) {
+      const retryId = await getMediaId(page, log);
+      if (retryId) {
+        const retryComments = await fetchCommentsAPI(page, retryId, Math.min(limit, 50), log);
+        if (Array.isArray(retryComments) && retryComments.length > 0) {
+          const items = retryComments.slice(0, limit).map(normalizeNode).filter(Boolean);
+          log.info(`retry API returned ${items.length} comments`);
+          return items;
+        }
+      }
+    }
+
+    log.warn(`no comments captured for ${postUrl} (all 3 vectors failed)`);
     return [];
   } finally {
     page.off('response', onResponse);

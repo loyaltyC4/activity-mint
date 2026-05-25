@@ -24,6 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
+import { fetchGenerateSlides } from '../../../lib/apify'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE METADATA (mirrors api/_lib/templateLibrary.js)
@@ -579,7 +580,7 @@ function FillView({ template, handle, onBack, onGenerate }) {
   )
 }
 
-function PreviewView({ template, fieldValues, onBack }) {
+function PreviewView({ template, fieldValues, onBack, generatedImages, generating }) {
   const isReel = template.format === 'reel'
   const filledSlides = buildFilledSlides(template, fieldValues)
   const bgColor = template.style.bg === 'n/a' ? '#374151' : template.style.bg
@@ -670,23 +671,45 @@ function PreviewView({ template, fieldValues, onBack }) {
                   </span>
                 </div>
 
-                {/* Purpose + prompt text */}
-                <div className="flex-1 px-4">
-                  <div className="mb-2 text-[11px] font-bold uppercase tracking-wider" style={{ color: accentColor }}>
-                    {slide.purpose}
-                  </div>
-                  <p className="text-[12px] leading-relaxed opacity-80 line-clamp-6">
-                    {slide.prompt}
-                  </p>
-                </div>
-
-                {/* Placeholder watermark */}
-                <div className="p-4">
-                  <div className="flex items-center gap-1.5 text-[10px] font-semibold opacity-40">
-                    <Sparkles className="h-3 w-3" />
-                    Preview placeholder
-                  </div>
-                </div>
+                {/* Content: real generated image OR placeholder prompt text */}
+                {(() => {
+                  const genSlide = generatedImages?.[slide.slide_number - 1]
+                  if (genSlide?.url) {
+                    return (
+                      <div className="absolute inset-0">
+                        <img src={genSlide.url} alt={slide.purpose} className="h-full w-full object-cover" />
+                      </div>
+                    )
+                  }
+                  if (generating) {
+                    return (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-2 text-center" style={{ color: accentColor }}>
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                          <span className="text-[11px] font-semibold">Generating...</span>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <>
+                      <div className="flex-1 px-4">
+                        <div className="mb-2 text-[11px] font-bold uppercase tracking-wider" style={{ color: accentColor }}>
+                          {slide.purpose}
+                        </div>
+                        <p className="text-[12px] leading-relaxed opacity-80 line-clamp-6">
+                          {slide.prompt}
+                        </p>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center gap-1.5 text-[10px] font-semibold opacity-40">
+                          <Sparkles className="h-3 w-3" />
+                          Waiting for generation
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             ))}
           </div>
@@ -762,9 +785,39 @@ export default function TemplateStudioPane({ timeRange }) {
     setView('gallery')
   }, [])
 
-  const handleGenerate = useCallback((template, fieldValues) => {
+  const [generatedImages, setGeneratedImages] = useState(null)
+  const [generating, setGenerating] = useState(false)
+
+  const handleGenerate = useCallback(async (template, fieldValues) => {
     setPreviewValues(fieldValues)
     setView('preview')
+    setGeneratedImages(null)
+
+    // Build filled prompts from template + values
+    const filledSlides = template.slides.map((slide) => {
+      if (!slide.prompt) return null
+      let prompt = slide.prompt
+      for (const [key, val] of Object.entries(fieldValues || {})) {
+        prompt = prompt.replace(new RegExp(`__${key}__`, 'g'), val || `[${key}]`)
+      }
+      return prompt
+    }).filter(Boolean)
+
+    if (filledSlides.length === 0) return
+
+    // Call the generation API
+    setGenerating(true)
+    try {
+      const result = await fetchGenerateSlides(filledSlides, { aspectRatio: '4:5', quality: 'medium' })
+      if (result?.slides) {
+        setGeneratedImages(result.slides)
+      }
+    } catch (err) {
+      console.warn('Slide generation failed:', err.message)
+      // Preview still shows filled prompts as placeholders
+    } finally {
+      setGenerating(false)
+    }
   }, [])
 
   const handleBackToFill = useCallback(() => {
@@ -829,6 +882,8 @@ export default function TemplateStudioPane({ timeRange }) {
         template={selectedTemplate}
         fieldValues={previewValues}
         onBack={handleBackToFill}
+        generatedImages={generatedImages}
+        generating={generating}
       />
     )
   }

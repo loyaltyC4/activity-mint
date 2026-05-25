@@ -27,7 +27,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchDeconstructProfile } from '../../../lib/apify'
+import { fetchDeconstructProfile, fetchAIInsights } from '../../../lib/apify'
 import { proxyImg } from '../shared/utils'
 
 // ─── Cache layer ──────────────────────────────────────────────────────────
@@ -166,6 +166,53 @@ function HookDistribution({ distribution, total }) {
           <strong>Opportunity:</strong> 100% plain hooks. Try Contrarian ("Everything you know about X is wrong") or Direct Challenge ("You're doing X wrong") for 2-3x reach.
           <div className="mt-1 text-[10px] text-amber-600">Source: Go-Viral.app Feb 2026, 7 proven hook formulas</div>
         </div>
+      )}
+    </div>
+  )
+}
+
+function AIInsightsCard({ data }) {
+  const [insights, setInsights] = useState(null)
+  const [loading, setLoading] = useState(false)
+  if (!data?.ok) return null
+  return (
+    <div className={`${CARD} mb-4`}>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className={SECTION_TITLE}>AI Analysis</div>
+        </div>
+        <button
+          disabled={loading || !!insights}
+          onClick={async () => {
+            setLoading(true)
+            try {
+              const result = await fetchAIInsights({
+                request_type: 'insights',
+                analysis: { patterns: data.patterns, opportunities: data.opportunities },
+                posts: data.top_performers?.slice(0, 5)?.map(t => ({
+                  type: t.format, likes: t.performance?.likes, comments: t.performance?.comments,
+                  caption: t.caption?.full_text?.slice(0, 150),
+                })),
+              })
+              if (result?.insights) setInsights(result.insights)
+            } catch (err) { console.warn('AI insights failed:', err.message) }
+            finally { setLoading(false) }
+          }}
+          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_4px_12px_-4px_rgba(124,58,237,0.5)] hover:scale-[1.02] transition-all disabled:opacity-60"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          {insights ? 'Done' : loading ? 'Thinking...' : 'Get AI Insights'}
+        </button>
+      </div>
+      {insights && (
+        <ul className="space-y-2">
+          {insights.map((ins, i) => (
+            <li key={i} className="flex items-start gap-2 rounded-lg bg-violet-50/50 p-3 text-[13px] text-slate-800 leading-relaxed">
+              <span className="text-violet-500 font-bold mt-0.5">{'>'}</span>
+              <span>{ins}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
@@ -485,6 +532,9 @@ export default function ContentLabPane({ timeRange }) {
           )}
         </div>
       )}
+
+      {/* AI Insights */}
+      {data?.ok && <AIInsightsCard data={data} />}
 
       {/* Opportunities */}
       {opportunities.length > 0 && (

@@ -36,7 +36,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchDashboardProfile, fetchInstagramPostsSWR } from '../../../lib/apify'
+import { fetchDashboardProfile, fetchInstagramPostsSWR, fetchAIInsights } from '../../../lib/apify'
 import { proxyImg } from '../shared/utils'
 
 /* ─── Industry benchmarks ──────────────────────────────────────────────── */
@@ -123,6 +123,76 @@ function PaneHeader({ title, subtitle, stale, onRefresh }) {
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+function AINextPostCard({ profile, posts, studio }) {
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+  return (
+    <div className="rounded-3xl bg-gradient-to-br from-violet-50 to-teal-50 p-6 shadow-[0_0_0_1px_rgba(124,58,237,0.12)] mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-teal-600 text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.5)]">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI recommendation</div>
+            <div className="text-base font-bold text-slate-900">Your next post, written by AI</div>
+          </div>
+        </div>
+        {!result && (
+          <button
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true)
+              try {
+                const r = await fetchAIInsights({
+                  request_type: 'next_post',
+                  profile: profile ? { username: profile.username, followersCount: profile.followersCount || profile.followers, biography: profile.biography } : null,
+                  posts: (posts || []).slice(0, 5).map(p => ({ type: p.type, likes: p.likes || p.likesCount, comments: p.comments || p.commentsCount, caption: (p.caption || '').slice(0, 100) })),
+                  analysis: studio ? { lexicon: studio.lexicon, blueprint: studio.blueprint } : null,
+                })
+                if (r) setResult(r)
+              } catch (err) { console.warn('AI next post failed:', err.message) }
+              finally { setLoading(false) }
+            }}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-teal-600 px-4 py-2 text-[12px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.5)] hover:scale-[1.02] transition-all disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {loading ? 'Thinking...' : 'AI Recommend'}
+          </button>
+        )}
+      </div>
+      {result && (
+        <div className="space-y-3 animate-in fade-in duration-300">
+          <div className="flex gap-2">
+            <span className="rounded-lg bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">{result.format || 'Carousel'}</span>
+          </div>
+          {result.hook && (
+            <div className="rounded-xl bg-white p-3 shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Hook</div>
+              <p className="text-[13px] font-medium text-slate-800">{result.hook}</p>
+            </div>
+          )}
+          {result.caption && (
+            <div className="rounded-xl bg-white p-3 shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full caption</div>
+                <button onClick={() => navigator.clipboard?.writeText(result.caption)}
+                  className="text-[10px] font-semibold text-violet-600 hover:text-violet-500 flex items-center gap-1">
+                  <Copy className="h-3 w-3" /> Copy
+                </button>
+              </div>
+              <pre className="whitespace-pre-wrap text-[12px] text-slate-700 leading-relaxed font-medium">{result.caption}</pre>
+            </div>
+          )}
+          {result.rationale && (
+            <p className="text-[11px] text-slate-500 leading-relaxed">{result.rationale}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -367,6 +437,9 @@ export default function NextPostPane({ timeRange, onPaneChange }) {
       />
 
       <div className="space-y-4">
+        {/* AI recommendation card (top-of-pane, most prominent) */}
+        {!loading && <AINextPostCard profile={profile} posts={posts} studio={studio} />}
+
         {/* Top row: format + timing */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {loading ? (

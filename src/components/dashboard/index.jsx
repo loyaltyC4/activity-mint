@@ -17,25 +17,26 @@ import { useTier } from '../../context/TierContext'
 import DashboardLayout from './DashboardLayout'
 import { NavigationContext } from './NavigationContext'
 
-// Pane IDs match the spark-insights design nav structure (10 panes / 3 groups)
 export const PANES = {
-  // Overview
-  pulse:       { group: 'Overview', label: 'Pulse' },
-  audience:    { group: 'Overview', label: 'Audience & Mood' },
-  content:     { group: 'Overview', label: 'Content Lab' },
-  script:      { group: 'Overview', label: 'Script Studio', badge: 'pro' },
-  sentiment:   { group: 'Overview', label: 'Sentiment' },
-  // Growth
-  planner:     { group: 'Growth',   label: 'Next Post',         badge: 'new' },
-  templates:   { group: 'Growth',   label: 'Template Studio',   badge: 'new' },
-  trends:      { group: 'Growth',   label: 'Trends & Insights', badge: 'new' },
-  adlab:       { group: 'Growth',   label: 'Ad Lab',            badge: 'new' },
-  outreach:    { group: 'Growth',   label: 'Outreach Ideas' },
-  toolkit:     { group: 'Growth',   label: 'Tools' },
-  competitors: { group: 'Growth',   label: 'Competitors', badge: 'pro' },
+  // Overview — what's happening now
+  pulse:       { group: 'Overview',      label: 'Pulse' },
+  audience:    { group: 'Overview',      label: 'Audience & Mood' },
+  sentiment:   { group: 'Overview',      label: 'Sentiment' },
+  // Intelligence — what works and why
+  content:     { group: 'Intelligence',  label: 'Content Lab' },
+  script:      { group: 'Intelligence',  label: 'Script Studio', badge: 'pro' },
+  adlab:       { group: 'Intelligence',  label: 'Ad Intelligence', badge: 'new' },
+  // Create — turn insights into action
+  planner:     { group: 'Create',        label: 'Next Post',       badge: 'new' },
+  templates:   { group: 'Create',        label: 'Template Studio', badge: 'new' },
+  // Grow — scale what works
+  trends:      { group: 'Grow',          label: 'Trends & Insights', badge: 'new' },
+  outreach:    { group: 'Grow',          label: 'Outreach Ideas' },
+  toolkit:     { group: 'Grow',          label: 'Tools' },
+  competitors: { group: 'Grow',          label: 'Competitors', badge: 'pro' },
   // You
-  rewards:     { group: 'You',      label: 'Rewards' },
-  settings:    { group: 'You',      label: 'Settings' },
+  rewards:     { group: 'You',           label: 'Rewards' },
+  settings:    { group: 'You',           label: 'Settings' },
 }
 
 export default function DashboardV2({ setActiveTab }) {

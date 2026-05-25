@@ -24,7 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { useTier } from '../../../context/TierContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchScriptStudio } from '../../../lib/apify'
+import { fetchScriptStudio, fetchAIInsights } from '../../../lib/apify'
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000 // 4 hours
 const CACHE_KEY = (h) => `script_studio:v1:${h}`
@@ -200,6 +200,38 @@ function BlueprintCard({ blueprint }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function AIGenerateButton({ analysis, onResult }) {
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+  if (!analysis) return null
+  return (
+    <button
+      disabled={loading || done}
+      onClick={async () => {
+        setLoading(true)
+        try {
+          const result = await fetchAIInsights({
+            request_type: 'scripts',
+            analysis: {
+              buckets: analysis.buckets,
+              lexicon: analysis.lexicon,
+              blueprint: analysis.blueprint,
+              posts_count: analysis.posts_count,
+              samples: analysis.samples,
+            },
+          })
+          if (result?.scripts) { onResult(result.scripts); setDone(true) }
+        } catch (err) { console.warn('AI script gen failed:', err.message) }
+        finally { setLoading(false) }
+      }}
+      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-teal-600 px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.5)] hover:shadow-[0_12px_32px_-8px_rgba(124,58,237,0.6)] transition-all hover:scale-[1.02] disabled:opacity-60"
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+      {done ? 'Generated' : loading ? 'Writing scripts...' : 'AI Generate Scripts'}
+    </button>
   )
 }
 
@@ -451,7 +483,13 @@ export default function ScriptStudioPane({ timeRange }) {
             <BlueprintCard blueprint={data.blueprint} />
           ) : <Skeleton className="h-32 w-full rounded-3xl" />}
           {ready ? (
-            <ScriptsCard scripts={data.scripts} scriptsAi={data.scripts_ai} />
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span />
+                <AIGenerateButton analysis={data} onResult={(ai) => setData((d) => ({ ...d, scripts_ai: ai }))} />
+              </div>
+              <ScriptsCard scripts={data.scripts} scriptsAi={data.scripts_ai} />
+            </>
           ) : <Skeleton className="h-48 w-full rounded-3xl" />}
         </div>
       )}

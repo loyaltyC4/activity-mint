@@ -413,6 +413,48 @@ export async function fetchYouTubeTranscript(videoUrl) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AI INSIGHTS (Activity Mint AI agent via /api/ai-insights)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Call the AI insights endpoint. Returns structured JSON matching
+ * request_type: { insights[] } | { scripts[] } | { next_post } | { ad_scripts[] }.
+ *
+ * Falls back gracefully if ANTHROPIC_API_KEY isn't set (returns { fallback: true }).
+ */
+export async function fetchAIInsights({ request_type, profile, posts, analysis, ads, topic } = {}) {
+  const res = await fetch('/api/ai-insights', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request_type, profile, posts, analysis, ads, topic }),
+  });
+  const body = await res.json();
+  if (body.fallback) return null; // API key not configured — degrade gracefully
+  if (!res.ok || !body.ok) throw new Error(body.error || 'AI request failed');
+  return body;
+}
+
+/**
+ * Call the slide generation endpoint. Returns { slides: [{ index, url, prompt }] }.
+ * Falls back if OPENAI_API_KEY isn't set.
+ */
+export async function fetchGenerateSlides(prompts, opts = {}) {
+  const res = await fetch('/api/generate-slides', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompts,
+      aspectRatio: opts.aspectRatio || '4:5',
+      quality: opts.quality || 'medium',
+    }),
+  });
+  const body = await res.json();
+  if (body.fallback) return null;
+  if (!res.ok || !body.ok) throw new Error(body.error || 'Generation failed');
+  return body;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Debug helpers (window.__amDataSources, window.amSpeedSummary)
 // ═══════════════════════════════════════════════════════════════════════════
 if (typeof window !== 'undefined') {

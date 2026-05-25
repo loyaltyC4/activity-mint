@@ -11,6 +11,7 @@ import {
   TrendingUp, Phone, Wrench, Globe,
   Award, Settings as Cog, Sparkles,
   PenTool, Megaphone, CalendarDays, Palette,
+  Brain, Wand2,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -21,21 +22,31 @@ const NAV_GROUPS = [
     items: [
       { id: 'pulse',     Icon: Home,          label: 'Pulse' },
       { id: 'audience',  Icon: Users,         label: 'Audience & Mood' },
-      { id: 'content',   Icon: LayoutGrid,    label: 'Content Lab' },
-      { id: 'script',    Icon: PenTool,       label: 'Script Studio', badge: 'pro' },
       { id: 'sentiment', Icon: MessageSquare, label: 'Sentiment' },
     ],
   },
   {
-    label: 'Growth',
+    label: 'Intelligence',
     items: [
-      { id: 'planner',     Icon: CalendarDays, label: 'Next Post',         badge: 'new' },
-      { id: 'templates',   Icon: Palette,      label: 'Template Studio',   badge: 'new' },
-      { id: 'adlab',       Icon: Megaphone,    label: 'Ad Lab',            badge: 'new' },
-      { id: 'trends',      Icon: TrendingUp,   label: 'Trends & Insights', badge: 'new' },
-      { id: 'outreach',    Icon: Phone,        label: 'Outreach Ideas' },
-      { id: 'toolkit',     Icon: Wrench,       label: 'Tools' },
-      { id: 'competitors', Icon: Globe,        label: 'Competitors', badge: 'pro' },
+      { id: 'content',   Icon: LayoutGrid,    label: 'Content Lab' },
+      { id: 'script',    Icon: PenTool,       label: 'Script Studio', badge: 'pro' },
+      { id: 'adlab',     Icon: Megaphone,     label: 'Ad Intelligence', badge: 'new' },
+    ],
+  },
+  {
+    label: 'Create',
+    items: [
+      { id: 'planner',   Icon: CalendarDays,  label: 'Next Post',       badge: 'new' },
+      { id: 'templates', Icon: Palette,        label: 'Template Studio', badge: 'new' },
+    ],
+  },
+  {
+    label: 'Grow',
+    items: [
+      { id: 'trends',      Icon: TrendingUp, label: 'Trends & Insights', badge: 'new' },
+      { id: 'outreach',    Icon: Phone,       label: 'Outreach Ideas' },
+      { id: 'toolkit',     Icon: Wrench,      label: 'Tools' },
+      { id: 'competitors', Icon: Globe,       label: 'Competitors', badge: 'pro' },
     ],
   },
   {
@@ -91,10 +102,10 @@ function NavItem({ id, Icon, label, badge, active, onClick }) {
     <button
       onClick={() => onClick(id)}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-all',
+        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-medium transition-all',
         active
-          ? 'bg-teal-50 text-teal-600 shadow-[0_0_0_1px_rgba(20,184,166,0.28)]'
-          : 'bg-transparent text-[#64756f] hover:bg-[#f0f4f3] hover:text-foreground'
+          ? 'bg-teal-50/60 text-teal-700 border-l-[2.5px] border-teal-500 pl-[10.5px]'
+          : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800 border-l-[2.5px] border-transparent pl-[10.5px]'
       )}
     >
       <Icon className="h-[15px] w-[15px] shrink-0" />
@@ -123,7 +134,7 @@ export default function Sidebar({ user, tier, activePane, onPaneChange }) {
       <ScrollArea className="flex-1 -mr-3.5 pr-3.5">
         {NAV_GROUPS.map((group) => (
           <div key={group.label} className="mb-1">
-            <div className="px-3 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.07em] text-[#64756f]">
+            <div className="px-3 pb-1.5 pt-3 text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
               {group.label}
             </div>
             <nav className="flex flex-col gap-0.5">

@@ -990,14 +990,27 @@ export default async function handler(req, res) {
         });
         completed = await pollRun(run.id);
         const posts = await getDatasetItems(completed.defaultDatasetId, 100);
-        if (!Array.isArray(posts) || posts.length === 0) {
+        // If no posts or too few, try the profile-scraper's latestPosts as fallback (12 posts)
+        let finalPosts = posts;
+        if (!Array.isArray(finalPosts) || finalPosts.length < 10) {
+          try {
+            const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
+            const profDone = await pollRun(profRun.id);
+            const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
+            const latestPosts = profRaw?.[0]?.latestPosts;
+            if (Array.isArray(latestPosts) && latestPosts.length > (finalPosts?.length || 0)) {
+              finalPosts = latestPosts;
+            }
+          } catch {}
+        }
+        if (!Array.isArray(finalPosts) || finalPosts.length === 0) {
           res.setHeader('x-data-source', 'apify-empty');
           return res.status(200).json(withSource(res, 'apify-empty', {
-            ok: false, reason: 'no-posts', posts_count: 0,
+            ok: false, error: 'insufficient-posts', reason: 'no-posts', posts_count: 0,
           }));
         }
         // 2. Run the analysis pipeline (pure compute, ~15ms)
-        const analysis = scriptStudio.analyze(posts);
+        const analysis = scriptStudio.analyze(finalPosts);
 
         // 2b. Phase H: optional LLM script generation (only if env key set
         // AND payload.llm=true so we don't pay for every cold call).

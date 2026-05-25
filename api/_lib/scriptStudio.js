@@ -351,8 +351,8 @@ function generateScripts(blueprint, lexicon, opts = {}) {
  * Returns { ok, buckets, lexicon, blueprint, scripts, baselines, samples }.
  */
 function analyze(posts, opts = {}) {
-  if (!Array.isArray(posts) || posts.length < 10) {
-    return { ok: false, reason: 'insufficient-posts', posts_count: posts?.length || 0 };
+  if (!Array.isArray(posts) || posts.length < 3) {
+    return { ok: false, reason: 'insufficient-posts', posts_count: posts?.length || 0, error: `Need at least 3 posts (found ${posts?.length || 0})` };
   }
 
   // Layer 1: bucket

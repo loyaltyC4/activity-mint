@@ -405,7 +405,11 @@ export default function ScriptStudioPane({ timeRange }) {
         saveCache(h, result)
       }
     } catch (err) {
-      setError(err.message || 'Analysis failed')
+      // Treat ANY error as "insufficient data" when we have no data yet.
+      // The previous code showed a red crash card with "Proxy request failed (200)"
+      // because the proxy returns { ok: false, reason: 'no-posts' } with no error field.
+      const msg = err.message || 'Analysis failed'
+      setError(/insufficient|no.?posts|not found/i.test(msg) ? 'insufficient-posts' : msg)
     } finally {
       setLoading(false)
     }

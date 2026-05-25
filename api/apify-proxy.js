@@ -33,6 +33,8 @@ const BASE = 'https://api.apify.com/v2';
 
 // Script Studio backend — performance calc + NLP. Vercel ESM relative import.
 import scriptStudio from './_lib/scriptStudio.js';
+// Content deconstruction engine — breaks posts into reproducible template schemas.
+import contentDeconstruct from './_lib/contentDeconstruct.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase H: LLM script generation (optional, gated on ANTHROPIC_API_KEY)
@@ -917,6 +919,55 @@ export default async function handler(req, res) {
         }));
       } catch (err) {
         console.error(`[ad_library] failed: ${err.message}`);
+        return res.status(500).json({ error: err.message, _dataSource: 'error' });
+      }
+    }
+
+    // ── CONTENT DECONSTRUCTION — break posts into reproducible templates ──
+    // Two modes:
+    //   'deconstruct'        → single post by shortcode
+    //   'deconstruct_profile' → all recent posts for a username (batch)
+    if (action === 'deconstruct_profile') {
+      const { username, postLimit = 50 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      const cleanUser = username.replace('@', '');
+      try {
+        // Fetch profile for followers count
+        const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
+        const profDone = await pollRun(profRun.id);
+        const profRaw = await getDatasetItems(profDone.defaultDatasetId, 1);
+        const followers = profRaw?.[0]?.followersCount || 0;
+
+        // Fetch posts
+        const postsRun = await startRun('apify/instagram-post-scraper', {
+          username: [cleanUser],
+          resultsLimit: Math.min(Math.max(postLimit, 10), 100),
+        });
+        const postsDone = await pollRun(postsRun.id);
+        const posts = await getDatasetItems(postsDone.defaultDatasetId, 100);
+        if (!Array.isArray(posts) || posts.length === 0) {
+          return res.status(200).json(withSource(res, 'apify', { ok: false, reason: 'no-posts', posts_count: 0 }));
+        }
+
+        // Run deconstruction pipeline
+        const result = contentDeconstruct.deconstructProfile(posts, {
+          followers, username: cleanUser,
+        });
+
+        // Long cache — post structure changes slowly (4h fresh + 24h SWR)
+        try {
+          const directive = 'public, max-age=0, s-maxage=14400, stale-while-revalidate=86400';
+          res.setHeader('Cache-Control', directive);
+          res.setHeader('CDN-Cache-Control', directive);
+          res.setHeader('Vercel-CDN-Cache-Control', directive);
+        } catch {}
+
+        return res.status(200).json(withSource(res, 'apify-deconstruct', {
+          ok: true, username: cleanUser, followers, ...result,
+        }));
+      } catch (err) {
+        console.error(`[deconstruct_profile] failed: ${err.message}`);
         return res.status(500).json({ error: err.message, _dataSource: 'error' });
       }
     }

@@ -16,7 +16,7 @@
 const READ_ACTIONS_GET = new Set([
   'profile', 'profile-with-posts', 'posts', 'followers', 'following', 'stories',
   'audience_enrichment', 'top_commenters', 'dashboard_load', 'comments',
-  'script_studio', 'ad_library',
+  'script_studio', 'ad_library', 'deconstruct_profile',
 ]);
 
 // Per-action defaults (ms). The cache is *additional* protection on top of
@@ -243,6 +243,19 @@ export async function fetchDashboardTopCommenters(username, options = {}, opts) 
 export async function fetchScriptStudio(username, opts) {
   return callProxyCached(
     'script_studio',
+    { username: username.replace('@', ''), context: 'dashboard' },
+    { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000, ...opts },
+  );
+}
+
+/**
+ * Content Deconstruction: break all recent posts into reproducible template
+ * schemas with framework citations. Returns format distribution, hook
+ * distribution, top/bottom performers, and opportunities.
+ */
+export async function fetchDeconstructProfile(username, opts) {
+  return callProxyCached(
+    'deconstruct_profile',
     { username: username.replace('@', ''), context: 'dashboard' },
     { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000, ...opts },
   );

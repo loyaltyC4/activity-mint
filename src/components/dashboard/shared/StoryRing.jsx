@@ -86,8 +86,7 @@ export default function StoryRing({ thumb, label, seen, addNew, onClick }) {
         onClick={onClick}
         className={cn(
           'cursor-pointer transition-transform duration-200',
-          'hover:scale-[1.07] active:scale-95 focus:outline-none',
-          !seen && 'animate-[pulseRing_3s_ease-in-out_infinite]'
+          'hover:scale-[1.07] active:scale-95 focus:outline-none'
         )}
         style={{
           width: SIZE, height: SIZE, borderRadius: '50%',

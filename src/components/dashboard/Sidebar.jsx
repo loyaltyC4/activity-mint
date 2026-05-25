@@ -10,7 +10,7 @@ import {
   Home, Users, LayoutGrid, MessageSquare,
   TrendingUp, Phone, Wrench, Globe,
   Award, Settings as Cog, Sparkles,
-  PenTool, Megaphone, CalendarDays,
+  PenTool, Megaphone, CalendarDays, Palette,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,7 @@ const NAV_GROUPS = [
     label: 'Growth',
     items: [
       { id: 'planner',     Icon: CalendarDays, label: 'Next Post',         badge: 'new' },
+      { id: 'templates',   Icon: Palette,      label: 'Template Studio',   badge: 'new' },
       { id: 'adlab',       Icon: Megaphone,    label: 'Ad Lab',            badge: 'new' },
       { id: 'trends',      Icon: TrendingUp,   label: 'Trends & Insights', badge: 'new' },
       { id: 'outreach',    Icon: Phone,        label: 'Outreach Ideas' },

@@ -27,6 +27,7 @@ export const PANES = {
   sentiment:   { group: 'Overview', label: 'Sentiment' },
   // Growth
   planner:     { group: 'Growth',   label: 'Next Post',         badge: 'new' },
+  templates:   { group: 'Growth',   label: 'Template Studio',   badge: 'new' },
   trends:      { group: 'Growth',   label: 'Trends & Insights', badge: 'new' },
   adlab:       { group: 'Growth',   label: 'Ad Lab',            badge: 'new' },
   outreach:    { group: 'Growth',   label: 'Outreach Ideas' },

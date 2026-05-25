@@ -27,8 +27,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-import { fetchDeconstructProfile, fetchAIInsights } from '../../../lib/apify'
+import { fetchDeconstructProfile, fetchAIInsights, fetchGenerateSlides } from '../../../lib/apify'
 import { proxyImg } from '../shared/utils'
+import GeneratedSlidesPanel from '../shared/GeneratedSlidesPanel'
 
 // ─── Cache layer ──────────────────────────────────────────────────────────
 const CACHE_KEY = (h) => `content_lab:v2:${h}`
@@ -214,6 +215,92 @@ function AIInsightsCard({ data }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+function TopPerformersHero({ performers, onUseTemplate, onGenerateLike }) {
+  if (!performers || performers.length === 0) return null
+  const top2 = performers.slice(0, 2)
+  return (
+    <div className="mb-5">
+      <div className={SECTION_TITLE}>What's working best</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {top2.map((t, i) => {
+          const perf = t.performance || {}
+          const hook = t.caption?.hook || { id: 'plain', label: 'Plain' }
+          const meta = FORMAT_META[t.format] || FORMAT_META.photo
+          const displayUrl = t.source_shortcode
+            ? `/api/proxy-image?url=${encodeURIComponent(t.caption?.full_text ? '' : '')}`
+            : null
+          const templateSaved = useState(false)
+          return (
+            <div key={t.source_shortcode || i}
+              className={`${CARD} border-l-[3px] ${i === 0 ? 'border-l-teal-500' : 'border-l-violet-400'}`}>
+              {/* Rank + format */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className={`grid h-9 w-9 place-items-center rounded-xl ${meta.color} text-[14px] font-extrabold`}>
+                    #{i + 1}
+                  </span>
+                  <div>
+                    <div className="text-[13px] font-bold">{meta.label} — {perf.performance_grade || 'strong'}</div>
+                    <div className="text-[11px] text-slate-500">{perf.engagement_rate?.toFixed(3)}% ER · {perf.likes?.toLocaleString()} likes</div>
+                  </div>
+                </div>
+                {t.source_url && (
+                  <a href={t.source_url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-600">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+
+              {/* Caption preview */}
+              <div className="rounded-lg bg-slate-50 p-3 mb-3">
+                <p className="text-[12px] text-slate-700 leading-relaxed line-clamp-3">
+                  {t.caption?.full_text?.slice(0, 180)}{(t.caption?.full_text?.length || 0) > 180 ? '...' : ''}
+                </p>
+              </div>
+
+              {/* Why it works — badges */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${HOOK_COLORS[hook.id] || HOOK_COLORS.plain}`}>
+                  {hook.label}
+                </span>
+                {t.slide_count && (
+                  <span className="rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                    {t.slide_count} slides
+                  </span>
+                )}
+                {t.caption?.structure?.has_swipe_cta && (
+                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    Has swipe CTA
+                  </span>
+                )}
+              </div>
+
+              {/* Citations */}
+              {t.citations?.slice(0, 2).map((c, ci) => (
+                <div key={ci} className={`text-[10px] mb-1 ${c.signal === 'positive' ? 'text-emerald-600' : c.signal === 'opportunity' ? 'text-amber-600' : 'text-slate-500'}`}>
+                  {c.signal === 'positive' ? '+' : c.signal === 'opportunity' ? '!' : '-'} {c.text}
+                </div>
+              ))}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                <button onClick={() => onUseTemplate?.(t)}
+                  className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800">
+                  <BookmarkPlus className="h-3 w-3" /> Use as template
+                </button>
+                <button onClick={() => onGenerateLike?.(t)}
+                  className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:scale-[1.02] transition-all shadow-[0_4px_12px_-4px_rgba(124,58,237,0.4)]">
+                  <Sparkles className="h-3 w-3" /> Generate like this
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -471,6 +558,48 @@ export default function ContentLabPane({ timeRange }) {
   const avgER = patterns.avg_engagement_rate || 0
   const mixedMedia = patterns.mixed_media_usage || 0
 
+  // Generation panel state
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [panelSlides, setPanelSlides] = useState([])
+  const [panelGenerating, setPanelGenerating] = useState(false)
+  const [panelName, setPanelName] = useState('')
+
+  const handleUseTemplate = useCallback((template) => {
+    try {
+      const key = `template:post:${template.source_shortcode}`
+      localStorage.setItem(key, JSON.stringify({
+        t: Date.now(), source: 'post', source_shortcode: template.source_shortcode,
+        source_username: template.source_username,
+        skeleton: template.template_skeleton, frameworks: template.frameworks,
+        citations: template.citations,
+      }))
+    } catch {}
+    alert('Template saved! Find it in Template Studio.')
+  }, [])
+
+  const handleGenerateLike = useCallback(async (template) => {
+    const sk = template.template_skeleton || {}
+    const hookText = template.caption?.hook?.matched_text || template.caption?.full_text?.slice(0, 80) || 'Compelling hook'
+    const bgColor = '#0f172a'
+    const accent = '#14b8a6'
+    const prompts = [
+      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Large bold white text: "${hookText}". Teal accent (${accent}). Minimal.`,
+      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). White text: "Here's what makes this work" with teal underline.`,
+      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Number "01" in teal. Bold white insight text. Clean typography.`,
+      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Number "02" in teal. Bold white insight text. Clean typography.`,
+      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Number "03" in teal. Bold white insight text. Clean typography.`,
+      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Bold white text: "Follow for more". Teal arrow. CTA slide.`,
+    ]
+    setPanelName(`Replicate @${template.source_username || handle}`)
+    setPanelSlides(prompts.map((p, i) => ({ index: i, url: null, prompt: p })))
+    setPanelOpen(true)
+    setPanelGenerating(true)
+    try {
+      const result = await fetchGenerateSlides(prompts, { aspectRatio: '4:5' })
+      if (result?.slides) setPanelSlides(result.slides)
+    } catch {} finally { setPanelGenerating(false) }
+  }, [handle])
+
   if (!handle && !loading) {
     return (
       <>
@@ -556,6 +685,15 @@ export default function ContentLabPane({ timeRange }) {
         </div>
       )}
 
+      {/* Top Performers Hero — the bridge from "what works" to "create something" */}
+      {data?.ok && topPerformers.length > 0 && (
+        <TopPerformersHero
+          performers={topPerformers}
+          onUseTemplate={handleUseTemplate}
+          onGenerateLike={handleGenerateLike}
+        />
+      )}
+
       {/* AI Insights */}
       {data?.ok && <AIInsightsCard data={data} />}
 
@@ -587,6 +725,15 @@ export default function ContentLabPane({ timeRange }) {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-2xl" />)}
         </div>
       )}
+
+      {/* Generated slides panel */}
+      <GeneratedSlidesPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        slides={panelSlides}
+        generating={panelGenerating}
+        templateName={panelName}
+      />
     </>
   )
 }

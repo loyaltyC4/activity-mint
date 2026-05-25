@@ -386,16 +386,85 @@ function TemplateCard({ template, index, onSelect }) {
   )
 }
 
+function loadCustomTemplates() {
+  if (typeof localStorage === 'undefined') return []
+  const customs = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key || !key.startsWith('template:')) continue
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      const d = JSON.parse(raw)
+      if (!d?.skeleton) continue
+      customs.push({
+        id: key,
+        name: d.source === 'ad' ? `${d.source_page || 'Ad'} replica` : `@${d.source_username || '?'} post`,
+        format: d.skeleton.format || 'carousel',
+        slide_count: d.skeleton.slide_count || 8,
+        description: d.reference_text ? d.reference_text.slice(0, 100) : 'Custom template from your analysis',
+        framework: d.source === 'ad' ? 'From Meta Ad Library' : 'From Content Lab analysis',
+        citation: d.source === 'ad' ? `Saved from ${d.source_page || 'advertiser'}` : `Based on @${d.source_username || '?'} top post`,
+        style: { bg: '#0f172a', text: '#ffffff', accent: '#14b8a6', font: 'Bold sans-serif', mood: 'data-driven' },
+        fields: ['HOOK', 'POINT_1', 'POINT_2', 'POINT_3', 'CTA_TEXT'],
+        slides: [],
+        _custom: true,
+        _savedAt: d.t,
+      })
+    }
+  } catch {}
+  return customs.sort((a, b) => (b._savedAt || 0) - (a._savedAt || 0))
+}
+
 function GalleryView({ onSelect }) {
+  const [customs] = useState(() => loadCustomTemplates())
   return (
     <>
       <PaneHeader
         title="Template Studio"
         subtitle="Choose a proven content template backed by real engagement data"
       />
+
+      {/* Custom templates from ads + posts — shown first */}
+      {customs.length > 0 && (
+        <div className="mb-6">
+          <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500 mb-3">
+            Your saved templates
+          </div>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+            {customs.map((t, i) => (
+              <div key={t.id}
+                className="relative rounded-2xl bg-white p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] transition-all cursor-pointer group animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                style={{ animationDelay: `${i * 50}ms`, animationDuration: '350ms' }}
+                onClick={() => onSelect(t)}
+              >
+                {/* Source badge */}
+                <div className="absolute top-3 right-3">
+                  <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-600">
+                    {t._custom && t.framework?.includes('Ad') ? 'From Ad' : 'From Post'}
+                  </span>
+                </div>
+                {/* Colour swatch */}
+                <div className="h-2 w-12 rounded-full mb-3" style={{ background: t.style.bg }} />
+                <div className="text-[13px] font-bold text-slate-900 mb-1">{t.name}</div>
+                <div className="text-[11px] text-slate-500 line-clamp-2 mb-2">{t.description}</div>
+                <div className="text-[10px] text-slate-400">{t.citation}</div>
+                <div className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Use template <ArrowRight className="h-3 w-3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Preset templates */}
+      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500 mb-3">
+        {customs.length > 0 ? 'Research-backed presets' : 'All templates'}
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {TEMPLATES.map((t, i) => (
-          <TemplateCard key={t.id} template={t} index={i} onSelect={onSelect} />
+          <TemplateCard key={t.id} template={t} index={i + customs.length} onSelect={onSelect} />
         ))}
       </div>
     </>

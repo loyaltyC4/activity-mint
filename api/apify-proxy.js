@@ -30,6 +30,9 @@ const SCRAPER_SERVICE_URL = process.env.SCRAPER_SERVICE_URL;
 const SCRAPER_SECRET = process.env.SCRAPER_SECRET;
 const BASE = 'https://api.apify.com/v2';
 
+// Script Studio backend — performance calc + NLP. Vercel ESM relative import.
+import scriptStudio from './_lib/scriptStudio.js';
+
 if (!APIFY_TOKEN) console.error('APIFY_TOKEN environment variable is not configured');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -772,6 +775,50 @@ export default async function handler(req, res) {
         return res.status(200).json(withSource(res, 'cluster-empty', {
           ok: true, items: [], clusterError: err.message,
         }));
+      }
+    }
+
+    // ── SCRIPT STUDIO — performance calc + NLP on the user's recent posts ──
+    // Fetches ~50 posts via apify/instagram-post-scraper, runs the analysis
+    // pipeline (engagement score → median baseline → delta → bucket → log-odds
+    // lexicon → structural blueprint → template scripts), returns everything
+    // the ScriptStudioPane needs.
+    if (action === 'script_studio') {
+      const { username, postLimit = 50 } = payload;
+      if (!username) return res.status(400).json({ error: 'Missing username' });
+      if (!APIFY_TOKEN) return res.status(500).json({ error: 'APIFY_TOKEN not configured' });
+      const cleanUser = username.replace('@', '');
+      try {
+        // 1. Pull 50 posts via Apify post-scraper
+        run = await startRun('apify/instagram-post-scraper', {
+          username: [cleanUser],
+          resultsLimit: Math.min(Math.max(postLimit, 10), 100),
+        });
+        completed = await pollRun(run.id);
+        const posts = await getDatasetItems(completed.defaultDatasetId, 100);
+        if (!Array.isArray(posts) || posts.length === 0) {
+          res.setHeader('x-data-source', 'apify-empty');
+          return res.status(200).json(withSource(res, 'apify-empty', {
+            ok: false, reason: 'no-posts', posts_count: 0,
+          }));
+        }
+        // 2. Run the analysis pipeline (pure compute, ~15ms)
+        const analysis = scriptStudio.analyze(posts);
+        // 3. Long edge cache — analyses change slowly. 4h fresh + 24h SWR.
+        try {
+          const directive = 'public, max-age=0, s-maxage=14400, stale-while-revalidate=86400';
+          res.setHeader('Cache-Control', directive);
+          res.setHeader('CDN-Cache-Control', directive);
+          res.setHeader('Vercel-CDN-Cache-Control', directive);
+        } catch {}
+        return res.status(200).json(withSource(res, 'apify-script-studio', {
+          ok: true,
+          username: cleanUser,
+          ...analysis,
+        }));
+      } catch (err) {
+        console.error(`[script_studio] failed: ${err.message}`);
+        return res.status(500).json({ error: err.message, _dataSource: 'error' });
       }
     }
 

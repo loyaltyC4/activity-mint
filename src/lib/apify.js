@@ -16,6 +16,7 @@
 const READ_ACTIONS_GET = new Set([
   'profile', 'profile-with-posts', 'posts', 'followers', 'following', 'stories',
   'audience_enrichment', 'top_commenters', 'dashboard_load', 'comments',
+  'script_studio',
 ]);
 
 // Per-action defaults (ms). The cache is *additional* protection on top of
@@ -31,6 +32,8 @@ const LOCAL_CACHE_DEFAULTS = {
   audience_enrichment:  { ttlMs: 300_000, swrMs:  900_000 },
   dashboard_load:       { ttlMs:  60_000, swrMs:  300_000 },
   comments:             { ttlMs: 120_000, swrMs:  600_000 },
+  // Script Studio analyses change very slowly (4h fresh, 24h stale-revalidate)
+  script_studio:        { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000 },
 };
 
 // ─── observability ─────────────────────────────────────────────────────────
@@ -227,6 +230,20 @@ export async function fetchDashboardTopCommenters(username, options = {}, opts) 
       context: 'dashboard',
     },
     opts,
+  );
+}
+
+/**
+ * Script Studio analysis: pulls 50 posts and runs the full pipeline
+ * (performance buckets + log-odds lexicon + structural blueprint + scripts).
+ * Heavy on the cold path (~50s Apify post-scraper) but cached 4h fresh
+ * + 24h SWR — so revisits are sub-200ms.
+ */
+export async function fetchScriptStudio(username, opts) {
+  return callProxyCached(
+    'script_studio',
+    { username: username.replace('@', ''), context: 'dashboard' },
+    { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000, ...opts },
   );
 }
 

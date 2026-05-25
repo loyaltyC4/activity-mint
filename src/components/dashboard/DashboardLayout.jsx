@@ -15,6 +15,7 @@ import { PANES } from './index'
 const PulsePane       = lazy(() => import('./panes/PulsePane'))
 const AudiencePane    = lazy(() => import('./panes/AudiencePane'))
 const ContentPane     = lazy(() => import('./panes/ContentLabPane'))
+const ScriptStudioPane = lazy(() => import('./panes/ScriptStudioPane'))
 const SentimentPane   = lazy(() => import('./panes/SentimentPane'))
 const TrendsPane      = lazy(() => import('./panes/TrendsPane'))
 const OutreachPane    = lazy(() => import('./panes/OutreachPane'))
@@ -56,6 +57,7 @@ function PaneRouter({ paneId, timeRange }) {
     case 'pulse':       return <PulsePane       timeRange={timeRange} />
     case 'audience':    return <AudiencePane    timeRange={timeRange} />
     case 'content':     return <ContentPane     timeRange={timeRange} />
+    case 'script':      return <ScriptStudioPane timeRange={timeRange} />
     case 'sentiment':   return <SentimentPane   timeRange={timeRange} />
     case 'trends':      return <TrendsPane      timeRange={timeRange} />
     case 'outreach':    return <OutreachPane    timeRange={timeRange} />

@@ -1035,7 +1035,11 @@ export default async function handler(req, res) {
         }));
       } catch (err) {
         console.error(`[deconstruct_profile] failed: ${err.message}`);
-        return res.status(500).json({ error: err.message, _dataSource: 'error' });
+        // Return a clean ok:false instead of 500 so the frontend shows the
+        // friendly "not enough posts" card instead of a red crash.
+        return res.status(200).json(withSource(res, 'error', {
+          ok: false, error: err.message, reason: 'analysis-failed', posts_count: 0,
+        }));
       }
     }
 
@@ -1134,7 +1138,9 @@ export default async function handler(req, res) {
         }));
       } catch (err) {
         console.error(`[script_studio] failed: ${err.message}`);
-        return res.status(500).json({ error: err.message, _dataSource: 'error' });
+        return res.status(200).json(withSource(res, 'error', {
+          ok: false, error: err.message, reason: 'analysis-failed', posts_count: 0,
+        }));
       }
     }
 

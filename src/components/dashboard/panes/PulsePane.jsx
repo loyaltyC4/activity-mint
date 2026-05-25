@@ -13,8 +13,8 @@
 
 'use strict'
 
-import React, { useEffect, useState, useCallback } from 'react'
-import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell, Sparkles, Radio, Smile } from 'lucide-react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell, Sparkles, Radio, Smile, Brain, Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { useTier } from '../../../context/TierContext'
@@ -26,6 +26,7 @@ import {
   // Cluster-side: stories stays on cluster (faster + free), enrichment too
   fetchInstagramStoriesSWR,
   fetchAudienceEnrichmentSWR,
+  fetchAIInsights,
   // Legacy fallbacks kept in case any caller needs them
   fetchInstagramProfile,
   fetchInstagramProfileSWR,
@@ -43,6 +44,7 @@ import StoryRing from '../shared/StoryRing'
 import PostThumb from '../shared/PostThumb'
 import EmptyState from '../EmptyState'
 import { proxyImg, fmt as fmtShared } from '../shared/utils'
+import { extractBrand } from '../../../lib/brandExtract'
 
 // ── Cache helpers ─────────────────────────────────────────────────────────
 const CACHE_KEY = (h) => `pulse:v1:${h}`
@@ -152,6 +154,113 @@ function InsightsCard({ insights, isPaid, onUpgrade }) {
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+function BrandOverviewCard({ profile, posts }) {
+  const brand = useMemo(() => extractBrand(profile, posts), [profile, posts])
+  const [aiSummary, setAiSummary] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  if (!brand || (!brand.voice?.id && brand.pillars?.length === 0)) return null
+
+  const handleAI = async () => {
+    setAiLoading(true)
+    try {
+      const r = await fetchAIInsights({
+        request_type: 'brand_overview',
+        profile: profile ? { username: profile.username, followersCount: profile.followersCount || profile.followers, biography: profile.biography } : null,
+        topic: `voice=${brand.voice?.label}, pillars=${brand.pillars?.map(p=>p.label).join(',')}`,
+      })
+      if (r?.insights) setAiSummary(r.insights.join(' '))
+      else if (r?.voice_summary) setAiSummary(r.voice_summary)
+      else if (r?.raw) setAiSummary(r.raw)
+    } catch {} finally { setAiLoading(false) }
+  }
+
+  return (
+    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
+            <Brain className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Brand DNA</div>
+            <div className="text-base font-bold">Your content identity</div>
+          </div>
+        </div>
+        {!aiSummary && (
+          <button onClick={handleAI} disabled={aiLoading}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:scale-[1.02] transition-all disabled:opacity-60">
+            {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            {aiLoading ? 'Analysing...' : 'AI Summary'}
+          </button>
+        )}
+      </div>
+
+      {/* Deterministic brand signals — instant, zero tokens */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
+        {/* Voice */}
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Voice</div>
+          <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-bold ${brand.voice?.color || 'bg-slate-100 text-slate-600'}`}>
+            {brand.voice?.label || 'Neutral'}
+          </span>
+        </div>
+        {/* Visual style */}
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Visual style</div>
+          <div className="text-[12px] font-bold text-slate-800 capitalize">{brand.visualStyle?.dominant || '—'}-led</div>
+          {brand.visualStyle?.mix && (
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {Object.entries(brand.visualStyle.mix).map(([k,v]) => `${k} ${v}%`).join(' / ')}
+            </div>
+          )}
+        </div>
+        {/* Audience depth */}
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Audience</div>
+          <div className="text-[12px] font-bold text-slate-800">{brand.audienceDepth?.label || '—'}</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">{brand.audienceDepth?.ratio?.toFixed(1) || 0}% comment ratio</div>
+        </div>
+        {/* Cadence */}
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Posting</div>
+          <div className="text-[12px] font-bold text-slate-800">{brand.cadence?.label || '—'}</div>
+          {brand.cadence?.avgDaysBetween && (
+            <div className="text-[10px] text-slate-500 mt-0.5">~{brand.cadence.avgDaysBetween}d avg gap</div>
+          )}
+        </div>
+      </div>
+
+      {/* Content pillars */}
+      {brand.pillars?.length > 0 && (
+        <div className="mb-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Content pillars</div>
+          <div className="flex flex-wrap gap-1.5">
+            {brand.pillars.map((p) => (
+              <span key={p.id} className="rounded-md bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-700">
+                {p.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Visual style recommendation */}
+      {brand.visualStyle?.recommendation && (
+        <p className="text-[11px] text-slate-500 leading-relaxed">{brand.visualStyle.recommendation}</p>
+      )}
+
+      {/* AI summary (optional, renders after button click) */}
+      {aiSummary && (
+        <div className="mt-3 rounded-xl bg-gradient-to-r from-violet-50/50 to-teal-50/50 p-3 shadow-[0_0_0_1px_rgba(124,58,237,0.1)]">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-violet-600 mb-1">AI Brand Summary</div>
+          <p className="text-[12px] text-slate-700 leading-relaxed">{aiSummary}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -559,6 +668,9 @@ export default function PulsePane({ timeRange }) {
             emptyHint="No posts yet"
           />
         </div>
+
+        {/* Brand DNA — deterministic extraction, zero AI tokens, renders instantly */}
+        <BrandOverviewCard profile={profile} posts={posts} />
 
         <ActivityCard stories={stories} posts={posts} loading={refreshing} />
 

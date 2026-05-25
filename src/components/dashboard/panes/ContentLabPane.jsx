@@ -240,8 +240,9 @@ function OpportunityCard({ opportunity }) {
 function TopPerformerCard({ template, rank, onSave }) {
   const [expanded, setExpanded] = useState(false)
   const [saved, setSaved] = useState(false)
+  if (!template) return null
   const perf = template.performance || {}
-  const hook = template.caption?.hook || {}
+  const hook = template.caption?.hook || { id: 'plain', label: 'Plain' }
   const structure = template.caption?.structure || {}
   const meta = FORMAT_META[template.format] || FORMAT_META.photo
   const citations = template.citations || []
@@ -493,14 +494,36 @@ export default function ContentLabPane({ timeRange }) {
       />
 
       {error && (
-        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6 text-center mb-4">
-          <AlertTriangle className="mx-auto h-8 w-8 text-rose-400 mb-2" />
-          <p className="text-sm text-rose-700">{error}</p>
+        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)] mb-4">
+          <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
+          <h3 className="mt-3 text-base font-bold text-slate-900">
+            {/no.?posts|insufficient|not found|empty|private/i.test(error)
+              ? 'Not enough posts to analyse'
+              : 'Content Lab needs more data'}
+          </h3>
+          <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+            Content Lab deconstructs your recent posts into reproducible templates with framework citations. This account needs at least 10 public posts for meaningful analysis.
+          </p>
+          <button
+            onClick={() => hydrate(handle, { force: true })}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-200"
+          >
+            <RefreshCw className="h-3 w-3" /> Try again
+          </button>
         </div>
       )}
 
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      {/* Only show data sections when we have real data */}
+      {!data?.ok && !loading && !error && (
+        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+          <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
+          <h3 className="mt-3 text-base font-bold text-slate-900">Waiting for data</h3>
+          <p className="mt-1 text-sm text-slate-500">Content Lab will populate once your posts are analysed.</p>
+        </div>
+      )}
+
+      {/* Stat tiles — only show when we have real data */}
+      {(data?.ok || loading) && <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {loading && !data ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
         ) : (
@@ -514,7 +537,7 @@ export default function ContentLabPane({ timeRange }) {
               sublabel={Object.keys(hookDist).length <= 1 ? 'Try more variety' : null} />
           </>
         )}
-      </div>
+      </div>}
 
       {/* Distribution charts */}
       {(data?.ok || loading) && (

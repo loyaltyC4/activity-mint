@@ -441,13 +441,34 @@ export default function ScriptStudioPane({ timeRange }) {
   }
 
   if (error) {
+    const isNoData = /no.?posts|insufficient|not found|empty|private/i.test(error)
+    const isNetwork = /proxy|network|timeout|fetch|503|502/i.test(error)
     return (
       <>
-        <PaneHeader title="Script Studio" subtitle={`Analysing @${handle}`} onRefresh={() => hydrate(handle, { force: true })} />
-        <div className="rounded-3xl bg-red-50 border border-red-200 p-8 text-center">
-          <AlertCircle className="mx-auto h-10 w-10 text-red-400" />
-          <h3 className="mt-3 text-base font-bold text-red-700">Couldn't run analysis</h3>
-          <p className="mt-1 text-sm text-red-600">{error}</p>
+        <PaneHeader title="Script Studio" subtitle={`@${handle}`} onRefresh={() => hydrate(handle, { force: true })} />
+        <div className="rounded-3xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+          <PenTool className="mx-auto h-10 w-10 text-slate-300" />
+          <h3 className="mt-3 text-base font-bold text-slate-900">
+            {isNoData ? 'Not enough posts to analyse' : isNetwork ? 'Temporarily unavailable' : 'Analysis couldn\'t complete'}
+          </h3>
+          <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+            {isNoData
+              ? 'Script Studio needs at least 10 public posts to compute engagement patterns, identify winning phrases, and build your structural blueprint. This account doesn\'t have enough content yet.'
+              : isNetwork
+                ? 'The data service is temporarily unreachable. This usually resolves in a minute. Try refreshing.'
+                : `Something went wrong: ${error}`}
+          </p>
+          {isNoData && (
+            <p className="mt-3 text-xs text-slate-400">
+              Want to see Script Studio in action? Try tracking @natgeotravel or @nasa — accounts with rich post histories.
+            </p>
+          )}
+          <button
+            onClick={() => hydrate(handle, { force: true })}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-200"
+          >
+            <RefreshCw className="h-3 w-3" /> Try again
+          </button>
         </div>
       </>
     )

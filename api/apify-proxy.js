@@ -699,18 +699,39 @@ export default async function handler(req, res) {
       const { username, postLimit = 6, commentLimit = 50, topN = 25 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
       const cleanUser = username.replace('@', '');
-      const postsResp = await callScraperService('posts', { username: cleanUser, limit: postLimit });
+
+      // Limit to 3 posts max to stay under Vercel's 60s function timeout.
+      // Each comments task can take 15-30s on the cluster; 3 × 20s = 60s worst case.
+      const effectivePostLimit = Math.min(postLimit, 3);
+      let postsResp;
+      try {
+        postsResp = await callScraperService('posts', { username: cleanUser, limit: effectivePostLimit });
+      } catch (err) {
+        setEdgeCache(res, 'top_commenters');
+        return res.status(200).json(withSource(res, 'cluster-empty', { ok: true, items: [], error: err.message }));
+      }
       const posts = postsResp.items;
       if (!posts || posts.length === 0) {
         setEdgeCache(res, 'top_commenters');
         return res.status(200).json(withSource(res, postsResp.source, { ok: true, items: [] }));
       }
 
-      const tasks = posts.map((p) => ({
+      const tasks = posts.slice(0, 3).map((p) => ({
         action: 'comments',
-        payload: { shortcode: p.shortcode, limit: commentLimit },
+        payload: { shortcode: p.shortcode, limit: Math.min(commentLimit, 20) },
       }));
-      const clusterResults = await callScraperBatch(tasks, 'parallel');
+      // Wrap batch with a 40s timeout so the Vercel function never exceeds 60s.
+      // If the batch doesn't complete, return whatever we have (empty is OK).
+      let clusterResults;
+      try {
+        clusterResults = await Promise.race([
+          callScraperBatch(tasks, 'parallel'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('batch_timeout')), 40000)),
+        ]);
+      } catch (err) {
+        console.warn(`[top_commenters] batch timed out: ${err.message}`);
+        clusterResults = tasks.map(() => ({ ok: false, items: [], error: 'timeout' }));
+      }
 
       // Count empties so the UI knows when the cluster comments scraper is
       // struggling on a handle (and operator knows to investigate comments.js).

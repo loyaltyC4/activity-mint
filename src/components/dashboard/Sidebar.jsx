@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import AccountSwitcher from './shared/AccountSwitcher'
 
 const NAV_GROUPS = [
   {
@@ -130,6 +131,9 @@ export default function Sidebar({ user, tier, activePane, onPaneChange }) {
   return (
     <aside className="sticky top-[53px] hidden h-[calc(100vh-53px)] w-64 shrink-0 flex-col border-r border-[#e0eae7]/70 bg-white/45 p-3.5 lg:flex">
       <ProfileCard user={user} tier={tier} />
+      <div className="mb-2">
+        <AccountSwitcher />
+      </div>
 
       <ScrollArea className="flex-1 -mr-3.5 pr-3.5">
         {NAV_GROUPS.map((group) => (

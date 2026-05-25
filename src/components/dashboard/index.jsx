@@ -14,6 +14,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useTier } from '../../context/TierContext'
+import { TrackedAccountProvider } from '../../context/TrackedAccountContext'
 import DashboardLayout from './DashboardLayout'
 import { NavigationContext } from './NavigationContext'
 
@@ -50,15 +51,17 @@ export default function DashboardV2({ setActiveTab }) {
   const nav = { setActiveTab: setActiveTab || (() => {}) }
 
   return (
-    <NavigationContext.Provider value={nav}>
-      <DashboardLayout
-        user={user}
-        tier={tier}
-        activePane={activePane}
-        onPaneChange={setActivePane}
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-      />
-    </NavigationContext.Provider>
+    <TrackedAccountProvider>
+      <NavigationContext.Provider value={nav}>
+        <DashboardLayout
+          user={user}
+          tier={tier}
+          activePane={activePane}
+          onPaneChange={setActivePane}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+        />
+      </NavigationContext.Provider>
+    </TrackedAccountProvider>
   )
 }

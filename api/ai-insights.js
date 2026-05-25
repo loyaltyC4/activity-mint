@@ -120,8 +120,17 @@ async function callOpenAI(userMessage) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildUserMessage(body) {
-  const { request_type, profile, posts, analysis, ads, topic } = body;
+  const { request_type, profile, posts, analysis, ads, topic, digest } = body;
   const parts = [];
+
+  // If a compressed digest is provided, use it instead of building from
+  // individual fields. Saves ~70% of input tokens.
+  if (digest) {
+    parts.push(`Request type: ${request_type}`);
+    if (topic) parts.push(`Topic: ${topic}`);
+    parts.push(`--- PROFILE DIGEST ---\n${digest}`);
+    return parts.join('\n\n');
+  }
   parts.push(`Request type: ${request_type}`);
   if (topic) parts.push(`Topic/niche: ${topic}`);
   if (profile) {

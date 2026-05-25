@@ -1,680 +1,411 @@
 /**
- * Content Lab — real post performance analysis powered by the Phase A
- * `posts` cluster action.
+ * Content Lab — Content Intelligence Pane.
  *
- * Three sections:
- *   1. Best Performing Posts — grid sorted by engagement rate (likes +
- *      comments / followers). Each tile is clickable.
- *   2. Per-post breakdown — when a post is selected, expand a detailed
- *      card below the grid: full caption, hashtags, posting time, "why
- *      it worked" derived signals, link out to Instagram.
- *   3. Framework guide — prescriptive rules mined from the top 5 posts:
- *      optimal type, posting hour, day of week, caption length, hashtag
- *      count, mention usage. Each rule cites the data behind it.
+ * Displays the output of the Content Deconstruction Engine:
+ *   - Format distribution (photo / reel / carousel split)
+ *   - Hook formula distribution (which hooks this account uses)
+ *   - Top performers with their template skeletons + framework citations
+ *   - Research-backed opportunities (gaps the user should exploit)
+ *   - "Save as template" on every deconstructed post
+ *
+ * Design: Chris Do typography-forward aesthetic — bold DM Sans headings,
+ * high contrast, restrained teal+slate palette, grid-based card layouts.
+ * Data is the hero, not decoration.
+ *
+ * Data source: fetchDeconstructProfile() → api/apify-proxy?action=deconstruct_profile
  */
 
 'use strict'
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
-  LayoutGrid, Clock, Hash, Heart, MessageCircle, Eye, Play, Image as ImageIcon,
-  Calendar, Sparkles, TrendingUp, AlertCircle, ExternalLink, Layers, Loader2,
-  Sun, Moon, Coffee, Sunrise, ChevronRight, X as XIcon,
+  LayoutGrid, BarChart3, Sparkles, AlertTriangle, ArrowRight,
+  Video, Image as ImageIcon, Layers, Copy, BookmarkPlus,
+  RefreshCw, Loader2, CheckCircle2, ChevronDown, ExternalLink,
+  Zap, TrendingUp, MessageSquare, Hash,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { supabase } from '../../../lib/supabase'
-// Speed-v5: dashboard-context Apify path. fetchDashboardProfile returns
-// profile + 12 latestPosts in ONE call — ContentLab needs both, so we
-// can drop the separate fetchInstagramPosts call entirely.
-import { fetchDashboardProfile, fetchDashboardPosts } from '../../../lib/apify'
-import { proxyImg, fmt } from '../shared/utils'
+import { fetchDeconstructProfile } from '../../../lib/apify'
+import { proxyImg } from '../shared/utils'
 
-/* ─── Caches ──────────────────────────────────────────────────────────── */
-const CACHE_TTL = 15 * 60 * 1000
-const cacheKey = (kind, h) => `contentlab:${kind}:v1:${h}`
-function loadCache(kind, h) {
+// ─── Cache layer ──────────────────────────────────────────────────────────
+const CACHE_KEY = (h) => `content_lab:v2:${h}`
+const CACHE_TTL = 4 * 60 * 60 * 1000
+function loadCache(h) {
   if (!h || typeof localStorage === 'undefined') return null
   try {
-    const raw = localStorage.getItem(cacheKey(kind, h))
+    const raw = localStorage.getItem(CACHE_KEY(h))
     if (!raw) return null
-    const data = JSON.parse(raw)
-    if (!data || (Date.now() - (data.t || 0)) > CACHE_TTL) return null
-    return data.payload
+    const d = JSON.parse(raw)
+    if (!d || (Date.now() - (d.t || 0)) > CACHE_TTL) return null
+    return d.payload
   } catch { return null }
 }
-function saveCache(kind, h, payload) {
+function saveCache(h, payload) {
   if (!h || typeof localStorage === 'undefined') return
-  try { localStorage.setItem(cacheKey(kind, h), JSON.stringify({ t: Date.now(), payload })) } catch {}
+  try { localStorage.setItem(CACHE_KEY(h), JSON.stringify({ t: Date.now(), payload })) } catch {}
 }
 
-/* ─── Engagement math ──────────────────────────────────────────────────── */
-function engagementRate(post, followers) {
-  if (!followers || followers < 1) return null
-  const reach = (post.likes || 0) + (post.comments || 0)
-  return (reach / followers) * 100
+// ─── Design tokens (Chris Do aesthetic) ───────────────────────────────────
+const SECTION_TITLE = 'text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500 mb-3'
+const CARD = 'rounded-2xl bg-white p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.04)]'
+const METRIC_BIG = 'text-[28px] font-extrabold tracking-tight leading-none'
+const METRIC_LABEL = 'text-[11px] font-medium text-slate-500 mt-1'
+
+const FORMAT_META = {
+  carousel: { Icon: Layers, color: 'text-violet-600 bg-violet-50', label: 'Carousel', barColor: 'bg-violet-500' },
+  reel:     { Icon: Video,  color: 'text-rose-600 bg-rose-50',     label: 'Reel',     barColor: 'bg-rose-500' },
+  photo:    { Icon: ImageIcon, color: 'text-sky-600 bg-sky-50',    label: 'Photo',    barColor: 'bg-sky-400' },
 }
 
-// Heuristic 'why it worked' signal extraction for a single post given the
-// distribution across all posts. Returns an array of { Icon, label, detail }.
-function whyItWorked(post, allPosts, followers) {
-  const out = []
-  if (!post) return out
-  const er = engagementRate(post, followers)
-  if (followers && er != null) {
-    const ers = allPosts.map((p) => engagementRate(p, followers)).filter((x) => x != null)
-    const avg = ers.reduce((s, x) => s + x, 0) / Math.max(ers.length, 1)
-    if (er > avg * 1.5) {
-      out.push({ Icon: TrendingUp, label: `${er.toFixed(2)}% engagement rate`, detail: `${Math.round(((er / avg) - 1) * 100)}% above your average` })
-    } else if (er > avg) {
-      out.push({ Icon: TrendingUp, label: `${er.toFixed(2)}% engagement rate`, detail: 'Above your average' })
-    } else {
-      out.push({ Icon: TrendingUp, label: `${er.toFixed(2)}% engagement rate`, detail: 'Below your average' })
-    }
-  }
-  // Type signal
-  if (post.isCarousel) {
-    out.push({ Icon: Layers, label: 'Carousel format', detail: 'Carousels lift saves + repeat viewing' })
-  } else if (post.isVideo) {
-    out.push({ Icon: Play, label: 'Video / Reel', detail: `${fmt(post.videoViews)} views — Reels surface beyond followers` })
-  }
-  // Time of day
-  if (post.timestamp) {
-    const d = new Date(post.timestamp)
-    const hr = d.getHours()
-    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]
-    if (hr >= 18 && hr <= 22) {
-      out.push({ Icon: Moon, label: `Posted at ${dow} ${hr}:00`, detail: 'Evening peak — high feed activity' })
-    } else if (hr >= 5 && hr <= 9) {
-      out.push({ Icon: Sunrise, label: `Posted at ${dow} ${hr}:00`, detail: 'Morning commute — feed-check moment' })
-    } else if (hr >= 11 && hr <= 14) {
-      out.push({ Icon: Coffee, label: `Posted at ${dow} ${hr}:00`, detail: 'Lunch break — second peak' })
-    } else {
-      out.push({ Icon: Sun, label: `Posted at ${dow} ${hr}:00`, detail: 'Off-peak hour' })
-    }
-  }
-  // Hashtags
-  const ht = (post.hashtags || []).length
-  if (ht >= 5 && ht <= 12) {
-    out.push({ Icon: Hash, label: `${ht} hashtags`, detail: 'Sweet-spot tag count for discovery' })
-  } else if (ht > 12) {
-    out.push({ Icon: Hash, label: `${ht} hashtags`, detail: 'High tag count — broad discovery' })
-  } else if (ht > 0) {
-    out.push({ Icon: Hash, label: `${ht} hashtag${ht > 1 ? 's' : ''}`, detail: 'Light tagging' })
-  }
-  // Caption length
-  const capLen = (post.caption || '').length
-  if (capLen >= 220) {
-    out.push({ Icon: Sparkles, label: 'Long-form caption', detail: `${capLen} chars — invites a read` })
-  } else if (capLen >= 60) {
-    out.push({ Icon: Sparkles, label: 'Punchy caption', detail: `${capLen} chars — quick + clear` })
-  } else if (capLen > 0) {
-    out.push({ Icon: Sparkles, label: 'Minimal caption', detail: `${capLen} chars — image-led` })
-  }
-  return out
+const HOOK_COLORS = {
+  plain: 'bg-slate-100 text-slate-700',
+  contrarian: 'bg-amber-50 text-amber-700',
+  direct_challenge: 'bg-rose-50 text-rose-700',
+  curiosity_gap: 'bg-violet-50 text-violet-700',
+  social_proof: 'bg-emerald-50 text-emerald-700',
+  question_hook: 'bg-sky-50 text-sky-700',
+  truth_bomb: 'bg-orange-50 text-orange-700',
+  result_hook: 'bg-teal-50 text-teal-700',
+  visual_interrupt: 'bg-fuchsia-50 text-fuchsia-700',
+  wait_what: 'bg-indigo-50 text-indigo-700',
+  mid_action: 'bg-cyan-50 text-cyan-700',
 }
 
-/* ─── Framework mining ────────────────────────────────────────────────── */
-function mineFramework(posts, followers) {
-  if (!posts || posts.length === 0) return null
-  // Use top 5 by engagement rate as the "what works for you" anchor
-  const sorted = [...posts]
-    .map((p) => ({ ...p, er: engagementRate(p, followers) }))
-    .filter((p) => p.er != null)
-    .sort((a, b) => b.er - a.er)
-  const top = sorted.slice(0, Math.min(5, sorted.length))
-  if (top.length === 0) return null
+// ─── Components ───────────────────────────────────────────────────────────
 
-  // Optimal type
-  const typeCount = { image: 0, video: 0, carousel: 0 }
-  for (const p of top) typeCount[p.type] = (typeCount[p.type] || 0) + 1
-  const bestType = Object.entries(typeCount).sort((a, b) => b[1] - a[1])[0]
-  const typePct = Math.round((bestType[1] / top.length) * 100)
-
-  // Optimal hour
-  const hours = top.map((p) => p.timestamp ? new Date(p.timestamp).getHours() : null).filter((h) => h != null)
-  let bestHour = null
-  let hourBucket = null
-  if (hours.length > 0) {
-    const tally = new Map()
-    for (const h of hours) tally.set(h, (tally.get(h) || 0) + 1)
-    bestHour = Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0][0]
-    hourBucket = bestHour >= 18 && bestHour <= 22 ? 'evening'
-               : bestHour >= 11 && bestHour <= 14 ? 'midday'
-               : bestHour >= 5 && bestHour <= 9 ? 'morning'
-               : 'off-peak'
-  }
-
-  // Optimal day
-  const days = top.map((p) => p.timestamp ? new Date(p.timestamp).getDay() : null).filter((d) => d != null)
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  let bestDay = null
-  if (days.length > 0) {
-    const tally = new Map()
-    for (const d of days) tally.set(d, (tally.get(d) || 0) + 1)
-    bestDay = dayNames[Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0][0]]
-  }
-
-  // Caption length (median)
-  const capLens = top.map((p) => (p.caption || '').length).filter((n) => n > 0)
-  capLens.sort((a, b) => a - b)
-  const medianCap = capLens.length ? capLens[Math.floor(capLens.length / 2)] : null
-
-  // Hashtag count (median)
-  const htCounts = top.map((p) => (p.hashtags || []).length)
-  htCounts.sort((a, b) => a - b)
-  const medianHt = htCounts.length ? htCounts[Math.floor(htCounts.length / 2)] : 0
-
-  // Top hashtags across top posts
-  const tagTally = new Map()
-  for (const p of top) {
-    for (const t of (p.hashtags || [])) tagTally.set(t, (tagTally.get(t) || 0) + 1)
-  }
-  const topTags = Array.from(tagTally.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t]) => t)
-
-  // Mentions usage
-  const mentionsUsed = top.filter((p) => (p.mentions || []).length > 0).length
-
-  const avgEr = top.reduce((s, p) => s + (p.er || 0), 0) / top.length
-
-  return {
-    sampleSize: top.length,
-    bestType: bestType[0],
-    typePct,
-    bestHour,
-    hourBucket,
-    bestDay,
-    medianCap,
-    medianHt,
-    topTags,
-    mentionsUsed,
-    avgEr,
-  }
-}
-
-/* ─── Sub-components ──────────────────────────────────────────────────── */
-function PaneHeader({ title, subtitle, refreshing }) {
+function PaneHeader({ title, subtitle, stale, onRefresh }) {
   return (
-    <div className="mb-5 flex items-end gap-3">
+    <div className="mb-6 flex items-end justify-between gap-3">
       <div>
-        <h1 className="text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
-        <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
+        <h1 className="text-[1.7rem] font-extrabold tracking-tight">{title}</h1>
+        <div className="mt-0.5 text-sm text-slate-500">{subtitle}</div>
       </div>
-      {refreshing && (
-        <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600 shadow-[0_0_0_1px_rgba(245,158,11,0.2)]">
-          <Loader2 className="inline h-3 w-3 animate-spin mr-1" /> Refreshing…
-        </span>
-      )}
-    </div>
-  )
-}
-
-function PostTile({ post, followers, rank, isSelected, onSelect }) {
-  const er = engagementRate(post, followers)
-  const TypeIcon = post.isCarousel ? Layers : post.isVideo ? Play : ImageIcon
-  const typeColor = post.isCarousel ? 'bg-amber-500'
-    : post.isVideo ? 'bg-purple-500'
-    : 'bg-emerald-500'
-  return (
-    <button
-      onClick={() => onSelect(post)}
-      className={`group relative bg-white rounded-2xl overflow-hidden border-2 ${
-        isSelected ? 'border-teal-500 shadow-[0_0_0_3px_rgba(20,184,166,0.2)]' : 'border-transparent'
-      } shadow-[0_0_0_1px_rgba(0,0,0,0.05)] hover:shadow-md transition-all text-left`}
-      style={{ aspectRatio: '1 / 1' }}
-    >
-      {post.thumbnailUrl || post.mediaUrl ? (
-        <img
-          src={proxyImg(post.thumbnailUrl || post.mediaUrl)}
-          alt={`Post ${rank}`}
-          className="w-full h-full object-cover"
-          onError={(e) => { e.target.style.display = 'none' }}
-        />
-      ) : (
-        <div className="w-full h-full bg-gradient-to-br from-teal-100 to-indigo-100" />
-      )}
-      {/* Rank badge */}
-      {rank <= 3 && (
-        <div className="absolute top-2 left-2 grid h-7 w-7 place-items-center rounded-full bg-amber-400 text-white text-xs font-extrabold shadow-md">
-          {rank}
-        </div>
-      )}
-      {/* Type badge */}
-      <div className={`absolute top-2 right-2 ${typeColor} text-white grid h-6 w-6 place-items-center rounded-full`}>
-        <TypeIcon className="h-3 w-3" />
-      </div>
-      {/* Stats overlay */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5">
-        {er != null && (
-          <div className="text-[10px] font-bold uppercase tracking-wide text-white/80">ER</div>
-        )}
-        <div className="text-white font-extrabold text-base leading-none">
-          {er != null ? `${er.toFixed(1)}%` : fmt(post.likes)}
-        </div>
-        <div className="flex items-center gap-2 mt-1 text-[10px] text-white/85 font-medium">
-          <span className="flex items-center gap-0.5"><Heart className="h-2.5 w-2.5" /> {fmt(post.likes)}</span>
-          <span className="flex items-center gap-0.5"><MessageCircle className="h-2.5 w-2.5" /> {fmt(post.comments)}</span>
-          {post.isVideo && post.videoViews > 0 && (
-            <span className="flex items-center gap-0.5"><Eye className="h-2.5 w-2.5" /> {fmt(post.videoViews)}</span>
+      {(stale || onRefresh) && (
+        <div className="flex items-center gap-2">
+          {stale && <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600">Analysing...</span>}
+          {onRefresh && (
+            <button onClick={onRefresh} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-500 shadow-[0_0_0_1px_rgba(0,0,0,0.06)] hover:bg-slate-50">
+              <RefreshCw className="h-3 w-3" /> Refresh
+            </button>
           )}
         </div>
-      </div>
-    </button>
+      )}
+    </div>
   )
 }
 
-function BestPerformingGrid({ posts, followers, selectedShortcode, onSelect, loading }) {
-  const ranked = useMemo(() => {
-    if (!posts || posts.length === 0) return []
-    return [...posts]
-      .map((p) => ({ ...p, _er: engagementRate(p, followers) ?? 0 }))
-      .sort((a, b) => b._er - a._er)
-  }, [posts, followers])
-
+function StatTile({ label, value, sublabel, index = 0 }) {
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-      <div className="mb-4 flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-teal-50 text-teal-600">
-          <TrendingUp className="h-5 w-5" />
-        </div>
-        <div className="flex-1">
-          <div className="text-base font-bold">Best performing posts</div>
-          <div className="text-xs text-[#64756f]">
-            Ranked by engagement rate (likes + comments / followers). Click any post to see why it worked.
-          </div>
-        </div>
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-[#64756f]" />}
+    <div className={`${CARD} animate-in fade-in slide-in-from-bottom-2 fill-mode-both`}
+      style={{ animationDelay: `${index * 50}ms`, animationDuration: '350ms' }}>
+      <div className={METRIC_BIG}>{value}</div>
+      <div className={METRIC_LABEL}>{label}</div>
+      {sublabel && <div className="text-[10px] text-slate-400 mt-0.5">{sublabel}</div>}
+    </div>
+  )
+}
+
+function FormatDistribution({ distribution, total }) {
+  if (!distribution) return null
+  const entries = Object.entries(distribution).sort(([, a], [, b]) => b - a)
+  const maxCount = Math.max(1, ...entries.map(([, v]) => v))
+  return (
+    <div className={CARD}>
+      <div className={SECTION_TITLE}>Format Distribution</div>
+      <div className="space-y-3">
+        {entries.map(([format, count]) => {
+          const meta = FORMAT_META[format] || FORMAT_META.photo
+          const pct = total ? Math.round((count / total) * 100) : 0
+          return (
+            <div key={format} className="flex items-center gap-3">
+              <span className={`grid h-8 w-8 place-items-center rounded-lg ${meta.color}`}>
+                <meta.Icon className="h-4 w-4" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[13px] font-bold">{meta.label}</span>
+                  <span className="text-[12px] font-bold text-slate-700">{count} <span className="font-normal text-slate-400">({pct}%)</span></span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className={`h-full ${meta.barColor} rounded-full transition-all duration-500`}
+                    style={{ width: `${(count / maxCount) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
+    </div>
+  )
+}
 
-      {loading && ranked.length === 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-2xl" />)}
-        </div>
-      )}
-
-      {!loading && ranked.length === 0 && (
-        <div className="text-xs text-[#64756f] py-8 text-center">
-          No posts found for this handle yet.
-        </div>
-      )}
-
-      {ranked.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {ranked.slice(0, 12).map((post, i) => (
-            <PostTile
-              key={post.shortcode || i}
-              post={post}
-              followers={followers}
-              rank={i + 1}
-              isSelected={post.shortcode === selectedShortcode}
-              onSelect={onSelect}
-            />
-          ))}
+function HookDistribution({ distribution, total }) {
+  if (!distribution) return null
+  const entries = Object.entries(distribution).sort(([, a], [, b]) => b - a)
+  return (
+    <div className={CARD}>
+      <div className={SECTION_TITLE}>Hook Formula Usage</div>
+      <div className="flex flex-wrap gap-2">
+        {entries.map(([hookId, count]) => {
+          const pct = total ? Math.round((count / total) * 100) : 0
+          const colorCls = HOOK_COLORS[hookId] || HOOK_COLORS.plain
+          const label = hookId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+          return (
+            <div key={hookId} className={`rounded-lg px-3 py-2 ${colorCls}`}>
+              <div className="text-[12px] font-bold">{label}</div>
+              <div className="text-[10px] opacity-70">{count} posts ({pct}%)</div>
+            </div>
+          )
+        })}
+      </div>
+      {entries.length === 1 && entries[0][0] === 'plain' && (
+        <div className="mt-3 rounded-lg bg-amber-50 p-3 text-[12px] text-amber-800">
+          <strong>Opportunity:</strong> 100% plain hooks. Try Contrarian ("Everything you know about X is wrong") or Direct Challenge ("You're doing X wrong") for 2-3x reach.
+          <div className="mt-1 text-[10px] text-amber-600">Source: Go-Viral.app Feb 2026, 7 proven hook formulas</div>
         </div>
       )}
     </div>
   )
 }
 
-function PerPostBreakdown({ post, allPosts, followers, onClose }) {
-  if (!post) return null
-  const signals = whyItWorked(post, allPosts, followers)
-  const postedDate = post.timestamp ? new Date(post.timestamp) : null
+function OpportunityCard({ opportunity }) {
+  const impactColor = opportunity.impact === 'high' ? 'bg-rose-500' : opportunity.impact === 'medium' ? 'bg-amber-500' : 'bg-slate-400'
+  return (
+    <div className="flex items-start gap-3 rounded-xl bg-gradient-to-r from-amber-50/60 to-white p-4 shadow-[0_0_0_1px_rgba(245,158,11,0.15)]">
+      <div className="mt-0.5">
+        <Zap className="h-4 w-4 text-amber-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${impactColor}`} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{opportunity.impact} impact</span>
+        </div>
+        <p className="text-[13px] font-medium text-slate-900 leading-relaxed">{opportunity.text}</p>
+        <p className="mt-1 text-[10px] text-slate-500">Source: {opportunity.source}</p>
+      </div>
+    </div>
+  )
+}
+
+function TopPerformerCard({ template, rank, onSave }) {
+  const [expanded, setExpanded] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const perf = template.performance || {}
+  const hook = template.caption?.hook || {}
+  const structure = template.caption?.structure || {}
+  const meta = FORMAT_META[template.format] || FORMAT_META.photo
+  const citations = template.citations || []
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] animate-in fade-in duration-300">
-      <div className="flex items-start gap-3 mb-4">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
-          <Sparkles className="h-5 w-5" />
+    <div className={`${CARD} border-l-[3px] ${rank === 0 ? 'border-l-teal-500' : rank === 1 ? 'border-l-slate-400' : 'border-l-slate-200'}`}>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2.5">
+          <span className={`grid h-8 w-8 place-items-center rounded-lg ${meta.color} text-[12px] font-extrabold`}>
+            #{rank + 1}
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-bold">{meta.label}</span>
+              <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                perf.performance_grade === 'exceptional' ? 'bg-teal-50 text-teal-700' :
+                perf.performance_grade === 'strong' ? 'bg-emerald-50 text-emerald-700' :
+                'bg-slate-100 text-slate-600'
+              }`}>{perf.performance_grade || 'ungraded'}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {perf.engagement_rate?.toFixed(3)}% ER · {perf.likes?.toLocaleString()} likes · {perf.comments?.toLocaleString()} comments
+            </div>
+          </div>
         </div>
-        <div className="flex-1">
-          <div className="text-base font-bold">Why this post worked</div>
-          <div className="text-xs text-[#64756f]">Inspect each signal — combine the recurring ones into your next post.</div>
-        </div>
-        <button
-          onClick={onClose}
-          className="grid h-8 w-8 place-items-center rounded-lg text-[#64756f] hover:bg-[#f0f4f3]"
-          title="Close"
-        >
-          <XIcon className="h-4 w-4" />
-        </button>
+        {template.source_url && (
+          <a href={template.source_url} target="_blank" rel="noopener noreferrer"
+            className="text-slate-400 hover:text-slate-600"><ExternalLink className="h-3.5 w-3.5" /></a>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
-        {/* Media */}
-        <div className="space-y-3">
-          <div className="relative rounded-2xl overflow-hidden bg-slate-100 aspect-square">
-            {post.thumbnailUrl || post.mediaUrl ? (
-              <img
-                src={proxyImg(post.thumbnailUrl || post.mediaUrl)}
-                alt="Selected post"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.style.display = 'none' }}
-              />
-            ) : null}
-          </div>
-          <a
-            href={post.url || `https://www.instagram.com/p/${post.shortcode}/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:underline"
-          >
-            <ExternalLink className="h-3 w-3" /> View on Instagram
-          </a>
-        </div>
-        {/* Detail */}
-        <div className="space-y-4">
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-rose-50 p-3 text-center">
-              <Heart className="h-3.5 w-3.5 mx-auto text-rose-500 mb-1" />
-              <div className="text-base font-extrabold text-rose-700">{fmt(post.likes)}</div>
-              <div className="text-[10px] uppercase tracking-wider text-rose-600 font-bold">likes</div>
-            </div>
-            <div className="rounded-xl bg-violet-50 p-3 text-center">
-              <MessageCircle className="h-3.5 w-3.5 mx-auto text-violet-500 mb-1" />
-              <div className="text-base font-extrabold text-violet-700">{fmt(post.comments)}</div>
-              <div className="text-[10px] uppercase tracking-wider text-violet-600 font-bold">comments</div>
-            </div>
-            <div className="rounded-xl bg-teal-50 p-3 text-center">
-              {post.isVideo ? <Eye className="h-3.5 w-3.5 mx-auto text-teal-500 mb-1" /> : <TrendingUp className="h-3.5 w-3.5 mx-auto text-teal-500 mb-1" />}
-              <div className="text-base font-extrabold text-teal-700">
-                {post.isVideo ? fmt(post.videoViews) : (engagementRate(post, followers) != null ? `${engagementRate(post, followers).toFixed(1)}%` : '--')}
-              </div>
-              <div className="text-[10px] uppercase tracking-wider text-teal-600 font-bold">
-                {post.isVideo ? 'views' : 'er'}
-              </div>
-            </div>
-          </div>
+      {/* Caption preview */}
+      <div className="rounded-lg bg-slate-50 p-3 mb-3">
+        <p className="text-[12px] text-slate-700 leading-relaxed line-clamp-3">
+          {template.caption?.full_text?.slice(0, 200)}{template.caption?.full_text?.length > 200 ? '...' : ''}
+        </p>
+      </div>
 
-          {/* Why-it-worked signals */}
-          {signals.length > 0 && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#64756f] mb-2">Signals</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {signals.map((s, i) => {
-                  const Icon = s.Icon
-                  return (
-                    <div key={i} className="flex items-center gap-2.5 rounded-xl bg-[#f0f4f3] p-2.5">
-                      <div className="grid h-7 w-7 place-items-center rounded-lg bg-white text-violet-600 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-                        <Icon className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[12px] font-semibold truncate">{s.label}</div>
-                        <div className="text-[11px] text-[#64756f] truncate">{s.detail}</div>
-                      </div>
+      {/* Quick stats row */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${HOOK_COLORS[hook.id] || HOOK_COLORS.plain}`}>
+          {hook.label || 'Plain'}
+        </span>
+        <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+          {structure.body_type || 'prose'}
+        </span>
+        <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+          {structure.word_count || 0} words
+        </span>
+        <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+          {template.caption?.hashtag_count || 0} hashtags
+        </span>
+        {template.slide_count && (
+          <span className="rounded-md bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+            {template.slide_count} slides
+          </span>
+        )}
+      </div>
+
+      {/* Expand / collapse details */}
+      <button onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-[11px] font-semibold text-teal-600 hover:text-teal-500 mb-2">
+        {expanded ? 'Hide' : 'Show'} framework analysis
+        <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          {/* Chris Do 5-Pillar */}
+          {template.frameworks?.chris_do_5_pillar && (
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Chris Do 5-Pillar Score</div>
+              <div className="flex gap-3">
+                {['hook', 'clarity', 'fulfillment'].map((pillar) => {
+                  const score = template.frameworks.chris_do_5_pillar[pillar]
+                  return score != null ? (
+                    <div key={pillar} className="text-center">
+                      <div className="text-[16px] font-extrabold">{score}<span className="text-[11px] font-normal text-slate-400">/20</span></div>
+                      <div className="text-[9px] text-slate-500 capitalize">{pillar}</div>
                     </div>
-                  )
+                  ) : null
                 })}
               </div>
+              <div className="mt-1 text-[9px] text-slate-400">Source: The Futur / Chris Do</div>
             </div>
           )}
 
-          {/* Caption */}
-          {post.caption && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#64756f] mb-2">Caption</div>
-              <div className="rounded-xl bg-[#f0f4f3]/60 p-3 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap max-h-44 overflow-y-auto">
-                {post.caption}
+          {/* Hormozi HRR */}
+          {template.frameworks?.hormozi_hrr && (
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Hormozi Hook-Retain-Reward</div>
+              <div className="text-[12px] text-slate-700">
+                <strong>Hook:</strong> {template.frameworks.hormozi_hrr.hook?.slice(0, 60) || 'n/a'} ·
+                <strong> Retain:</strong> {template.frameworks.hormozi_hrr.retain} ·
+                <strong> Reward:</strong> {template.frameworks.hormozi_hrr.reward}
               </div>
+              <div className="mt-1 text-[9px] text-slate-400">Source: $100M Leads, Alex Hormozi</div>
             </div>
           )}
 
-          {/* Hashtags */}
-          {post.hashtags?.length > 0 && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#64756f] mb-2">Hashtags ({post.hashtags.length})</div>
-              <div className="flex flex-wrap gap-1.5">
-                {post.hashtags.map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                    <Hash className="h-2.5 w-2.5" />
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mentions */}
-          {post.mentions?.length > 0 && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#64756f] mb-2">Mentions ({post.mentions.length})</div>
-              <div className="flex flex-wrap gap-1.5">
-                {post.mentions.map((m) => (
-                  <a
-                    key={m}
-                    href={`https://www.instagram.com/${m}/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
-                  >
-                    @{m}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {postedDate && (
-            <div className="text-[11px] text-[#64756f]">
-              Posted {postedDate.toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          {/* Citations */}
+          {citations.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Research Notes</div>
+              {citations.map((c, i) => (
+                <div key={i} className={`flex items-start gap-2 text-[11px] ${
+                  c.signal === 'positive' ? 'text-emerald-700' :
+                  c.signal === 'opportunity' ? 'text-amber-700' :
+                  'text-slate-600'
+                }`}>
+                  <span>{c.signal === 'positive' ? '✓' : c.signal === 'opportunity' ? '◆' : '·'}</span>
+                  <span>{c.text} <span className="text-slate-400">— {c.source}</span></span>
+                </div>
+              ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+        <button
+          onClick={() => {
+            // Save template skeleton to localStorage for now
+            const key = `template:${template.source_shortcode}`
+            try {
+              localStorage.setItem(key, JSON.stringify({
+                t: Date.now(),
+                skeleton: template.template_skeleton,
+                source: template.source_shortcode,
+                source_username: template.source_username,
+                frameworks: template.frameworks,
+                citations: template.citations,
+              }))
+            } catch {}
+            setSaved(true)
+            if (onSave) onSave(template)
+            setTimeout(() => setSaved(false), 2000)
+          }}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+            saved ? 'bg-teal-50 text-teal-700' : 'bg-slate-900 text-white hover:bg-slate-800'
+          }`}
+        >
+          {saved ? <CheckCircle2 className="h-3 w-3" /> : <BookmarkPlus className="h-3 w-3" />}
+          {saved ? 'Saved' : 'Save as template'}
+        </button>
+        <button
+          onClick={() => {
+            const txt = [
+              `Format: ${template.format}`,
+              `Hook: ${hook.label} — "${hook.matched_text || ''}"`,
+              `Body: ${structure.body_type}`,
+              `Ending: ${structure.ending_type}`,
+              `Caption length: ${structure.length} chars`,
+              template.slide_count ? `Slides: ${template.slide_count}` : null,
+              `Hashtags: ${template.caption?.hashtag_count}`,
+              `\nTemplate: ${hook.template || 'n/a'}`,
+            ].filter(Boolean).join('\n')
+            navigator.clipboard?.writeText(txt)
+          }}
+          className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-[0_0_0_1px_rgba(0,0,0,0.06)] hover:bg-slate-50"
+        >
+          <Copy className="h-3 w-3" /> Copy skeleton
+        </button>
       </div>
     </div>
   )
 }
 
-function FrameworkGuide({ posts, followers, loading }) {
-  const fw = useMemo(() => mineFramework(posts, followers), [posts, followers])
+// ─── Main pane ────────────────────────────────────────────────────────────
 
-  const rules = useMemo(() => {
-    if (!fw) return []
-    const out = []
-    // Rule 1 — content type
-    const typeLabel = fw.bestType === 'carousel' ? 'Carousel' : fw.bestType === 'video' ? 'Video / Reel' : 'Photo'
-    const TypeIcon = fw.bestType === 'carousel' ? Layers : fw.bestType === 'video' ? Play : ImageIcon
-    out.push({
-      Icon: TypeIcon,
-      title: `Lead with ${typeLabel.toLowerCase()}`,
-      detail: `${fw.typePct}% of your top ${fw.sampleSize} posts were ${typeLabel.toLowerCase()}s — keep this as your default content type until the data shifts.`,
-    })
-    // Rule 2 — posting hour
-    if (fw.bestHour != null) {
-      const Icon = fw.hourBucket === 'evening' ? Moon : fw.hourBucket === 'morning' ? Sunrise : fw.hourBucket === 'midday' ? Coffee : Sun
-      out.push({
-        Icon,
-        title: `Post around ${fw.bestHour}:00`,
-        detail: `Your strongest posts land in the ${fw.hourBucket} window. Schedule for ${fw.bestHour}:00 ± 1 hour.`,
-      })
-    }
-    // Rule 3 — day of week
-    if (fw.bestDay) {
-      out.push({
-        Icon: Calendar,
-        title: `${fw.bestDay} is your day`,
-        detail: `More of your top posts were published on ${fw.bestDay}s than any other day of the week.`,
-      })
-    }
-    // Rule 4 — caption length
-    if (fw.medianCap != null) {
-      const tier = fw.medianCap >= 220 ? 'long-form (220+ chars)'
-                 : fw.medianCap >= 60 ? 'punchy (60-220 chars)'
-                 : 'minimal (<60 chars)'
-      out.push({
-        Icon: Sparkles,
-        title: `Aim for ${tier} captions`,
-        detail: `Median caption length across your top posts is ~${fw.medianCap} characters.`,
-      })
-    }
-    // Rule 5 — hashtag count
-    if (fw.medianHt > 0) {
-      out.push({
-        Icon: Hash,
-        title: `Use ${fw.medianHt} hashtag${fw.medianHt > 1 ? 's' : ''} per post`,
-        detail: fw.medianHt >= 5 && fw.medianHt <= 12
-          ? 'In the discovery sweet-spot — keep it there.'
-          : fw.medianHt > 12
-            ? 'Above the typical sweet-spot but working for you. Don\'t shrink without testing.'
-            : 'Lean tagging. If reach matters, test bumping to 5-12 tags.',
-      })
-    } else {
-      out.push({
-        Icon: Hash,
-        title: 'Add hashtags',
-        detail: 'Your top posts use 0 hashtags. Test 5-12 relevant tags on your next 3 posts to see if discovery lifts.',
-      })
-    }
-    // Rule 6 — mentions
-    if (fw.mentionsUsed > 0) {
-      out.push({
-        Icon: MessageCircle,
-        title: 'Mention collaborators',
-        detail: `${fw.mentionsUsed} of your top ${fw.sampleSize} include @mentions. Cross-tagging amplifies reach.`,
-      })
-    }
-    // Rule 7 — top hashtags worth reusing
-    if (fw.topTags.length > 0) {
-      out.push({
-        Icon: TrendingUp,
-        title: 'Reuse your top-performing tags',
-        detail: fw.topTags.map((t) => `#${t}`).join(' · '),
-      })
-    }
-    return out
-  }, [fw])
-
-  return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-      <div className="mb-4 flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600">
-          <LayoutGrid className="h-5 w-5" />
-        </div>
-        <div className="flex-1">
-          <div className="text-base font-bold">Your framework</div>
-          <div className="text-xs text-[#64756f]">
-            Prescriptive rules mined from your top {fw?.sampleSize || 5} posts. Apply to your next post and watch the ER move.
-          </div>
-        </div>
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-[#64756f]" />}
-      </div>
-
-      {loading && rules.length === 0 && (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
-        </div>
-      )}
-
-      {!loading && !fw && (
-        <div className="text-xs text-[#64756f] py-4 text-center">
-          Not enough engagement data to mine a framework yet.
-        </div>
-      )}
-
-      {rules.length > 0 && (
-        <ol className="space-y-2">
-          {rules.map((r, i) => {
-            const Icon = r.Icon
-            return (
-              <li
-                key={i}
-                className="flex items-start gap-3 rounded-2xl bg-[#f0f4f3] p-3.5"
-              >
-                <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-white text-amber-600 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] shrink-0">
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-amber-200 text-amber-800 text-[10px] font-extrabold shrink-0">
-                      {i + 1}
-                    </span>
-                    <span className="text-[13px] font-bold">{r.title}</span>
-                  </div>
-                  <div className="text-[12px] text-[#64756f] mt-1 leading-snug">{r.detail}</div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-[#64756f] shrink-0 mt-1" />
-              </li>
-            )
-          })}
-        </ol>
-      )}
-
-      {fw && (
-        <p className="mt-3 text-[11px] text-[#64756f]">
-          Average ER across the top {fw.sampleSize}: <strong className="text-amber-700">{fw.avgEr.toFixed(2)}%</strong>. Beat this on your next post to lift the framework.
-        </p>
-      )}
-    </div>
-  )
-}
-
-/* ─── Main pane ───────────────────────────────────────────────────────── */
 export default function ContentLabPane({ timeRange }) {
   const { user } = useAuth()
   const [handle, setHandle] = useState(null)
-  const [handleLoading, setHandleLoading] = useState(true)
-  const [profile, setProfile] = useState(null)
-  const [posts, setPosts] = useState([])
-  const [loadingPosts, setLoadingPosts] = useState(true)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [selectedShortcode, setSelectedShortcode] = useState(null)
 
-  // Resolve tracked handle
   useEffect(() => {
-    if (!user) { setHandleLoading(false); return }
+    if (!user) return
     let cancelled = false
     ;(async () => {
-      const { data, error } = await supabase
-        .from('tracked_accounts')
-        .select('username')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (cancelled) return
-      setHandleLoading(false)
-      if (error || !data) { setHandle(null); return }
-      setHandle(data.username)
+      const { data: row } = await supabase
+        .from('tracked_accounts').select('username')
+        .eq('user_id', user.id).order('created_at', { ascending: false })
+        .limit(1).maybeSingle()
+      if (!cancelled) setHandle(row?.username || null)
     })()
     return () => { cancelled = true }
   }, [user])
 
-  // Hydrate (cache-then-refresh)
-  const hydrate = useCallback(async (h) => {
-    const cachedPosts = loadCache('posts', h)
-    const cachedProfile = loadCache('profile', h)
-    if (cachedPosts) setPosts(cachedPosts)
-    if (cachedProfile) setProfile(cachedProfile)
-    setLoadingPosts(true)
+  const hydrate = useCallback(async (h, opts = {}) => {
+    setLoading(true)
     setError(null)
+    if (!opts.force) {
+      const cached = loadCache(h)
+      if (cached) { setData(cached); setLoading(false) }
+    }
     try {
-      // Speed-v5: ONE Apify call returns profile + 12 latestPosts. For deeper
-      // post lists we'd still hit fetchDashboardPosts separately. Default is 12.
-      const profileRes = await fetchDashboardProfile(h)
-      if (profileRes && profileRes[0]) {
-        const item = profileRes[0]
-        setProfile(item)
-        saveCache('profile', h, item)
-        // Apify latestPosts is in the same item — extract for the posts panel
-        if (Array.isArray(item.latestPosts) && item.latestPosts.length > 0) {
-          setPosts(item.latestPosts)
-          saveCache('posts', h, item.latestPosts)
-        } else {
-          // Fallback: dedicated posts call (gets more than 12 if needed)
-          try {
-            const posts = await fetchDashboardPosts(h, 24)
-            if (Array.isArray(posts)) {
-              setPosts(posts)
-              saveCache('posts', h, posts)
-            }
-          } catch (e) { console.warn('contentlab: posts fallback failed', e) }
-        }
-      }
+      const result = await fetchDeconstructProfile(h, {
+        force: !!opts.force,
+        onUpdate: (fresh) => {
+          if (fresh) { setData(fresh); saveCache(h, fresh) }
+        },
+      })
+      if (result) { setData(result); saveCache(h, result) }
     } catch (err) {
-      setError(err.message || 'Fetch failed')
+      setError(err.message || 'Analysis failed')
     } finally {
-      setLoadingPosts(false)
+      setLoading(false)
     }
   }, [])
 
@@ -683,30 +414,23 @@ export default function ContentLabPane({ timeRange }) {
     hydrate(handle)
   }, [handle, hydrate])
 
-  const followers = profile?.followers ?? profile?.followersCount ?? null
-  const selectedPost = useMemo(() => posts.find((p) => p.shortcode === selectedShortcode) || null, [posts, selectedShortcode])
+  const patterns = data?.patterns || {}
+  const formatDist = patterns.format_distribution || {}
+  const hookDist = patterns.hook_distribution || {}
+  const topPerformers = data?.top_performers || []
+  const opportunities = data?.opportunities || []
+  const postsCount = data?.posts_count || 0
+  const avgER = patterns.avg_engagement_rate || 0
+  const mixedMedia = patterns.mixed_media_usage || 0
 
-  if (handleLoading) {
+  if (!handle && !loading) {
     return (
       <>
-        <PaneHeader title="Content Lab" subtitle="Loading your tracked handle…" />
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-3xl" />)}
-        </div>
-      </>
-    )
-  }
-
-  if (!handle) {
-    return (
-      <>
-        <PaneHeader title="Content Lab" subtitle="Add an Instagram handle first" />
-        <div className="rounded-3xl bg-white p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] text-center">
-          <LayoutGrid className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <div className="font-bold text-slate-700 mb-1">No tracked handle yet</div>
-          <div className="text-sm text-[#64756f]">
-            Add an Instagram account to track on Pulse first, then come back here for post analysis.
-          </div>
+        <PaneHeader title="Content Lab" subtitle="Content intelligence powered by research" />
+        <div className={`${CARD} text-center py-12`}>
+          <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
+          <h3 className="mt-3 text-base font-bold">Track an account first</h3>
+          <p className="mt-1 text-sm text-slate-500">Add an Instagram handle to see content intelligence.</p>
         </div>
       </>
     )
@@ -716,42 +440,80 @@ export default function ContentLabPane({ timeRange }) {
     <>
       <PaneHeader
         title="Content Lab"
-        subtitle={followers != null
-          ? `@${handle} · ${fmt(followers)} followers · ${timeRange}`
-          : `@${handle} · ${timeRange}`}
-        refreshing={loadingPosts}
+        subtitle={data?.ok ? `${postsCount} posts deconstructed for @${handle}` : `Analysing @${handle}`}
+        stale={loading}
+        onRefresh={() => hydrate(handle, { force: true })}
       />
 
-      <div className="space-y-4">
-        <BestPerformingGrid
-          posts={posts}
-          followers={followers}
-          selectedShortcode={selectedShortcode}
-          onSelect={(p) => setSelectedShortcode(p.shortcode === selectedShortcode ? null : p.shortcode)}
-          loading={loadingPosts}
-        />
+      {error && (
+        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6 text-center mb-4">
+          <AlertTriangle className="mx-auto h-8 w-8 text-rose-400 mb-2" />
+          <p className="text-sm text-rose-700">{error}</p>
+        </div>
+      )}
 
-        {selectedPost && (
-          <PerPostBreakdown
-            post={selectedPost}
-            allPosts={posts}
-            followers={followers}
-            onClose={() => setSelectedShortcode(null)}
-          />
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        {loading && !data ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
+        ) : (
+          <>
+            <StatTile index={0} value={postsCount} label="Posts analysed" sublabel="via Apify post-scraper" />
+            <StatTile index={1} value={`${avgER.toFixed(3)}%`} label="Avg engagement rate"
+              sublabel={avgER > 0 ? `${data?.followers ? (avgER >= 0.8 ? 'Above' : 'Below') + ' tier avg' : ''}` : null} />
+            <StatTile index={2} value={`${Math.round(mixedMedia * 100)}%`} label="Mixed-media usage"
+              sublabel={mixedMedia === 0 ? 'Opportunity: 2.33% ER' : null} />
+            <StatTile index={3} value={Object.keys(hookDist).length} label="Hook types used"
+              sublabel={Object.keys(hookDist).length <= 1 ? 'Try more variety' : null} />
+          </>
         )}
-
-        {error && (
-          <div className="rounded-xl bg-rose-50 p-3 text-xs text-rose-800 flex items-center gap-2">
-            <AlertCircle className="h-3.5 w-3.5" /> {error}
-          </div>
-        )}
-
-        <FrameworkGuide
-          posts={posts}
-          followers={followers}
-          loading={loadingPosts && posts.length === 0}
-        />
       </div>
+
+      {/* Distribution charts */}
+      {(data?.ok || loading) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+          {loading && !data ? (
+            <>
+              <Skeleton className="h-44 rounded-2xl" />
+              <Skeleton className="h-44 rounded-2xl" />
+            </>
+          ) : (
+            <>
+              <FormatDistribution distribution={formatDist} total={postsCount} />
+              <HookDistribution distribution={hookDist} total={postsCount} />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Opportunities */}
+      {opportunities.length > 0 && (
+        <div className="mb-5">
+          <div className={SECTION_TITLE}>Research-Backed Opportunities</div>
+          <div className="space-y-2">
+            {opportunities.map((o, i) => <OpportunityCard key={i} opportunity={o} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Top performers */}
+      {topPerformers.length > 0 && (
+        <div>
+          <div className={SECTION_TITLE}>Top Performers — Deconstructed</div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {topPerformers.slice(0, 6).map((t, i) => (
+              <TopPerformerCard key={t.source_shortcode || i} template={t} rank={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Loading fallback for performers */}
+      {loading && !data && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-2xl" />)}
+        </div>
+      )}
     </>
   )
 }

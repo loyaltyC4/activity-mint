@@ -117,6 +117,9 @@ async function callProxyRaw(action, payload) {
     : headerSource;
 
   recordSource(action, payload, finalSource, latencyMs);
+  // Some actions (deconstruct_profile, script_studio, ad_library) return
+  // their data at the top level, not inside an `items` array. Return both
+  // so callers can use whichever shape they need.
   return { items: body.items, source: finalSource, body };
 }
 
@@ -124,11 +127,12 @@ async function callProxyRaw(action, payload) {
 // backwards compat with everything that did `await callProxy(...)`. New code
 // should prefer callProxyCached for SWR.
 async function callProxy(action, payload) {
-  const { items, source } = await callProxyRaw(action, payload);
-  // Always stash successful responses — even non-SWR callers contribute to
-  // the cache, so the next SWR caller gets an instant hit.
-  if (items) writeCache(action, payload, items, source);
-  return items;
+  const { items, source, body } = await callProxyRaw(action, payload);
+  // For actions without an `items` array (deconstruct_profile, script_studio,
+  // ad_library), return the full body so callers get patterns, lexicon, etc.
+  const result = items !== undefined ? items : body;
+  if (result) writeCache(action, payload, result, source);
+  return result;
 }
 
 /**
@@ -157,18 +161,19 @@ export async function callProxyCached(action, payload, opts = {}) {
     if (age < ttlMs) {
       // Fresh: serve cache, no revalidation
       recordSource(action, payload, 'cache:local-fresh', 0);
+      // Cache stores either items array OR full body (for deconstruct/script_studio)
       return cached.items;
     }
     if (age < swrMs) {
       // Stale: serve cache, revalidate in background
       recordSource(action, payload, 'cache:local-stale', 0);
       callProxyRaw(action, payload)
-        .then(({ items, source }) => {
-          if (items) writeCache(action, payload, items, source);
-          if (onUpdate) onUpdate(items);
+        .then(({ items, source, body }) => {
+          const result = items !== undefined ? items : body;
+          if (result) writeCache(action, payload, result, source);
+          if (onUpdate) onUpdate(result);
         })
         .catch((err) => {
-          // Silent — we already returned cached value. Log for observability.
           console.warn(`[callProxyCached] background revalidation failed for ${action}:`, err.message);
         });
       return cached.items;
@@ -176,9 +181,10 @@ export async function callProxyCached(action, payload, opts = {}) {
   }
 
   // No cache or expired beyond SWR window: network call
-  const { items, source } = await callProxyRaw(action, payload);
-  if (items) writeCache(action, payload, items, source);
-  return items;
+  const { items, source, body } = await callProxyRaw(action, payload);
+  const result = items !== undefined ? items : body;
+  if (result) writeCache(action, payload, result, source);
+  return result;
 }
 
 // ─── public API (backwards compatible) ─────────────────────────────────────

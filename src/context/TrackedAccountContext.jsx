@@ -59,32 +59,60 @@ export function TrackedAccountProvider({ children }) {
   }, [user])
 
   const setHandle = useCallback((username) => {
-    setHandleRaw(username)
+    const clean = (username || '').trim().replace(/^@/, '')
+    if (!clean) return
+    setHandleRaw(clean)
+    // Clear all per-handle localStorage caches so panes fetch fresh data
+    // for the new handle instead of showing stale cached data from the old one
+    if (typeof window !== 'undefined') {
+      const keysToRemove = []
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i)
+        if (key && (key.startsWith('am:proxy:') || key.startsWith('pulse:') ||
+            key.startsWith('audience:') || key.startsWith('contentlab:') ||
+            key.startsWith('content_lab:') || key.startsWith('script_studio:') ||
+            key.startsWith('am:digest:') || key.startsWith('am:ai:'))) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach((k) => window.localStorage.removeItem(k))
+    }
   }, [])
 
   const addAccount = useCallback(async (username) => {
-    if (!user || !username) return false
-    const clean = username.trim().replace(/^@/, '')
+    const clean = (username || '').trim().replace(/^@/, '')
     if (!clean) return false
-    // Check if already tracked
-    if (accounts.some((a) => a.username === clean)) {
-      setHandleRaw(clean)
-      return true
+    // Always switch to the handle immediately — even if Supabase insert fails,
+    // the dashboard should show data for this handle
+    setHandle(clean)
+    // Check if already tracked in our local list
+    if (accounts.some((a) => a.username === clean)) return true
+    // Try to persist to Supabase (may fail due to RLS or missing table — that's OK)
+    if (user) {
+      try {
+        const { data, error } = await supabase
+          .from('tracked_accounts')
+          .insert({ user_id: user.id, username: clean })
+          .select()
+          .single()
+        if (!error && data) {
+          setAccounts((prev) => [data, ...prev])
+          return true
+        }
+        // If insert failed but account exists (duplicate), still add to local list
+        if (error?.code === '23505') {
+          setAccounts((prev) => [{ username: clean, id: clean, created_at: new Date().toISOString() }, ...prev])
+          return true
+        }
+      } catch {}
     }
-    try {
-      const { data, error } = await supabase
-        .from('tracked_accounts')
-        .insert({ user_id: user.id, username: clean })
-        .select()
-        .single()
-      if (!error && data) {
-        setAccounts((prev) => [data, ...prev])
-        setHandleRaw(clean)
-        return true
-      }
-    } catch {}
-    return false
-  }, [user, accounts])
+    // Even if Supabase failed, add to local state so the dropdown shows it
+    setAccounts((prev) => {
+      if (prev.some((a) => a.username === clean)) return prev
+      return [{ username: clean, id: clean, created_at: new Date().toISOString() }, ...prev]
+    })
+    return true
+  }, [user, accounts, setHandle])
 
   return (
     <TrackedAccountContext.Provider value={{ handle, setHandle, accounts, addAccount, loading }}>

@@ -27,7 +27,10 @@ on:
           - test_each
           - test_proxies
           - reset_worker_1
+          - reset_worker_2
+          - reset_worker_3
           - reset_worker_4
+          - reset_worker_5
           - reset_worker_6
           - test_tiktok_login
           - test_unsuspend_w4

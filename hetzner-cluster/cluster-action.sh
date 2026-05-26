@@ -20,8 +20,10 @@
 #
 # Where <action> is one of:
 #   deploy, status, restart, logs, diagnostics, smoke,
-#   test_each, test_proxies, reset_worker_1, reset_worker_4,
-#   reset_worker_6, test_tiktok_login, test_unsuspend_w4
+#   test_each, test_proxies,
+#   reset_worker_1, reset_worker_2, reset_worker_3,
+#   reset_worker_4, reset_worker_5, reset_worker_6,
+#   test_tiktok_login, test_unsuspend_w4
 
 set -e
 ACTION="${1:-deploy}"
@@ -194,7 +196,10 @@ reset_one_worker() {
 }
 
 if [ "$ACTION" = "reset_worker_1" ]; then reset_one_worker 1; fi
+if [ "$ACTION" = "reset_worker_2" ]; then reset_one_worker 2; fi
+if [ "$ACTION" = "reset_worker_3" ]; then reset_one_worker 3; fi
 if [ "$ACTION" = "reset_worker_4" ]; then reset_one_worker 4; fi
+if [ "$ACTION" = "reset_worker_5" ]; then reset_one_worker 5; fi
 if [ "$ACTION" = "reset_worker_6" ]; then reset_one_worker 6; fi
 
 # ─── TEST_TIKTOK_LOGIN — one-off CloakBrowser probe of TikTok login ───────

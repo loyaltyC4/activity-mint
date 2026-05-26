@@ -23,8 +23,10 @@ const STATES = Object.freeze({
 
 // ── Body-text regexes ────────────────────────────────────────────────────
 const RATE_LIMIT_RE = /(?:http error 429|page isn[’'`]t working|please wait a few minutes|too many requests)/i;
-const CHALLENGE_RE = /(?:we detected an unusual login|help us confirm|suspicious login|verify your identity|temporarily locked|challenge[_ ]required)/i;
-const INCORRECT_RE = /(?:login information you entered is incorrect|sorry,? your password was incorrect|we didn[’'`]t recognize|incorrect username or password)/i;
+// "we didn’t recognize" = IG flagging a new device/IP — triggers 2FA prompt, not a bad password.
+// Keep it in CHALLENGE_RE so the worker proceeds to submit the 2FA code instead of giving up.
+const CHALLENGE_RE = /(?:we detected an unusual login|help us confirm|suspicious login|verify your identity|temporarily locked|challenge[_ ]required|we didn[‘’`]t recognize)/i;
+const INCORRECT_RE = /(?:login information you entered is incorrect|sorry,? your password was incorrect|incorrect username or password)/i;
 
 /**
  * @param {object} snap

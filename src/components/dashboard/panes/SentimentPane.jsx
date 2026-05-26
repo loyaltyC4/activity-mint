@@ -399,12 +399,13 @@ export default function SentimentPane({ timeRange }) {
     let cached = null
     try {
       const parsed = cacheRaw ? JSON.parse(cacheRaw) : null
-      if (parsed && (Date.now() - (parsed.t || 0)) < 15 * 60 * 1000) cached = parsed.payload
+      if (parsed && (Date.now() - (parsed.t || 0)) < 30 * 60 * 1000) cached = parsed.payload
     } catch {}
     if (cached) setCommenters({ items: cached, loading: false, error: null })
     setRefreshing(true)
     try {
-      const items = await fetchDashboardTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 20 })
+      // topN:16 matches AudiencePane so both share the same cache entry
+    const items = await fetchDashboardTopCommenters(h, { postLimit: 4, commentLimit: 30, topN: 16 })
       const arr = items || []
       setCommenters({ items: arr, loading: false, error: null })
       try { localStorage.setItem(`audience:top_commenters:v1:${h}`, JSON.stringify({ t: Date.now(), payload: arr })) } catch {}

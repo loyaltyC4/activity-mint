@@ -358,7 +358,9 @@ function FeatureBullet({ Icon, title, copy }) {
 export default function ScriptStudioPane({ timeRange }) {
   const { user } = useAuth()
   const { tier } = useTier()
-  const isPaid = tier === 'standard' || tier === 'premium'
+  // Gate: paid subscribers OR any authenticated user while subscriptions are not yet enforced.
+  // Once Stripe is live, change this back to: tier === 'standard' || tier === 'premium'
+  const isPaid = !!user || tier === 'standard' || tier === 'premium'
   const { handle } = useTrackedAccount()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)

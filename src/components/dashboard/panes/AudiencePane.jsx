@@ -32,7 +32,7 @@ import {
   // edge-cached warm). audience_enrichment + followers stay on cluster
   // (Apify followers actor is expensive paid; enrichment is composite).
   fetchDashboardTopCommenters,
-  fetchAudienceEnrichment,
+  fetchAudienceEnrichmentSWR,
   fetchFollowersList,
 } from '../../../lib/apify'
 import { proxyImg, fmt } from '../shared/utils'
@@ -632,8 +632,14 @@ export default function AudiencePane({ timeRange }) {
         setTopCommenters((prev) => ({ items: prev.items, loading: false, error: err.message }))
       })
 
-    // Audience enrichment
-    fetchAudienceEnrichment(h, 25, 0)
+    // Audience enrichment — SWR: return localStorage cache instantly, refresh in bg
+    fetchAudienceEnrichmentSWR(h, 25, 0, {
+      onUpdate: (fresh) => {
+        const arr = fresh || []
+        setAudience({ items: arr, loading: false, error: null })
+        saveCache('audience_enrichment', h, arr)
+      },
+    })
       .then((items) => {
         const arr = items || []
         setAudience({ items: arr, loading: false, error: null })

@@ -184,8 +184,8 @@ reset_one_worker() {
   echo "==> Rebuilding + bringing worker_${W} back up..."
   ssh_run "cd /opt/activitymint && docker compose -f hetzner-cluster/docker-compose.yml --env-file /opt/activitymint/.env up -d --build worker_${W}"
 
-  echo "==> Waiting 40s for CloakBrowser launch + login flow..."
-  sleep 40
+  echo "==> Waiting 70s for CloakBrowser launch + login flow (2FA takes ~25s)..."
+  sleep 70
 
   echo "==> Worker_${W} health:"
   ssh_run "docker exec am_worker_${W} curl -s --max-time 5 http://localhost:3010/health | python3 -m json.tool 2>/dev/null || echo '(unreachable)'"

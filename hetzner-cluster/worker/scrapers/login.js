@@ -212,12 +212,18 @@ async function captureSnap(page) {
  * form is briefly visible just after submit while IG processes credentials)
  * and only counts as final if the poll times out without seeing anything else.
  */
-async function waitForLoginState(page, timeoutMs = 20000) {
+async function waitForLoginState(page, timeoutMs = 20000, skipState = null) {
   const start = Date.now();
   let lastSnap = null;
   while (Date.now() - start < timeoutMs) {
     lastSnap = await captureSnap(page);
     const state = detectLoginState(lastSnap);
+    // Skip a specific state (e.g. TWO_FACTOR right after submitting 2FA code —
+    // wait for the page to transition away rather than returning immediately).
+    if (skipState && state === skipState) {
+      await sleep(600);
+      continue;
+    }
     // Terminal states: anything that's not UNKNOWN and not the still-here login form
     if (state !== STATES.UNKNOWN && state !== STATES.LOGIN_FORM) {
       return { state, snap: lastSnap };
@@ -416,7 +422,16 @@ async function ensureLoggedIn(page, creds, log) {
     const confirmed = await clickByText(page, ['Confirm', 'Submit', 'Verify', 'Next'], 2500);
     if (!confirmed) await codeInput.locator.press('Enter');
 
-    const post2fa = await waitForLoginState(page, 20000);
+    // Wait for IG to process the 2FA code before polling.
+    // Without this pause the poller immediately detects the 2FA input
+    // still visible (before the page transitions away) and returns
+    // TWO_FACTOR — making it look like 2FA failed when the code
+    // was actually just submitted and IG is still processing it.
+    await sleep(2500);
+
+    // skipState=TWO_FACTOR so we don't bail early if the input is still visible
+    // while IG processes the code and prepares to redirect.
+    const post2fa = await waitForLoginState(page, 25000, STATES.TWO_FACTOR);
     log.info(`post-2fa state=${post2fa.state}`);
 
     if (post2fa.state === STATES.HOME) {

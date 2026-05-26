@@ -972,8 +972,26 @@ export default async function handler(req, res) {
         let followers = 0;
         let source = 'cluster';
 
-        // Path A: Apify (50 posts, best analysis) — skip if tokens exhausted
-        if (APIFY_TOKEN) {
+        // Path A: Cluster (12 posts via profile + posts batch) — free, fast, uses workers
+        if (SCRAPER_SERVICE_URL) {
+          try {
+            const tasks = [
+              { action: 'profile', payload: { username: cleanUser } },
+              { action: 'posts', payload: { username: cleanUser, limit: 12 } },
+            ];
+            const results = await callScraperBatch(tasks, 'parallel');
+            const profileRes = results.find((r) => r.action === 'profile');
+            const postsRes = results.find((r) => r.action === 'posts');
+            if (profileRes?.ok) followers = profileRes.items?.[0]?.followers || followers;
+            if (postsRes?.ok && Array.isArray(postsRes.items)) posts = postsRes.items;
+            if (posts.length > 0) source = 'cluster';
+          } catch (clusterErr) {
+            console.warn(`[deconstruct] Cluster failed (${clusterErr.message}), falling back to Apify`);
+          }
+        }
+
+        // Path B: Apify fallback (50 posts, better analysis depth)
+        if (posts.length < 3 && APIFY_TOKEN) {
           try {
             const profRun = await startRun('apify/instagram-profile-scraper', { usernames: [cleanUser] });
             if (profRun?.id) {
@@ -994,11 +1012,11 @@ export default async function handler(req, res) {
             }
             if (posts.length > 0) source = 'apify';
           } catch (apifyErr) {
-            console.warn(`[deconstruct] Apify failed (${apifyErr.message}), falling back to cluster`);
+            console.warn(`[deconstruct] Apify also failed (${apifyErr.message})`);
           }
         }
 
-        // Path B: Cluster fallback (12 posts via profile-with-posts)
+        // Path C: Cluster was skipped initially — shouldn't reach here normally
         if (posts.length < 3 && SCRAPER_SERVICE_URL) {
           try {
             const tasks = [
@@ -1056,13 +1074,27 @@ export default async function handler(req, res) {
       if (!username) return res.status(400).json({ error: 'Missing username' });
       const cleanUser = username.replace('@', '');
       try {
-        // Strategy: try Apify first (50 posts). If exhausted, fall back to
-        // cluster (12 posts via profile-with-posts). 12 posts is enough for
-        // Script Studio's analysis (minimum threshold is 3).
+        // Strategy: try cluster first (12 posts, free, uses workers).
+        // Fall back to Apify deep scrape (50 posts) only if cluster fails.
+        // 12 posts is enough for Script Studio's analysis (minimum threshold is 3).
         let finalPosts = [];
 
-        // Path A: Apify deep scrape (skip if tokens exhausted)
-        if (APIFY_TOKEN) {
+        // Path A: Cluster (12 posts via workers — fast and free)
+        if (SCRAPER_SERVICE_URL) {
+          try {
+            const tasks = [{ action: 'posts', payload: { username: cleanUser, limit: 12 } }];
+            const results = await callScraperBatch(tasks, 'parallel');
+            const postsRes = results?.find?.((r) => r.action === 'posts');
+            if (postsRes?.ok && Array.isArray(postsRes.items)) {
+              finalPosts = postsRes.items;
+            }
+          } catch (clusterErr) {
+            console.warn(`[script_studio] Cluster failed (${clusterErr.message}), trying Apify`);
+          }
+        }
+
+        // Path B: Apify deep scrape (50 posts — more data but costs credits)
+        if (finalPosts.length < 3 && APIFY_TOKEN) {
           try {
             run = await startRun('apify/instagram-post-scraper', {
               username: [cleanUser], resultsLimit: Math.min(Math.max(postLimit, 10), 100),
@@ -1074,11 +1106,11 @@ export default async function handler(req, res) {
               }
             }
           } catch (apifyErr) {
-            console.warn(`[script_studio] Apify failed (${apifyErr.message}), trying cluster`);
+            console.warn(`[script_studio] Apify also failed (${apifyErr.message})`);
           }
         }
 
-        // Path B: Cluster fallback (gets ~12 posts via GraphQL interception)
+        // Path C: Apify profile-scraper latestPosts (cheaper, gives ~12)
         if (finalPosts.length < 3 && SCRAPER_SERVICE_URL) {
           try {
             const tasks = [{ action: 'posts', payload: { username: cleanUser, limit: 12 } }];

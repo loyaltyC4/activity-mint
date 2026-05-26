@@ -23,6 +23,7 @@
 #   test_each, test_proxies,
 #   reset_worker_1, reset_worker_2, reset_worker_3,
 #   reset_worker_4, reset_worker_5, reset_worker_6,
+#   flush_dead_routes,
 #   test_tiktok_login, test_unsuspend_w4
 
 set -e
@@ -194,6 +195,20 @@ reset_one_worker() {
   echo "==> Worker_${W} recent log lines:"
   ssh_run "docker logs --tail 50 am_worker_${W} 2>&1"
 }
+
+# ─── FLUSH_DEAD_ROUTES — clear Redis sticky assignments for offline workers ─
+# Run this after bringing workers back online or when routing seems stuck.
+# Deletes: target:* keys pointing to blocked workers, plus their block state.
+if [ "$ACTION" = "flush_dead_routes" ]; then
+  echo "==> Flushing Redis sticky routes pointing at offline workers..."
+  ssh_run "source /opt/activitymint/.env && docker exec am_redis redis-cli --no-auth-warning KEYS 'target:*' | xargs -r -n1 sh -c 'v=\$(docker exec am_redis redis-cli --no-auth-warning GET \"\$1\"); case \"\$v\" in worker_2|worker_4) docker exec am_redis redis-cli --no-auth-warning DEL \"\$1\" && echo \"DEL \$1 -> \$v\";; esac' sh"
+  echo ""
+  echo "==> Clearing block state for workers 2 & 4..."
+  ssh_run "source /opt/activitymint/.env && docker exec am_redis redis-cli --no-auth-warning DEL worker:worker_2:blocked_until worker:worker_4:blocked_until"
+  echo ""
+  echo "==> Remaining target: key count:"
+  ssh_run "source /opt/activitymint/.env && docker exec am_redis redis-cli --no-auth-warning KEYS 'target:*' | wc -l"
+fi
 
 if [ "$ACTION" = "reset_worker_1" ]; then reset_one_worker 1; fi
 if [ "$ACTION" = "reset_worker_2" ]; then reset_one_worker 2; fi

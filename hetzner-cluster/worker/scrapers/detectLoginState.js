@@ -47,14 +47,16 @@ function detectLoginState(snap) {
     return STATES.RATE_LIMITED;
   }
 
-  // 2. Suspicious-login challenge / device verify (wins over creds-incorrect)
-  if (CHALLENGE_RE.test(body)) {
-    return STATES.CHALLENGE;
-  }
-
-  // 3. 2FA prompt — input is the strongest signal
+  // 2. 2FA prompt — input is the STRONGEST signal. Check before CHALLENGE_RE
+  // because IG often shows "We didn't recognize this login attempt" text AND
+  // a 2FA input on the same page. The input wins — we should attempt 2FA.
   if (snap?.has2faField) {
     return STATES.TWO_FACTOR;
+  }
+
+  // 3. Suspicious-login challenge / device verify (no 2FA input present)
+  if (CHALLENGE_RE.test(body)) {
+    return STATES.CHALLENGE;
   }
 
   // 4. Wrong credentials banner. Note IG can show the login form AND the

@@ -99,7 +99,38 @@ const state = {
   requestsToday: 0,
   blocked: false,
   blockedReason: null, // string
+  blockedAt: null,     // Date.now() ms — used by auto-unblock probe
 };
+
+// Errors that are recoverable via time (rate limits, IP blocks) and should
+// auto-unblock once the cooldown expires. Credential/suspension failures are
+// NOT in this list — those require human intervention.
+const AUTO_UNBLOCK_RE = /blocked_signal|block_signal_on_login_page|challenge_|rate_limited/i;
+const RATE_LIMIT_UNBLOCK_MS = 65 * 60 * 1000;  // 65 min — IG rate limits are ~60 min
+const IP_BLOCK_UNBLOCK_MS   = 90 * 60 * 1000;  // 90 min — IP/login-page blocks last longer
+
+function setBlocked(reason) {
+  state.blocked = true;
+  state.blockedReason = reason;
+  state.blockedAt = Date.now();
+  log.warn(`worker blocked — reason=${reason}`);
+}
+
+function clearBlocked(via) {
+  state.blocked = false;
+  state.blockedReason = null;
+  state.blockedAt = null;
+  log.info(`auto-unblock: block cleared via ${via}`);
+}
+
+// Returns the appropriate cooldown in ms for a given block reason,
+// or null if the block is not auto-unblockable.
+function autoUnblockCooldown(reason) {
+  if (!reason || !AUTO_UNBLOCK_RE.test(reason)) return null;
+  return /block_signal_on_login_page|ip_block/i.test(reason)
+    ? IP_BLOCK_UNBLOCK_MS
+    : RATE_LIMIT_UNBLOCK_MS;
+}
 
 let browserContext = null;        // CloakBrowser BrowserContext (persistent, warm across requests)
 let pagePool = [];                // [{page, busy}] - N parallel scrape slots per worker
@@ -125,6 +156,45 @@ function maybeResetCounter() {
   }
 }
 setInterval(maybeResetCounter, 60 * 1000).unref();
+
+// ─── Auto-unblock probe ───────────────────────────────────────────────────
+// Every 5 minutes: if blocked by a recoverable signal and the cooldown has
+// elapsed, attempt a login check and clear the block without needing a restart.
+// Login-failed / account-suspended blocks are ignored — those need human action.
+setInterval(async () => {
+  if (!state.blocked || !state.blockedAt) return;
+  const cooldownMs = autoUnblockCooldown(state.blockedReason);
+  if (!cooldownMs) return; // non-recoverable block — skip
+  const elapsed = Date.now() - state.blockedAt;
+  if (elapsed < cooldownMs) return; // cooldown not yet elapsed
+
+  log.info(`auto-unblock probe: ${Math.round(elapsed / 60000)}min since block (reason=${state.blockedReason})`);
+  try {
+    const idlePage = pagePool.find(s => !s.busy)?.page;
+    if (!idlePage) { log.info('auto-unblock probe: no idle page available, will retry'); return; }
+
+    const loggedIn = await isLoggedIn(idlePage, log);
+    if (loggedIn) {
+      clearBlocked('background-probe');
+      return;
+    }
+
+    log.info('auto-unblock probe: session expired, re-running ensureLoggedIn...');
+    const r = await ensureLoggedIn(idlePage, {
+      username: IG_USERNAME, password: IG_PASSWORD, totpSecret: IG_2FA_SECRET,
+    }, log);
+    if (r.ok) {
+      state.loggedIn = true;
+      clearBlocked('background-relogin');
+    } else {
+      // Block updated with whatever new error occurred (may be permanent now)
+      setBlocked(r.reason || state.blockedReason);
+      log.warn(`auto-unblock probe: re-login failed — reason=${r.reason}`);
+    }
+  } catch (err) {
+    log.warn(`auto-unblock probe error: ${err.message}`);
+  }
+}, 5 * 60 * 1000).unref();
 
 // ─── Browser bootstrap (warm context + page pool) ────────────────────────
 // Boot is idempotent and reuses an existing context whenever possible. The
@@ -186,9 +256,7 @@ async function bootBrowser() {
         state.loggedIn = false;
         state.lastError = `login_failed:${result.reason || 'unknown'}`;
         if (result.blocked) {
-          state.blocked = true;
-          state.blockedReason = result.reason || 'login_blocked';
-          log.warn(`login marked us blocked - reason=${state.blockedReason}`);
+          setBlocked(result.reason || 'login_blocked');
         }
       } else {
         state.loggedIn = true;
@@ -295,6 +363,10 @@ app.get('/health', (_req, res) => {
     requests_today: state.requestsToday,
     blocked: state.blocked,
     blocked_reason: state.blockedReason,
+    blocked_at: state.blockedAt ? new Date(state.blockedAt).toISOString() : null,
+    auto_unblock_at: (state.blockedAt && autoUnblockCooldown(state.blockedReason))
+      ? new Date(state.blockedAt + autoUnblockCooldown(state.blockedReason)).toISOString()
+      : null,
   });
 });
 
@@ -302,7 +374,40 @@ app.post('/scrape', requireSecret, async (req, res) => {
   maybeResetCounter();
 
   if (state.blocked) {
-    return res.status(429).json({ ok: false, error: 'blocked', retry_after: 3600 });
+    // Auto-unblock: if the cooldown for this block type has passed, attempt a
+    // lightweight session check before giving up. Credential/suspension blocks
+    // (not matched by autoUnblockCooldown) always return 429 — human needed.
+    const cooldownMs = autoUnblockCooldown(state.blockedReason);
+    const elapsed = state.blockedAt ? Date.now() - state.blockedAt : Infinity;
+    if (cooldownMs && elapsed >= cooldownMs) {
+      log.info(`auto-unblock: cooldown ${Math.round(elapsed/60000)}min elapsed for reason=${state.blockedReason}, checking session...`);
+      try {
+        const idlePage = pagePool.find(s => !s.busy)?.page;
+        if (idlePage) {
+          const ok = await isLoggedIn(idlePage, log);
+          if (ok) {
+            clearBlocked('session-check-on-request');
+          } else {
+            log.info('auto-unblock: not logged in, re-running ensureLoggedIn...');
+            const r = await ensureLoggedIn(idlePage, {
+              username: IG_USERNAME, password: IG_PASSWORD, totpSecret: IG_2FA_SECRET,
+            }, log);
+            if (r.ok) {
+              state.loggedIn = true;
+              clearBlocked('re-login-on-request');
+            } else {
+              // Replace with updated block (may be a different reason now)
+              setBlocked(r.reason || state.blockedReason);
+            }
+          }
+        }
+      } catch (probeErr) {
+        log.warn(`auto-unblock probe failed: ${probeErr.message}`);
+      }
+    }
+    if (state.blocked) {
+      return res.status(429).json({ ok: false, error: 'blocked', retry_after: 3600 });
+    }
   }
 
   const { action, payload } = req.body || {};
@@ -330,8 +435,7 @@ app.post('/scrape', requireSecret, async (req, res) => {
       }, log);
       if (!r.ok) {
         if (r.blocked) {
-          state.blocked = true;
-          state.blockedReason = r.reason || 'login_blocked';
+          setBlocked(r.reason || 'login_blocked');
         }
         const e = new Error(`login_failed:${r.reason || 'unknown'}`);
         if (r.blocked) e.blocked = true;
@@ -367,9 +471,7 @@ app.post('/scrape', requireSecret, async (req, res) => {
     // Trigger a blocked response if either explicitly flagged or a signal phrase
     const blocked = err?.blocked === true || isBlockedSignal(msg);
     if (blocked) {
-      state.blocked = true;
-      state.blockedReason = msg;
-      log.warn(`scrape blocked: ${msg}`);
+      setBlocked(msg);
       return res.status(429).json({ ok: false, error: 'blocked', retry_after: 3600 });
     }
 

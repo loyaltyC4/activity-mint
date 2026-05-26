@@ -1,10 +1,10 @@
-# Activity Mint — 5-worker isolated Instagram scraping cluster
+# Activity Mint — 6-worker isolated Instagram scraping cluster
 #
 # Each worker container holds exactly ONE Instagram account + ONE proxy IP
 # + ONE Chrome profile. Containers cannot see each other (separate networks).
 # The orchestrator on port 3001 is the only entrypoint Vercel talks to.
 #
-# Launch all 5 workers + orchestrator + redis with:
+# Launch all 6 workers + orchestrator + redis with:
 #   docker compose up -d
 #
 # All sensitive values (account passwords, 2FA secrets, proxy creds) MUST
@@ -33,7 +33,7 @@ services:
       - "3001:3001"
     environment:
       SCRAPER_SECRET: ${SCRAPER_SECRET}
-      WORKER_HOSTS: "worker_1:3010,worker_2:3010,worker_3:3010,worker_4:3010,worker_5:3010"
+      WORKER_HOSTS: "worker_1:3010,worker_2:3010,worker_3:3010,worker_4:3010,worker_5:3010,worker_6:3010"
       REDIS_URL: "redis://redis:6379"
       ROUTING_STRATEGY: "sticky"  # sticky | round_robin
     depends_on:
@@ -43,6 +43,7 @@ services:
       - worker_3
       - worker_4
       - worker_5
+      - worker_6
     networks:
       - am_public
 
@@ -143,6 +144,26 @@ services:
       PORT: 3010
     volumes:
       - /opt/activitymint/profiles/profile_5:/app/profile
+    networks:
+      - am_public
+
+  # ── Worker 6: nezaretci_01 + 161.77.70.149 + profile_6 ────────────────
+  worker_6:
+    <<: *worker-base
+    container_name: am_worker_6
+    environment:
+      WORKER_ID: worker_6
+      IG_USERNAME: ${IG_USER_6}
+      IG_PASSWORD: ${IG_PASS_6}
+      IG_2FA_SECRET: ${IG_2FA_6}
+      PROXY_HOST: 161.77.70.149
+      PROXY_USER: ${PROXY_USER}
+      PROXY_PASS: ${PROXY_PASS}
+      PROXY_HTTP_PORT: ${PROXY_HTTP_PORT:-50100}
+      SCRAPER_SECRET: ${SCRAPER_SECRET}
+      PORT: 3010
+    volumes:
+      - /opt/activitymint/profiles/profile_6:/app/profile
     networks:
       - am_public
 

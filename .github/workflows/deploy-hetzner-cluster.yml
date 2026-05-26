@@ -2,7 +2,7 @@ name: Deploy Hetzner Cluster
 
 # Triggered manually via workflow_dispatch. Runs on a GitHub-hosted runner
 # (unrestricted outbound network) and SSHs into the Hetzner server to deploy
-# / inspect the 5-worker scraping cluster.
+# / inspect the 6-worker scraping cluster.
 #
 # The actual action logic lives in hetzner-cluster/cluster-action.sh — kept
 # out of this YAML because the run-block expression had grown past the
@@ -28,6 +28,7 @@ on:
           - test_proxies
           - reset_worker_1
           - reset_worker_4
+          - reset_worker_6
           - test_tiktok_login
           - test_unsuspend_w4
           - probe_posts_html
@@ -66,6 +67,9 @@ jobs:
           IG_USER_5: ${{ secrets.IG_USER_5 }}
           IG_PASS_5: ${{ secrets.IG_PASS_5 }}
           IG_2FA_5: ${{ secrets.IG_2FA_5 }}
+          IG_USER_6: ${{ secrets.IG_USER_6 }}
+          IG_PASS_6: ${{ secrets.IG_PASS_6 }}
+          IG_2FA_6: ${{ secrets.IG_2FA_6 }}
           TT_USERNAME:   ${{ secrets.TT_USERNAME }}
           TT_PASSWORD:   ${{ secrets.TT_PASSWORD }}
           TT_EMAIL:      ${{ secrets.TT_EMAIL }}

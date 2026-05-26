@@ -12,7 +12,7 @@
 # Required env vars (set by the workflow's env: block):
 #   HETZNER_HOST, HETZNER_USER, HETZNER_PASSWORD
 #   SCRAPER_SECRET, PROXY_USER, PROXY_PASS
-#   IG_USER_1..5, IG_PASS_1..5, IG_2FA_1..5
+#   IG_USER_1..6, IG_PASS_1..6, IG_2FA_1..6
 #   TT_USERNAME, TT_PASSWORD, TT_EMAIL, TT_EMAIL_PASS, TT_PROXY_HOST
 #
 # Usage:
@@ -20,8 +20,8 @@
 #
 # Where <action> is one of:
 #   deploy, status, restart, logs, diagnostics, smoke,
-#   test_each, test_proxies, reset_worker_1, test_tiktok_login,
-#   test_unsuspend_w4, reset_worker_4
+#   test_each, test_proxies, reset_worker_1, reset_worker_4,
+#   reset_worker_6, test_tiktok_login, test_unsuspend_w4
 
 set -e
 ACTION="${1:-deploy}"
@@ -47,6 +47,9 @@ IG_2FA_4=$IG_2FA_4
 IG_USER_5=$IG_USER_5
 IG_PASS_5=$IG_PASS_5
 IG_2FA_5=$IG_2FA_5
+IG_USER_6=$IG_USER_6
+IG_PASS_6=$IG_PASS_6
+IG_2FA_6=$IG_2FA_6
 EOF
 )
 
@@ -133,7 +136,7 @@ fi
 
 # ─── TEST_EACH — bypass orchestrator, hit each worker container directly ───
 if [ "$ACTION" = "test_each" ]; then
-  for w in 1 2 3 4 5; do
+  for w in 1 2 3 4 5 6; do
     echo "════════════════════════════════════════════════════════════"
     echo "  WORKER $w"
     echo "════════════════════════════════════════════════════════════"
@@ -192,6 +195,7 @@ reset_one_worker() {
 
 if [ "$ACTION" = "reset_worker_1" ]; then reset_one_worker 1; fi
 if [ "$ACTION" = "reset_worker_4" ]; then reset_one_worker 4; fi
+if [ "$ACTION" = "reset_worker_6" ]; then reset_one_worker 6; fi
 
 # ─── TEST_TIKTOK_LOGIN — one-off CloakBrowser probe of TikTok login ───────
 if [ "$ACTION" = "test_tiktok_login" ]; then
@@ -265,7 +269,7 @@ fi
 
 # ─── DIAGNOSTICS — pull worker HTML dumps to inspect form structure ───────
 if [ "$ACTION" = "diagnostics" ]; then
-  for w in 1 2 3 4 5; do
+  for w in 1 2 3 4 5 6; do
     echo "=========================================="
     echo "=== WORKER_${w} DIAGNOSTICS ==="
     echo "=========================================="

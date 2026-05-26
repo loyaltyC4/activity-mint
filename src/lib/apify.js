@@ -22,16 +22,19 @@ const READ_ACTIONS_GET = new Set([
 // Per-action defaults (ms). The cache is *additional* protection on top of
 // the edge cache — if the user's network is slow, localStorage still hits
 // instantly. Stays in sync with CACHE_PROFILES in apify-proxy.js.
+// Speed-v8: aligned with Vercel edge + orchestrator Redis bumps.
+// ttlMs = serve instantly without any network call.
+// swrMs = serve stale while revalidating in background.
 const LOCAL_CACHE_DEFAULTS = {
-  profile:              { ttlMs:  60_000, swrMs:  300_000 },
-  posts:                { ttlMs:  60_000, swrMs:  300_000 },
-  followers:            { ttlMs:  60_000, swrMs:  300_000 },
-  following:            { ttlMs:  60_000, swrMs:  300_000 },
-  stories:              { ttlMs:  30_000, swrMs:   60_000 },
-  top_commenters:       { ttlMs: 120_000, swrMs:  600_000 },
-  audience_enrichment:  { ttlMs: 300_000, swrMs:  900_000 },
-  dashboard_load:       { ttlMs:  60_000, swrMs:  300_000 },
-  comments:             { ttlMs: 120_000, swrMs:  600_000 },
+  profile:              { ttlMs:   300_000, swrMs:  1_800_000 }, //  5 min / 30 min
+  posts:                { ttlMs:   300_000, swrMs:  1_800_000 },
+  followers:            { ttlMs:   300_000, swrMs:  1_800_000 },
+  following:            { ttlMs:   300_000, swrMs:  1_800_000 },
+  stories:              { ttlMs:   180_000, swrMs:    600_000 }, //  3 min / 10 min
+  top_commenters:       { ttlMs:   600_000, swrMs:  3_600_000 }, // 10 min /  1 hr
+  audience_enrichment:  { ttlMs: 1_800_000, swrMs:  7_200_000 }, // 30 min /  2 hr
+  dashboard_load:       { ttlMs:   300_000, swrMs:  1_800_000 },
+  comments:             { ttlMs:   600_000, swrMs:  3_600_000 }, // 10 min /  1 hr
   // Script Studio analyses change very slowly (4h fresh, 24h stale-revalidate)
   script_studio:        { ttlMs: 4 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000 },
   ad_library:           { ttlMs: 6 * 60 * 60 * 1000, swrMs: 24 * 60 * 60 * 1000 },

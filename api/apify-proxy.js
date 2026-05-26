@@ -276,17 +276,20 @@ function withSource(res, source, body) {
 //   followers / following:     60s fresh, 5 min SWR
 // Speed-v7: edge cache TTLs bumped to match orchestrator. Target: >90%
 // of requests served from edge (50ms) or orchestrator Redis (3ms).
+// Speed-v8: Vercel edge TTLs aligned with orchestrator Redis bumps.
+// s-maxage: CDN serves this stale before hitting the serverless function.
+// swr: after s-maxage, serve stale while refreshing in background.
 const CACHE_PROFILES = {
-  profile:              { sMax: 300, swr: 900 },
-  'profile-with-posts': { sMax: 300, swr: 900 },
-  posts:                { sMax: 300, swr: 900 },
-  followers:            { sMax: 180, swr: 600 },
-  following:            { sMax: 180, swr: 600 },
-  stories:              { sMax:  90, swr: 300 },
-  top_commenters:       { sMax: 300, swr: 900 },
-  audience_enrichment:  { sMax: 600, swr: 1800 },
-  dashboard_load:       { sMax: 300, swr: 900 },
-  comments:             { sMax: 180, swr: 600 },
+  profile:              { sMax:  900, swr:  3600 },  // 15 min / 1 hr
+  'profile-with-posts': { sMax:  900, swr:  3600 },
+  posts:                { sMax:  900, swr:  3600 },  // 15 min / 1 hr
+  followers:            { sMax:  600, swr:  1800 },  // 10 min / 30 min
+  following:            { sMax:  600, swr:  1800 },
+  stories:              { sMax:  300, swr:   900 },  //  5 min / 15 min
+  top_commenters:       { sMax:  900, swr:  3600 },  // 15 min / 1 hr
+  audience_enrichment:  { sMax: 3600, swr: 14400 },  //  1 hr  / 4 hr
+  dashboard_load:       { sMax:  900, swr:  3600 },  // 15 min / 1 hr
+  comments:             { sMax:  600, swr:  1800 },  // 10 min / 30 min
 };
 
 function setEdgeCache(res, action) {

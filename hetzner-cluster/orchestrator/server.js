@@ -55,15 +55,17 @@ const HEALTH_TIMEOUT_MS = 5 * 1000;
 //
 // Freshness guarantee: XFetch fires background refreshes BEFORE expiry
 // so the user always sees data <TTL old, never stale.
+// Speed-v8: WORKER-PROTECTING TTLs. With 4 workers online, reducing IG
+// scrape frequency is priority. XFetch early refresh keeps hot handles warm.
 const CACHE_TTLS = {
-  profile: 600,              // 10 min (was 120s). Profile rarely changes mid-session.
-  posts: 600,                // 10 min (was 90s). Posts accumulate slowly.
-  followers: 300,            // 5 min (was 60s). Follow events are infrequent.
-  following: 300,            // 5 min (was 60s).
-  stories: 180,              // 3 min (was 30s). Stories last 24h; 3 min is still fresh.
-  comments: 300,             // 5 min (was 90s).
-  audience_enrichment: 900,  // 15 min (was 300s). Expensive, changes very slowly.
-  top_commenters: 600,       // 10 min (was 180s).
+  profile: 3600,             // 1 hr  (was 10 min). Profiles don't change mid-session.
+  posts: 1800,               // 30 min (was 10 min). New posts maybe once/day.
+  followers: 1800,           // 30 min (was 5 min). Follow count drifts slowly.
+  following: 1800,           // 30 min (was 5 min).
+  stories: 600,              // 10 min (was 3 min). Stories last 24h; 10 min is still fresh.
+  comments: 1800,            // 30 min (was 5 min). Comment threads evolve slowly.
+  audience_enrichment: 7200, // 2 hr  (was 15 min). Follower list barely changes in 2hr.
+  top_commenters: 3600,      // 1 hr  (was 10 min). Commenter ranking is stable.
 };
 
 // ─── Logger ──────────────────────────────────────────────────────────────

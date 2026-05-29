@@ -36,6 +36,7 @@ import {
   fetchFollowersList,
 } from '../../../lib/apify'
 import { proxyImg, fmt } from '../shared/utils'
+import SectionCard from '../shared/SectionCard'
 
 /* ─── Caches ───────────────────────────────────────────────────────────── */
 const CACHE_TTL_MS = 15 * 60 * 1000
@@ -110,7 +111,7 @@ function PaneHeader({ title, subtitle, refreshing }) {
   return (
     <div className="mb-5 flex items-end gap-3">
       <div>
-        <h1 className="font-tight text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">{title}</h1>
         <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
       </div>
       {refreshing && (
@@ -662,7 +663,7 @@ export default function AudiencePane({ timeRange }) {
         <PaneHeader title="Audience & Mood" subtitle="Loading your tracked handle…" />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-64 rounded-3xl" />
+            <Skeleton key={i} className="h-64 rounded-2xl" />
           ))}
         </div>
       </>
@@ -673,7 +674,7 @@ export default function AudiencePane({ timeRange }) {
     return (
       <>
         <PaneHeader title="Audience & Mood" subtitle="Add an Instagram handle first" />
-        <div className="rounded-3xl bg-white p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] text-center">
+        <div className="rounded-2xl bg-white p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] text-center">
           <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
           <div className="font-bold text-slate-700 mb-1">No tracked handle yet</div>
           <div className="text-sm text-[#64756f]">

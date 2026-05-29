@@ -83,7 +83,7 @@ function PaneHeader({ title, subtitle, stale, onRefresh }) {
   return (
     <div className="mb-6 flex items-end justify-between gap-3">
       <div>
-        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">{title}</h1>
+        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">Content Lab</h1>
         <div className="mt-0.5 text-sm text-slate-500">{subtitle}</div>
       </div>
       {(stale || onRefresh) && (

@@ -664,22 +664,138 @@ export default function PulsePane({ timeRange }) {
           />
         </div>
 
-        <SectionCard
-          title="Brand DNA"
-          subtitle="Deterministic identity extracted from your last posts."
-          icon={<Brain className="size-4" strokeWidth={2} />}
-          action={
-            <span className="text-[10px] font-mono uppercase tracking-[0.15em] px-2 py-1 rounded bg-positive/10 text-positive">Analysis active</span>
-          }
-        >
-          <BrandOverviewCard profile={profile} posts={posts} />
-        </SectionCard>
+        {/* Brand DNA + Offensive Pipeline — 2-col */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SectionCard
+              title="Brand DNA"
+              subtitle="Deterministic identity extracted from your last posts."
+              icon={<Brain className="size-4" strokeWidth={2} />}
+              action={
+                <span className="text-[10px] font-mono uppercase tracking-[0.15em] px-2 py-1 rounded bg-positive/10 text-positive">Analysis active</span>
+              }
+            >
+              <BrandOverviewCard profile={profile} posts={posts} />
+            </SectionCard>
+          </div>
+          <SectionCard tone="ink" padded>
+            <div className="absolute -top-16 -right-16 size-56 bg-brand/30 blur-3xl rounded-full pointer-events-none" />
+            <div className="relative">
+              <div className="size-9 rounded-lg bg-brand/15 grid place-items-center mb-5">
+                <Sparkles className="size-4 text-brand" strokeWidth={2.25} />
+              </div>
+              <h3 className="font-display font-bold text-2xl tracking-tight leading-tight mb-2 text-white">Offensive Pipeline</h3>
+              <p className="text-sm text-white/60 leading-relaxed mb-6">
+                Reverse-engineer your rivals' weak points.{' '}
+                <span className="text-white/85">contentDeconstruct.js</span> runs continuous background loops over their threads.
+              </p>
+              <ul className="space-y-3 mb-7 text-xs">
+                {[
+                  { label: 'Unlimited AI script generations', on: true },
+                  { label: 'Priority orchestrator routing', on: true },
+                  { label: 'Ad library proxy routines', on: false },
+                  { label: '10 client + competitor seats', on: false },
+                ].map((f) => (
+                  <li key={f.label} className="flex items-center gap-2.5">
+                    <div className={`size-1.5 rounded-full ${f.on ? 'bg-brand' : 'bg-white/15'}`} />
+                    <span className={f.on ? 'text-white/90 font-medium' : 'text-white/40'}>{f.label}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => window.location.href = '/#pricing'}
+                className="relative w-full py-3 bg-white text-foreground rounded-xl font-semibold text-sm hover:bg-white/95 transition-all flex items-center justify-center gap-2 group"
+              >
+                Unlock Pipeline Intercept
+                <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.25} />
+              </button>
+              <p className="text-[10px] text-white/40 text-center mt-2.5 font-mono uppercase tracking-[0.15em]">$149 / month · cancel anytime</p>
+            </div>
+          </SectionCard>
+        </div>
 
-        <ActivityCard stories={stories} posts={posts} loading={refreshing} />
-
+        {/* Insights + Quests */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
           <InsightsCard insights={insights} isPaid={isPaid} onUpgrade={() => alert('Upgrade flow coming')} />
           <QuestsCard streak={0} />
+        </div>
+
+        {/* Active stories + Recent posts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <SectionCard
+            title="Active stories"
+            subtitle="Live feed across your connected handles"
+            icon={<Eye className="size-4" strokeWidth={2} />}
+            action={<span className="text-[11px] font-mono uppercase tracking-[0.15em] text-brand cursor-pointer hover:underline">View all</span>}
+          >
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {(stories || []).slice(0, 3).map((s, i) => (
+                <div key={i} className="aspect-[9/14] rounded-xl ring-1 ring-foreground/[0.05] bg-gradient-to-br from-brand/10 via-violet/10 to-amber/10 relative overflow-hidden">
+                  <div className="absolute inset-0.5 rounded-[10px] bg-card/40 backdrop-blur-sm" />
+                  <div className="absolute bottom-2 left-2 right-2 text-[9px] font-mono uppercase tracking-widest text-foreground/60">
+                    {['Mon','Tue','Wed','Thu','Fri'][i] || i}
+                  </div>
+                </div>
+              ))}
+              {(stories || []).length === 0 && Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="aspect-[9/14] rounded-xl ring-1 ring-foreground/[0.05] bg-gradient-to-br from-brand/10 via-violet/10 to-amber/10 relative overflow-hidden">
+                  <div className="absolute inset-0.5 rounded-[10px] bg-card/40 backdrop-blur-sm" />
+                  <div className="absolute bottom-2 left-2 right-2 text-[9px] font-mono uppercase tracking-widest text-foreground/60">{['Mon','Tue','Wed'][i]}</div>
+                </div>
+              ))}
+              <button className="aspect-[9/14] rounded-xl border-2 border-dashed border-hairline grid place-items-center text-muted-foreground hover:border-brand hover:text-brand transition-colors group">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="size-7 rounded-full bg-foreground/[0.04] grid place-items-center group-hover:bg-brand-soft transition-colors">
+                    <Plus className="size-3.5" strokeWidth={2.25} />
+                  </div>
+                  <span className="text-[9px] font-mono uppercase tracking-widest">Add</span>
+                </div>
+              </button>
+            </div>
+          </SectionCard>
+
+          <div className="lg:col-span-2">
+            <SectionCard
+              title="Recent posts"
+              subtitle="Best-performing content this week"
+              icon={<Mic className="size-4" strokeWidth={2} />}
+              action={<span className="text-[11px] font-mono uppercase tracking-[0.15em] text-brand cursor-pointer hover:underline">Open feed →</span>}
+            >
+              <div className="space-y-2.5">
+                {(posts || []).slice(0, 4).map((p, i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-xl hover:bg-foreground/[0.03] transition-colors group cursor-pointer">
+                    <div className="size-12 rounded-lg bg-gradient-to-br from-foreground/90 via-brand-ink to-brand relative overflow-hidden shrink-0">
+                      {p.profilePicUrl && <img src={p.profilePicUrl} className="absolute inset-0 w-full h-full object-cover opacity-50" alt="" />}
+                      <div className="absolute bottom-1 right-1 text-[9px] font-mono text-white/80 font-bold">{String(i + 1).padStart(2, '0')}</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold tracking-tight truncate group-hover:text-brand-ink transition-colors">
+                        {p.caption ? p.caption.slice(0, 60) + (p.caption.length > 60 ? '…' : '') : 'Post'}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground font-mono">
+                        <span>{fmt(p.likes || p.likesCount || 0)} likes</span>
+                        <span>ER {p.engagement ? `${p.engagement.toFixed(1)}%` : '—'}</span>
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold tabular-nums text-positive">
+                      {p.likes > 500 ? '+44%' : p.likes > 200 ? '+12%' : '+5%'}
+                    </div>
+                  </div>
+                ))}
+                {(!posts || posts.length === 0) && [
+                  { title: 'Loading recent posts…', er: '—', views: '—', trend: '—' },
+                ].map((p, i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-xl">
+                    <div className="size-12 rounded-lg bg-foreground/[0.04] shimmer-surface shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 rounded shimmer-surface" />
+                      <div className="h-3 w-1/2 rounded shimmer-surface opacity-60" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
         </div>
       </div>
     </>

@@ -17,6 +17,7 @@
 
 'use strict'
 
+import SectionCard from '../shared/SectionCard'
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   LayoutGrid, BarChart3, Sparkles, AlertTriangle, ArrowRight,
@@ -51,9 +52,9 @@ function saveCache(h, payload) {
 }
 
 // ─── Design tokens (Chris Do aesthetic) ───────────────────────────────────
-const SECTION_TITLE = 'font-jbmono text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500 mb-3'
-const CARD = 'rounded-2xl bg-white p-5 border border-[var(--hairline)] shadow-pane'
-const METRIC_BIG = 'font-tight text-[28px] font-extrabold tracking-tight leading-none'
+const SECTION_TITLE = 'font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-3'
+const CARD = 'rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-5'
+const METRIC_BIG = 'font-display font-bold text-3xl tracking-tight leading-none tabular-nums'
 const METRIC_LABEL = 'text-[11px] font-medium text-slate-500 mt-1'
 
 const FORMAT_META = {
@@ -82,7 +83,7 @@ function PaneHeader({ title, subtitle, stale, onRefresh }) {
   return (
     <div className="mb-6 flex items-end justify-between gap-3">
       <div>
-        <h1 className="font-tight text-[1.7rem] font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">{title}</h1>
         <div className="mt-0.5 text-sm text-slate-500">{subtitle}</div>
       </div>
       {(stale || onRefresh) && (
@@ -612,7 +613,7 @@ export default function ContentLabPane({ timeRange }) {
       />
 
       {error && (
-        <div className="rounded-2xl bg-white p-8 text-center border border-[var(--hairline)] shadow-pane mb-4">
+        <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-8 text-center mb-4">
           <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
           <h3 className="mt-3 text-base font-bold text-slate-900">
             {/no.?posts|insufficient|not found|empty|private/i.test(error)
@@ -633,7 +634,7 @@ export default function ContentLabPane({ timeRange }) {
 
       {/* Show friendly empty state when data returned ok:false (not enough posts) */}
       {!data?.ok && !loading && !error && (
-        <div className="rounded-2xl bg-white p-8 text-center border border-[var(--hairline)] shadow-pane">
+        <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-8 text-center">
           <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
           <h3 className="mt-3 text-base font-bold text-slate-900">
             {data?.reason === 'insufficient-posts' || data?.posts_count === 0

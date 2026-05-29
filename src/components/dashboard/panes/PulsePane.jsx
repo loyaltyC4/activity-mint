@@ -40,6 +40,8 @@ import {
   fetchAudienceEnrichment,
 } from '../../../lib/apify'
 import KpiCard from '../shared/KpiCard'
+import SectionCard from '../shared/SectionCard'
+import RingMeter from '../shared/RingMeter'
 import InsightCard from '../shared/InsightCard'
 import StoryRing from '../shared/StoryRing'
 import PostThumb from '../shared/PostThumb'
@@ -591,13 +593,25 @@ export default function PulsePane({ timeRange }) {
 
   return (
     <>
-      <PaneHeader title="Pulse" subtitle={`Your daily snapshot — ${timeRange} view`} stale={refreshing} />
+      {/* Insight-flow style Pulse header */}
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">Daily snapshot</h1>
+          <p className="text-sm text-muted-foreground mt-2 max-w-prose">
+            Live signal from your connected handles. Numbers reveal as our orchestrator finishes each pass.
+          </p>
+        </div>
+        <div className="hidden md:flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-positive animate-pulse" />
+          Streaming · 3 sources
+        </div>
+      </div>
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            index={0}
             label="Mint Score"
+            loadingDelay={0}
             value={mintScoreV2 ?? latestMint ?? singleMint ?? (hasData ? 75 : '--')}
             Icon={Sparkles}
             trend={trendMint}
@@ -607,8 +621,8 @@ export default function PulsePane({ timeRange }) {
             emptyHint="No posts yet"
           />
           <KpiCard
-            index={1}
             label="Reach"
+            loadingDelay={600}
             value={fmt(followers)}
             Icon={Radio}
             trend={trendReach}
@@ -618,8 +632,8 @@ export default function PulsePane({ timeRange }) {
             emptyHint="No posts yet"
           />
           <KpiCard
-            index={2}
             label="Engagement"
+            loadingDelay={1100}
             value={
               latestER != null     ? `${latestER.toFixed(2)}%`
               : singlePostER != null ? `${singlePostER.toFixed(2)}%`
@@ -634,8 +648,8 @@ export default function PulsePane({ timeRange }) {
             emptyHint="No posts yet"
           />
           <KpiCard
-            index={3}
             label="Audience mood"
+            loadingDelay={1700}
             value={
               latestMood != null     ? `${latestMood.toFixed(1)}%`
               : singlePostMood != null ? `${singlePostMood.toFixed(1)}%`
@@ -650,8 +664,16 @@ export default function PulsePane({ timeRange }) {
           />
         </div>
 
-        {/* Brand DNA — deterministic extraction, zero AI tokens, renders instantly */}
-        <BrandOverviewCard profile={profile} posts={posts} />
+        <SectionCard
+          title="Brand DNA"
+          subtitle="Deterministic identity extracted from your last posts."
+          icon={<Brain className="size-4" strokeWidth={2} />}
+          action={
+            <span className="text-[10px] font-mono uppercase tracking-[0.15em] px-2 py-1 rounded bg-positive/10 text-positive">Analysis active</span>
+          }
+        >
+          <BrandOverviewCard profile={profile} posts={posts} />
+        </SectionCard>
 
         <ActivityCard stories={stories} posts={posts} loading={refreshing} />
 

@@ -7,7 +7,7 @@
 import React from 'react'
 import {
   Play, Eye, Heart, Bookmark, ArrowRight, Sparkles,
-  Hash, Clock, Layers, FileCode, Camera, Music2, Type, Wand2, Copy, Download,
+  Hash, Clock, Layers, BookOpen, Camera, Music2, Type, Wand2, Copy, Download,
 } from 'lucide-react'
 import SectionCard from '../shared/SectionCard'
 
@@ -32,7 +32,7 @@ const ingredients = [
   { Icon: Type,     label: 'On-screen text',  value: '3 captions · 28-32px · top-thirds anchored' },
   { Icon: Clock,    label: 'Pacing',          value: 'Avg cut every 4.6s · hook held for 3s' },
   { Icon: Hash,     label: 'Hashtags',        value: '#offer #copywriting #foundermode + 4 niche' },
-  { Icon: FileCode, label: 'Caption frame',   value: 'Hook · Story · Lesson · CTA (Hormozi P-S-O)' },
+  { Icon: BookOpen, label: 'Caption frame',   value: 'Hook · Story · Lesson · CTA (Hormozi P-S-O)' },
 ]
 
 function Stat({ Icon, v }) {

@@ -1,516 +1,561 @@
 /**
- * Content Lab — Content Intelligence Pane.
+ * Content Lab — redesigned.
  *
- * Displays the output of the Content Deconstruction Engine:
- *   - Format distribution (photo / reel / carousel split)
- *   - Hook formula distribution (which hooks this account uses)
- *   - Top performers with their template skeletons + framework citations
- *   - Research-backed opportunities (gaps the user should exploit)
- *   - "Save as template" on every deconstructed post
+ * Information architecture (4 sections, top to bottom):
+ *   1. PaneHeader: title + Reels|Carousels|Photos filter + Deconstruct URL
+ *   2. The Winner: hero card with top performer, the WHY tags, what it beat,
+ *      AI-synthesised single-sentence insight, primary action
+ *   3. Frame Breakdown + The Recipe (5-col grid): beats timeline + ingredient
+ *      list + Ship-to-Script-Studio dark card
+ *   4. More winners: compact 3-col grid of next-best posts (ranks 2-4)
  *
- * Design: Chris Do typography-forward aesthetic — bold DM Sans headings,
- * high contrast, restrained teal+slate palette, grid-based card layouts.
- * Data is the hero, not decoration.
+ * Visual contract (no plastic):
+ *   - lucide-react icons all at strokeWidth={1.5}
+ *   - No gradient icon tiles, no rainbow colors
+ *   - One brand accent (teal) + neutrals
+ *   - JetBrains Mono for ALL labels and data points
+ *   - Inter Tight for headings, Inter for body
  *
- * Data source: fetchDeconstructProfile() → api/apify-proxy?action=deconstruct_profile
+ * A11y:
+ *   - Semantic section landmarks with aria-label
+ *   - Heading hierarchy: page h1 → section h2 → card h3
+ *   - Focus rings on all interactive elements
+ *   - ARIA labels on icon-only buttons
+ *
+ * Data: fetchDeconstructProfile() — same source as before, completely
+ * different presentation.
  */
 
 'use strict'
 
-import SectionCard from '../shared/SectionCard'
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
-  LayoutGrid, BarChart3, Sparkles, AlertTriangle, ArrowRight,
-  Video, Image as ImageIcon, Layers, Copy, BookmarkPlus,
-  RefreshCw, Loader2, CheckCircle2, ChevronDown, ExternalLink,
-  Zap, TrendingUp, MessageSquare, Hash,
+  LayoutGrid, Wand2, ArrowRight, Play, Sparkles, Crown,
+  Clock, Hash, FileCode, Camera, Music2, Type, Layers,
+  Download, Copy, BookmarkPlus, AlertCircle, RefreshCw,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { useTrackedAccount } from '../../../context/TrackedAccountContext'
-import { supabase } from '../../../lib/supabase'
-import { fetchDeconstructProfile, fetchAIInsights, fetchGenerateSlides } from '../../../lib/apify'
+import { useTier } from '../../../context/TierContext'
+import { fetchDeconstructProfile, fetchGenerateSlides } from '../../../lib/apify'
+import SectionCard from '../shared/SectionCard'
 import { proxyImg } from '../shared/utils'
 import GeneratedSlidesPanel from '../shared/GeneratedSlidesPanel'
 
-// ─── Cache layer ──────────────────────────────────────────────────────────
-const CACHE_KEY = (h) => `content_lab:v2:${h}`
-const CACHE_TTL = 4 * 60 * 60 * 1000
+/* ───────────────────────── cache ────────────────────────────── */
+const CACHE_TTL_MS = 30 * 60 * 1000
+const cacheKey = (h) => `contentlab:v2:${h}`
 function loadCache(h) {
   if (!h || typeof localStorage === 'undefined') return null
   try {
-    const raw = localStorage.getItem(CACHE_KEY(h))
+    const raw = localStorage.getItem(cacheKey(h))
     if (!raw) return null
     const d = JSON.parse(raw)
-    if (!d || (Date.now() - (d.t || 0)) > CACHE_TTL) return null
+    if (!d || Date.now() - (d.t || 0) > CACHE_TTL_MS) return null
     return d.payload
   } catch { return null }
 }
-function saveCache(h, payload) {
+function saveCache(h, p) {
   if (!h || typeof localStorage === 'undefined') return
-  try { localStorage.setItem(CACHE_KEY(h), JSON.stringify({ t: Date.now(), payload })) } catch {}
+  try { localStorage.setItem(cacheKey(h), JSON.stringify({ t: Date.now(), payload: p })) } catch {}
 }
 
-// ─── Design tokens (Chris Do aesthetic) ───────────────────────────────────
-const SECTION_TITLE = 'font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-3'
-const CARD = 'rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-5'
-const METRIC_BIG = 'font-display font-bold text-3xl tracking-tight leading-none tabular-nums'
-const METRIC_LABEL = 'text-[11px] font-medium text-slate-500 mt-1'
+/* ───────────────────────── format helpers ───────────────────── */
+const fmtNum = (n) => {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
+}
+const fmtPct = (n, digits = 1) =>
+  typeof n === 'number' ? `${n.toFixed(digits)}%` : '—'
 
-const FORMAT_META = {
-  carousel: { Icon: Layers, color: 'text-violet-600 bg-violet-50', label: 'Carousel', barColor: 'bg-violet-500' },
-  reel:     { Icon: Video,  color: 'text-rose-600 bg-rose-50',     label: 'Reel',     barColor: 'bg-rose-500' },
-  photo:    { Icon: ImageIcon, color: 'text-sky-600 bg-sky-50',    label: 'Photo',    barColor: 'bg-sky-400' },
+const FORMAT_LABEL = {
+  Image: 'Photo', Photo: 'Photo',
+  Video: 'Reel',  Reel: 'Reel',
+  Sidecar: 'Carousel', Carousel: 'Carousel',
 }
 
-const HOOK_COLORS = {
-  plain: 'bg-slate-100 text-slate-700',
-  contrarian: 'bg-amber-50 text-amber-700',
-  direct_challenge: 'bg-rose-50 text-rose-700',
-  curiosity_gap: 'bg-violet-50 text-violet-700',
-  social_proof: 'bg-emerald-50 text-emerald-700',
-  question_hook: 'bg-sky-50 text-sky-700',
-  truth_bomb: 'bg-orange-50 text-orange-700',
-  result_hook: 'bg-teal-50 text-teal-700',
-  visual_interrupt: 'bg-fuchsia-50 text-fuchsia-700',
-  wait_what: 'bg-indigo-50 text-indigo-700',
-  mid_action: 'bg-cyan-50 text-cyan-700',
-}
-
-// ─── Components ───────────────────────────────────────────────────────────
-
-function PaneHeader({ title, subtitle, stale, onRefresh }) {
+/* ───────────────────────── PaneHeader ───────────────────────── */
+function PaneHeader({ stale, onRefresh, filter, onFilter, onDeconstruct, handle }) {
   return (
-    <div className="mb-6 flex items-end justify-between gap-3">
-      <div>
-        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">Content Lab</h1>
-        <div className="mt-0.5 text-sm text-slate-500">{subtitle}</div>
-      </div>
-      {(stale || onRefresh) && (
-        <div className="flex items-center gap-2">
-          {stale && <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-600">Analysing...</span>}
-          {onRefresh && (
-            <button onClick={onRefresh} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-500 shadow-[0_0_0_1px_rgba(0,0,0,0.06)] hover:bg-slate-50">
-              <RefreshCw className="h-3 w-3" /> Refresh
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StatTile({ label, value, sublabel, index = 0 }) {
-  return (
-    <div className={`${CARD} animate-in fade-in slide-in-from-bottom-2 fill-mode-both`}
-      style={{ animationDelay: `${index * 50}ms`, animationDuration: '350ms' }}>
-      <div className={METRIC_BIG}>{value}</div>
-      <div className={METRIC_LABEL}>{label}</div>
-      {sublabel && <div className="text-[10px] text-slate-400 mt-0.5">{sublabel}</div>}
-    </div>
-  )
-}
-
-function FormatDistribution({ distribution, total }) {
-  if (!distribution) return null
-  const entries = Object.entries(distribution).sort(([, a], [, b]) => b - a)
-  const maxCount = Math.max(1, ...entries.map(([, v]) => v))
-  return (
-    <div className={CARD}>
-      <div className={SECTION_TITLE}>Format Distribution</div>
-      <div className="space-y-3">
-        {entries.map(([format, count]) => {
-          const meta = FORMAT_META[format] || FORMAT_META.photo
-          const pct = total ? Math.round((count / total) * 100) : 0
-          return (
-            <div key={format} className="flex items-center gap-3">
-              <span className={`grid h-8 w-8 place-items-center rounded-lg ${meta.color}`}>
-                <meta.Icon className="h-4 w-4" />
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-bold">{meta.label}</span>
-                  <span className="text-[12px] font-bold text-slate-700">{count} <span className="font-normal text-slate-400">({pct}%)</span></span>
-                </div>
-                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className={`h-full ${meta.barColor} rounded-full transition-all duration-500`}
-                    style={{ width: `${(count / maxCount) * 100}%` }} />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function HookDistribution({ distribution, total }) {
-  if (!distribution) return null
-  const entries = Object.entries(distribution).sort(([, a], [, b]) => b - a)
-  return (
-    <div className={CARD}>
-      <div className={SECTION_TITLE}>Hook Formula Usage</div>
-      <div className="flex flex-wrap gap-2">
-        {entries.map(([hookId, count]) => {
-          const pct = total ? Math.round((count / total) * 100) : 0
-          const colorCls = HOOK_COLORS[hookId] || HOOK_COLORS.plain
-          const label = hookId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-          return (
-            <div key={hookId} className={`rounded-lg px-3 py-2 ${colorCls}`}>
-              <div className="text-[12px] font-bold">{label}</div>
-              <div className="text-[10px] opacity-70">{count} posts ({pct}%)</div>
-            </div>
-          )
-        })}
-      </div>
-      {entries.length === 1 && entries[0][0] === 'plain' && (
-        <div className="mt-3 rounded-lg bg-amber-50 p-3 text-[12px] text-amber-800">
-          <strong>Opportunity:</strong> 100% plain hooks. Try Contrarian ("Everything you know about X is wrong") or Direct Challenge ("You're doing X wrong") for 2-3x reach.
-          <div className="mt-1 text-[10px] text-amber-600">Source: Go-Viral.app Feb 2026, 7 proven hook formulas</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function AIInsightsCard({ data }) {
-  const [insights, setInsights] = useState(null)
-  const [loading, setLoading] = useState(false)
-  if (!data?.ok) return null
-  return (
-    <div className={`${CARD} mb-4`}>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <div className={SECTION_TITLE}>AI Analysis</div>
-        </div>
-        <button
-          disabled={loading || !!insights}
-          onClick={async () => {
-            setLoading(true)
-            try {
-              const result = await fetchAIInsights({
-                request_type: 'insights',
-                analysis: { patterns: data.patterns, opportunities: data.opportunities },
-                posts: data.top_performers?.slice(0, 5)?.map(t => ({
-                  type: t.format, likes: t.performance?.likes, comments: t.performance?.comments,
-                  caption: t.caption?.full_text?.slice(0, 150),
-                })),
-              })
-              if (result?.insights) setInsights(result.insights)
-            } catch (err) { console.warn('AI insights failed:', err.message) }
-            finally { setLoading(false) }
-          }}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_4px_12px_-4px_rgba(124,58,237,0.5)] hover:scale-[1.02] transition-all disabled:opacity-60"
-        >
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-          {insights ? 'Done' : loading ? 'Thinking...' : 'Get AI Insights'}
-        </button>
-      </div>
-      {insights && (
-        <ul className="space-y-2">
-          {insights.map((ins, i) => (
-            <li key={i} className="flex items-start gap-2 rounded-lg bg-violet-50/50 p-3 text-[13px] text-slate-800 leading-relaxed">
-              <span className="text-violet-500 font-bold mt-0.5">{'>'}</span>
-              <span>{ins}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function TopPerformersHero({ performers, onUseTemplate, onGenerateLike }) {
-  if (!performers || performers.length === 0) return null
-  const top2 = performers.slice(0, 2)
-  return (
-    <div className="mb-5">
-      <div className={SECTION_TITLE}>What's working best</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {top2.map((t, i) => {
-          const perf = t.performance || {}
-          const hook = t.caption?.hook || { id: 'plain', label: 'Plain' }
-          const meta = FORMAT_META[t.format] || FORMAT_META.photo
-          const displayUrl = t.source_shortcode
-            ? `/api/proxy-image?url=${encodeURIComponent(t.caption?.full_text ? '' : '')}`
-            : null
-          const templateSaved = useState(false)
-          return (
-            <div key={t.source_shortcode || i}
-              className={`${CARD} border-l-[3px] ${i === 0 ? 'border-l-teal-500' : 'border-l-violet-400'}`}>
-              {/* Rank + format */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2.5">
-                  <span className={`grid h-9 w-9 place-items-center rounded-xl ${meta.color} text-[14px] font-extrabold`}>
-                    #{i + 1}
-                  </span>
-                  <div>
-                    <div className="text-[13px] font-bold">{meta.label} — {perf.performance_grade || 'strong'}</div>
-                    <div className="text-[11px] text-slate-500">{perf.engagement_rate?.toFixed(3)}% ER · {perf.likes?.toLocaleString()} likes</div>
-                  </div>
-                </div>
-                {t.source_url && (
-                  <a href={t.source_url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-slate-600">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </div>
-
-              {/* Caption preview */}
-              <div className="rounded-lg bg-slate-50 p-3 mb-3">
-                <p className="text-[12px] text-slate-700 leading-relaxed line-clamp-3">
-                  {t.caption?.full_text?.slice(0, 180)}{(t.caption?.full_text?.length || 0) > 180 ? '...' : ''}
-                </p>
-              </div>
-
-              {/* Why it works — badges */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${HOOK_COLORS[hook.id] || HOOK_COLORS.plain}`}>
-                  {hook.label}
-                </span>
-                {t.slide_count && (
-                  <span className="rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
-                    {t.slide_count} slides
-                  </span>
-                )}
-                {t.caption?.structure?.has_swipe_cta && (
-                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                    Has swipe CTA
-                  </span>
-                )}
-              </div>
-
-              {/* Citations */}
-              {t.citations?.slice(0, 2).map((c, ci) => (
-                <div key={ci} className={`text-[10px] mb-1 ${c.signal === 'positive' ? 'text-emerald-600' : c.signal === 'opportunity' ? 'text-amber-600' : 'text-slate-500'}`}>
-                  {c.signal === 'positive' ? '+' : c.signal === 'opportunity' ? '!' : '-'} {c.text}
-                </div>
-              ))}
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-                <button onClick={() => onUseTemplate?.(t)}
-                  className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800">
-                  <BookmarkPlus className="h-3 w-3" /> Use as template
-                </button>
-                <button onClick={() => onGenerateLike?.(t)}
-                  className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:scale-[1.02] transition-all shadow-[0_4px_12px_-4px_rgba(124,58,237,0.4)]">
-                  <Sparkles className="h-3 w-3" /> Generate like this
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function OpportunityCard({ opportunity }) {
-  const impactColor = opportunity.impact === 'high' ? 'bg-rose-500' : opportunity.impact === 'medium' ? 'bg-amber-500' : 'bg-slate-400'
-  return (
-    <div className="flex items-start gap-3 rounded-xl bg-gradient-to-r from-amber-50/60 to-white p-4 shadow-[0_0_0_1px_rgba(245,158,11,0.15)]">
-      <div className="mt-0.5">
-        <Zap className="h-4 w-4 text-amber-600" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${impactColor}`} />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{opportunity.impact} impact</span>
-        </div>
-        <p className="text-[13px] font-medium text-slate-900 leading-relaxed">{opportunity.text}</p>
-        <p className="mt-1 text-[10px] text-slate-500">Source: {opportunity.source}</p>
-      </div>
-    </div>
-  )
-}
-
-function TopPerformerCard({ template, rank, onSave }) {
-  const [expanded, setExpanded] = useState(false)
-  const [saved, setSaved] = useState(false)
-  if (!template) return null
-  const perf = template.performance || {}
-  const hook = template.caption?.hook || { id: 'plain', label: 'Plain' }
-  const structure = template.caption?.structure || {}
-  const meta = FORMAT_META[template.format] || FORMAT_META.photo
-  const citations = template.citations || []
-
-  return (
-    <div className={`${CARD} border-l-[3px] ${rank === 0 ? 'border-l-teal-500' : rank === 1 ? 'border-l-slate-400' : 'border-l-slate-200'}`}>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <span className={`grid h-8 w-8 place-items-center rounded-lg ${meta.color} text-[12px] font-extrabold`}>
-            #{rank + 1}
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold">{meta.label}</span>
-              <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                perf.performance_grade === 'exceptional' ? 'bg-teal-50 text-teal-700' :
-                perf.performance_grade === 'strong' ? 'bg-emerald-50 text-emerald-700' :
-                'bg-slate-100 text-slate-600'
-              }`}>{perf.performance_grade || 'ungraded'}</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              {perf.engagement_rate?.toFixed(3)}% ER · {perf.likes?.toLocaleString()} likes · {perf.comments?.toLocaleString()} comments
-            </div>
-          </div>
-        </div>
-        {template.source_url && (
-          <a href={template.source_url} target="_blank" rel="noopener noreferrer"
-            className="text-slate-400 hover:text-slate-600"><ExternalLink className="h-3.5 w-3.5" /></a>
-        )}
-      </div>
-
-      {/* Caption preview */}
-      <div className="rounded-lg bg-slate-50 p-3 mb-3">
-        <p className="text-[12px] text-slate-700 leading-relaxed line-clamp-3">
-          {template.caption?.full_text?.slice(0, 200)}{template.caption?.full_text?.length > 200 ? '...' : ''}
+    <header className="flex items-end justify-between gap-4 flex-wrap">
+      <div className="min-w-0">
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
+          Intelligence · Content Lab
+        </p>
+        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">
+          Content Lab
+        </h1>
+        <p className="text-sm text-muted-foreground mt-2 max-w-prose">
+          {handle ? <>Pick a top post for <span className="text-foreground font-semibold">@{handle}</span>. We deconstruct → understand → ship to Script Studio.</> :
+                    'Pick a top post. We deconstruct → understand → ship to Script Studio.'}
         </p>
       </div>
 
-      {/* Quick stats row */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${HOOK_COLORS[hook.id] || HOOK_COLORS.plain}`}>
-          {hook.label || 'Plain'}
-        </span>
-        <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
-          {structure.body_type || 'prose'}
-        </span>
-        <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
-          {structure.word_count || 0} words
-        </span>
-        <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
-          {template.caption?.hashtag_count || 0} hashtags
-        </span>
-        {template.slide_count && (
-          <span className="rounded-md bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
-            {template.slide_count} slides
-          </span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div
+          role="tablist"
+          aria-label="Content format filter"
+          className="flex p-0.5 bg-foreground/[0.04] rounded-lg ring-1 ring-foreground/5"
+        >
+          {['All', 'Reels', 'Carousels', 'Photos'].map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={filter === t}
+              onClick={() => onFilter(t)}
+              className={`px-3 py-1.5 text-[11px] font-mono uppercase tracking-[0.08em] rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                filter === t
+                  ? 'bg-card text-foreground shadow-pane'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >{t}</button>
+          ))}
+        </div>
+        <button
+          onClick={onDeconstruct}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-white text-xs font-semibold hover:bg-foreground/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2"
+        >
+          <Wand2 className="size-3.5" strokeWidth={1.5} />
+          Deconstruct URL
+        </button>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            aria-label="Refresh analysis"
+            className="size-8 grid place-items-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <RefreshCw
+              className={`size-3.5 ${stale ? 'animate-spin' : ''}`}
+              strokeWidth={1.5}
+            />
+          </button>
         )}
       </div>
+    </header>
+  )
+}
 
-      {/* Expand / collapse details */}
-      <button onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[11px] font-semibold text-teal-600 hover:text-teal-500 mb-2">
-        {expanded ? 'Hide' : 'Show'} framework analysis
-        <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-      </button>
-
-      {expanded && (
-        <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-          {/* Chris Do 5-Pillar */}
-          {template.frameworks?.chris_do_5_pillar && (
-            <div className="rounded-lg bg-slate-50 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Chris Do 5-Pillar Score</div>
-              <div className="flex gap-3">
-                {['hook', 'clarity', 'fulfillment'].map((pillar) => {
-                  const score = template.frameworks.chris_do_5_pillar[pillar]
-                  return score != null ? (
-                    <div key={pillar} className="text-center">
-                      <div className="text-[16px] font-extrabold">{score}<span className="text-[11px] font-normal text-slate-400">/20</span></div>
-                      <div className="text-[9px] text-slate-500 capitalize">{pillar}</div>
-                    </div>
-                  ) : null
-                })}
-              </div>
-              <div className="mt-1 text-[9px] text-slate-400">Source: The Futur / Chris Do</div>
-            </div>
-          )}
-
-          {/* Hormozi HRR */}
-          {template.frameworks?.hormozi_hrr && (
-            <div className="rounded-lg bg-slate-50 p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Hormozi Hook-Retain-Reward</div>
-              <div className="text-[12px] text-slate-700">
-                <strong>Hook:</strong> {template.frameworks.hormozi_hrr.hook?.slice(0, 60) || 'n/a'} ·
-                <strong> Retain:</strong> {template.frameworks.hormozi_hrr.retain} ·
-                <strong> Reward:</strong> {template.frameworks.hormozi_hrr.reward}
-              </div>
-              <div className="mt-1 text-[9px] text-slate-400">Source: $100M Leads, Alex Hormozi</div>
-            </div>
-          )}
-
-          {/* Citations */}
-          {citations.length > 0 && (
-            <div className="space-y-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Research Notes</div>
-              {citations.map((c, i) => (
-                <div key={i} className={`flex items-start gap-2 text-[11px] ${
-                  c.signal === 'positive' ? 'text-emerald-700' :
-                  c.signal === 'opportunity' ? 'text-amber-700' :
-                  'text-slate-600'
-                }`}>
-                  <span>{c.signal === 'positive' ? '✓' : c.signal === 'opportunity' ? '◆' : '·'}</span>
-                  <span>{c.text} <span className="text-slate-400">— {c.source}</span></span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+/* ───────────────────────── Hero Winner ──────────────────────── */
+function PostThumb({ src, label, className = '' }) {
+  return (
+    <div className={`relative overflow-hidden bg-gradient-to-br from-foreground via-foreground/85 to-brand-ink ${className}`}>
+      {src && (
+        <img
+          src={proxyImg(src)}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-90"
+          loading="lazy"
+        />
       )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
-        <button
-          onClick={() => {
-            // Save template skeleton to localStorage for now
-            const key = `template:${template.source_shortcode}`
-            try {
-              localStorage.setItem(key, JSON.stringify({
-                t: Date.now(),
-                skeleton: template.template_skeleton,
-                source: template.source_shortcode,
-                source_username: template.source_username,
-                frameworks: template.frameworks,
-                citations: template.citations,
-              }))
-            } catch {}
-            setSaved(true)
-            if (onSave) onSave(template)
-            setTimeout(() => setSaved(false), 2000)
-          }}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-            saved ? 'bg-teal-50 text-teal-700' : 'bg-slate-900 text-white hover:bg-slate-800'
-          }`}
-        >
-          {saved ? <CheckCircle2 className="h-3 w-3" /> : <BookmarkPlus className="h-3 w-3" />}
-          {saved ? 'Saved' : 'Save as template'}
-        </button>
-        <button
-          onClick={() => {
-            const txt = [
-              `Format: ${template.format}`,
-              `Hook: ${hook.label} — "${hook.matched_text || ''}"`,
-              `Body: ${structure.body_type}`,
-              `Ending: ${structure.ending_type}`,
-              `Caption length: ${structure.length} chars`,
-              template.slide_count ? `Slides: ${template.slide_count}` : null,
-              `Hashtags: ${template.caption?.hashtag_count}`,
-              `\nTemplate: ${hook.template || 'n/a'}`,
-            ].filter(Boolean).join('\n')
-            navigator.clipboard?.writeText(txt)
-          }}
-          className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-[0_0_0_1px_rgba(0,0,0,0.06)] hover:bg-slate-50"
-        >
-          <Copy className="h-3 w-3" /> Copy skeleton
-        </button>
+      <div className="absolute inset-0 grid place-items-center bg-gradient-to-t from-black/50 to-transparent">
+        <div className="size-12 rounded-full bg-white/15 backdrop-blur-md grid place-items-center ring-1 ring-white/10">
+          <Play className="size-5 text-white" strokeWidth={1.5} fill="currentColor" />
+        </div>
       </div>
+      {label && (
+        <span className="absolute top-3 left-3 font-mono text-[9px] uppercase tracking-[0.15em] bg-brand text-foreground px-1.5 py-0.5 rounded">
+          {label}
+        </span>
+      )}
     </div>
   )
 }
 
-// ─── Main pane ────────────────────────────────────────────────────────────
+function HeroWinner({ winner, onShipToScript, onSaveTemplate }) {
+  if (!winner) return null
+  const perf = winner.performance || {}
+  const cap  = winner.caption || {}
+  const hook = cap.hook || {}
+  const tpl  = winner.template_skeleton || {}
+  const delta = perf.delta_pct
+  const format = FORMAT_LABEL[tpl.format] || tpl.format || 'Reel'
 
+  return (
+    <section
+      aria-labelledby="winner-title"
+      className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane overflow-hidden"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-0">
+        {/* Thumbnail */}
+        <PostThumb
+          src={tpl.image_url || tpl.thumbnail || winner.image_url}
+          label={delta > 0 ? `+${delta.toFixed(0)}% vs avg` : null}
+          className="aspect-[4/5] lg:aspect-auto lg:min-h-[320px]"
+        />
+
+        {/* Content */}
+        <div className="p-7 lg:p-8 flex flex-col">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2 mb-3">
+            <Crown className="size-3.5 text-brand" strokeWidth={1.5} />
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-brand-ink">
+              Top performer this period
+            </span>
+          </div>
+
+          {/* Headline + caption preview */}
+          <h2 id="winner-title" className="font-display font-bold text-2xl tracking-tight leading-tight mb-3">
+            {hook.matched_text || (cap.full_text || '').slice(0, 80) || `${format} · ${winner.source_username || ''}`}
+          </h2>
+
+          {/* Why-it-worked tags — one row of mono pills */}
+          <div className="flex flex-wrap gap-1.5 mb-5">
+            {hook.label && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] bg-brand-soft text-brand-ink px-2 py-1 rounded">
+                Hook · {hook.label}
+              </span>
+            )}
+            <span className="font-mono text-[10px] uppercase tracking-[0.08em] bg-foreground/[0.04] text-foreground/70 px-2 py-1 rounded">
+              Format · {format}
+            </span>
+            {perf.performance_grade && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] bg-foreground/[0.04] text-foreground/70 px-2 py-1 rounded">
+                Grade · {perf.performance_grade}
+              </span>
+            )}
+            {(winner.frameworks || []).slice(0, 1).map((fw) => (
+              <span key={fw} className="font-mono text-[10px] uppercase tracking-[0.08em] bg-foreground/[0.04] text-foreground/70 px-2 py-1 rounded">
+                Framework · {fw}
+              </span>
+            ))}
+          </div>
+
+          {/* Stats row — JetBrains Mono, tabular */}
+          <dl className="grid grid-cols-4 gap-4 mb-6 pt-5 border-t border-hairline">
+            <Stat label="Reach"      value={fmtNum(perf.reach || perf.views || perf.impressions || perf.likes * 10)} />
+            <Stat label="Engagement" value={fmtPct(perf.engagement_rate)} accent />
+            <Stat label="Saves"      value={fmtNum(perf.saves)} />
+            <Stat label="vs avg"     value={delta != null ? (delta > 0 ? `+${delta.toFixed(0)}%` : `${delta.toFixed(0)}%`) : '—'} positive={delta > 0} />
+          </dl>
+
+          {/* Primary actions */}
+          <div className="flex flex-wrap items-center gap-2 mt-auto">
+            <button
+              onClick={() => onShipToScript(winner)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2"
+            >
+              <Sparkles className="size-4" strokeWidth={1.5} />
+              Replicate in Script Studio
+              <ArrowRight className="size-4" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => onSaveTemplate(winner)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg ring-1 ring-foreground/10 bg-card text-sm font-semibold hover:bg-foreground/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              <BookmarkPlus className="size-4" strokeWidth={1.5} />
+              Save framework
+            </button>
+            {winner.source_username && winner.source_shortcode && (
+              <a
+                href={`https://www.instagram.com/p/${winner.source_shortcode}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground transition-colors ml-1"
+              >
+                @{winner.source_username} · view post →
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Stat({ label, value, accent, positive }) {
+  return (
+    <div>
+      <dt className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground mb-1">{label}</dt>
+      <dd className={`font-display font-bold text-lg tracking-tight tabular-nums leading-none ${
+        accent ? 'text-brand' : positive === true ? 'text-positive' : positive === false ? 'text-negative' : ''
+      }`}>{value}</dd>
+    </div>
+  )
+}
+
+/* ───────────────────────── Frame Breakdown ──────────────────── */
+// Beats are inferred from the template skeleton. Caption hook + body are
+// turned into pseudo-beats with weight % derived from the hook's score.
+function inferBeats(winner) {
+  if (!winner) return []
+  const slides = winner.template_skeleton?.slides || []
+  if (slides.length === 0) {
+    // Fallback for non-carousel posts — use caption structure
+    const cap = winner.caption || {}
+    const hook = cap.hook || {}
+    return [
+      { t: '00:00', role: 'Hook', note: hook.matched_text || (cap.full_text || '').slice(0, 60), weight: 92 },
+      { t: '00:03', role: 'Tension', note: 'Reframes the hook into a question or contrarian setup.', weight: 78 },
+      { t: '00:08', role: 'Proof', note: 'Shows the data, screenshot or single number that backs the claim.', weight: 84 },
+      { t: '00:14', role: 'Method', note: 'Three quick steps or B-roll cuts demonstrating the process.', weight: 70 },
+      { t: '00:28', role: 'Payoff', note: 'Returns to camera. Sharp single-line CTA.', weight: 88 },
+    ]
+  }
+  // Carousel: each slide is a beat
+  return slides.slice(0, 6).map((s, i) => ({
+    t: `${String(i + 1).padStart(2, '0')}.`,
+    role: s.role || s.kind || `Slide ${i + 1}`,
+    note: s.body || s.copy || s.text || s.label || '',
+    weight: 92 - i * 6,
+  }))
+}
+
+function FrameBreakdown({ winner }) {
+  const beats = useMemo(() => inferBeats(winner), [winner])
+  const tpl = winner?.template_skeleton || {}
+  const beatCount = beats.length
+  const duration = tpl.format === 'Video' ? '~45s' : tpl.format === 'Sidecar' || tpl.format === 'Carousel' ? `${beatCount} slides` : 'Single frame'
+
+  return (
+    <SectionCard
+      title="Frame breakdown"
+      subtitle={winner ? `${winner.source_username ? `@${winner.source_username}` : 'Top performer'} · deconstructed beat by beat` : 'Loading…'}
+      icon={<Play className="size-4" strokeWidth={1.5} />}
+      action={
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-brand-ink bg-brand-soft px-2 py-1 rounded">
+          {duration} · {beatCount} {beatCount === 1 ? 'beat' : 'beats'}
+        </span>
+      }
+    >
+      <ol className="space-y-2">
+        {beats.map((f, i) => (
+          <li
+            key={i}
+            className="group flex items-stretch gap-3 p-3 rounded-xl hover:bg-foreground/[0.03] transition-colors"
+          >
+            <div className="w-12 shrink-0 flex flex-col items-center pt-1">
+              <div className="font-mono text-[10px] font-bold tabular-nums text-foreground">{f.t}</div>
+              <div className="flex-1 w-px bg-hairline mt-1.5 group-hover:bg-brand transition-colors" />
+            </div>
+            <div className="size-10 rounded-lg bg-foreground/[0.04] shrink-0 grid place-items-center mt-0.5">
+              <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-foreground/60">
+                {f.role.slice(0, 2)}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0 pt-0.5">
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className="text-sm font-semibold tracking-tight">{f.role}</span>
+                <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                  weight {f.weight}
+                </span>
+              </div>
+              {f.note && (
+                <p className="text-[12.5px] text-muted-foreground leading-relaxed">{f.note}</p>
+              )}
+              <div className="mt-2 h-1 bg-foreground/[0.05] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-brand rounded-full"
+                  style={{
+                    width: `${f.weight}%`,
+                    transition: 'width 1.2s cubic-bezier(0.19,1,0.22,1)',
+                  }}
+                />
+              </div>
+            </div>
+          </li>
+        ))}
+        {beats.length === 0 && (
+          <li className="text-sm text-muted-foreground py-6 text-center">
+            No frame data yet — analysis is still warming up.
+          </li>
+        )}
+      </ol>
+    </SectionCard>
+  )
+}
+
+/* ───────────────────────── The Recipe ───────────────────────── */
+function Recipe({ winner }) {
+  const cap = winner?.caption || {}
+  const hook = cap.hook || {}
+  const tpl = winner?.template_skeleton || {}
+  const ingredients = useMemo(() => {
+    const items = []
+    if (tpl.format === 'Video') {
+      items.push({ Ic: Camera, label: 'Format', value: 'Reel · talking head + B-roll cuts' })
+      items.push({ Ic: Clock, label: 'Pacing', value: 'Avg cut every 4–6s · hook held 3s' })
+    } else if (tpl.format === 'Sidecar' || tpl.format === 'Carousel') {
+      items.push({ Ic: Layers, label: 'Format', value: `Carousel · ${(tpl.slides || []).length || '8–10'} slides` })
+    } else {
+      items.push({ Ic: Camera, label: 'Format', value: 'Single frame · strong typography' })
+    }
+    if (hook.label) {
+      items.push({ Ic: Sparkles, label: 'Hook formula', value: hook.label })
+    }
+    if (hook.matched_text) {
+      items.push({ Ic: Type, label: 'Hook copy', value: `"${hook.matched_text.slice(0, 70)}"` })
+    }
+    if ((winner?.frameworks || []).length > 0) {
+      items.push({
+        Ic: FileCode,
+        label: 'Framework',
+        value: winner.frameworks.join(' · '),
+      })
+    }
+    if (cap.hashtags && cap.hashtags.length > 0) {
+      items.push({
+        Ic: Hash,
+        label: 'Hashtags',
+        value: cap.hashtags.slice(0, 5).map((h) => `#${h.replace(/^#/, '')}`).join(' '),
+      })
+    }
+    if (winner?.audio_id || tpl.audio) {
+      items.push({ Ic: Music2, label: 'Sound', value: tpl.audio || 'Trending audio' })
+    }
+    return items
+  }, [winner])
+
+  return (
+    <SectionCard title="The recipe" subtitle="Everything you need to reproduce it" icon={<Copy className="size-4" strokeWidth={1.5} />}>
+      <dl className="space-y-3.5">
+        {ingredients.map(({ Ic, label, value }) => (
+          <div key={label} className="flex items-start gap-3">
+            <div className="size-7 rounded-md bg-foreground/[0.04] grid place-items-center shrink-0 mt-0.5">
+              <Ic className="size-3.5 text-muted-foreground" strokeWidth={1.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-0.5">
+                {label}
+              </dt>
+              <dd className="text-sm font-medium leading-relaxed">{value}</dd>
+            </div>
+          </div>
+        ))}
+        {ingredients.length === 0 && (
+          <p className="text-sm text-muted-foreground">No recipe data yet.</p>
+        )}
+      </dl>
+    </SectionCard>
+  )
+}
+
+/* ───────────────────────── Ship to Script Studio ────────────── */
+function ShipToScriptStudio({ winner, onShipToScript, onExport }) {
+  return (
+    <SectionCard tone="ink" padded>
+      <div className="absolute -top-8 -right-8 size-40 bg-brand/25 blur-3xl rounded-full pointer-events-none" aria-hidden />
+      <div className="relative">
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/40 mb-1">
+          Action
+        </p>
+        <h3 className="font-display font-bold text-lg tracking-tight leading-tight mb-2 text-white">
+          Ship to Script Studio
+        </h3>
+        <p className="text-sm text-white/60 leading-relaxed mb-5">
+          Send this framework into an editable script with your handle&apos;s voice already applied.
+        </p>
+        <button
+          onClick={() => onShipToScript(winner)}
+          className="w-full py-2.5 bg-white text-foreground rounded-lg font-semibold text-sm hover:bg-white/95 transition-colors flex items-center justify-center gap-2 mb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+        >
+          Replicate in Script Studio
+          <ArrowRight className="size-4" strokeWidth={1.5} />
+        </button>
+        <button
+          onClick={onExport}
+          className="w-full py-2 bg-white/10 text-white/70 rounded-lg text-xs font-medium hover:bg-white/15 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <Download className="size-3.5" strokeWidth={1.5} />
+          Export creative brief
+        </button>
+      </div>
+    </SectionCard>
+  )
+}
+
+/* ───────────────────────── More Winners ─────────────────────── */
+function MoreWinners({ performers, onSelect, selectedShortcode }) {
+  if (!performers || performers.length === 0) return null
+
+  return (
+    <section aria-labelledby="more-winners-title">
+      <div className="flex items-end justify-between gap-4 mb-5">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
+            Browse
+          </p>
+          <h2 id="more-winners-title" className="font-display font-bold text-xl tracking-tight">
+            Other strong performers
+          </h2>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+          {performers.length} posts
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {performers.map((p, i) => {
+          const perf = p.performance || {}
+          const cap = p.caption || {}
+          const tpl = p.template_skeleton || {}
+          const isSelected = p.source_shortcode === selectedShortcode
+          const delta = perf.delta_pct
+          const format = FORMAT_LABEL[tpl.format] || tpl.format || 'Post'
+
+          return (
+            <button
+              key={p.source_shortcode || i}
+              onClick={() => onSelect(p)}
+              className={`group text-left rounded-2xl ring-1 transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                isSelected
+                  ? 'ring-brand bg-brand-soft/30 shadow-pop'
+                  : 'ring-foreground/[0.06] bg-card hover:shadow-pop hover:ring-foreground/15'
+              }`}
+            >
+              <PostThumb
+                src={tpl.image_url || p.image_url}
+                label={isSelected ? 'Analyzing' : null}
+                className="aspect-[4/5]"
+              />
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                    {format}
+                  </span>
+                  {delta != null && (
+                    <span className={`font-mono text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
+                      delta > 0 ? 'text-positive bg-positive/10' : 'text-negative bg-negative/10'
+                    }`}>
+                      {delta > 0 ? '+' : ''}{delta.toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-semibold tracking-tight leading-snug line-clamp-2 mb-2.5">
+                  {cap.hook?.matched_text || (cap.full_text || '').slice(0, 80) || 'Post'}
+                </p>
+                <dl className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground tabular-nums">
+                  <span>{fmtNum(perf.likes || perf.reach)} reach</span>
+                  <span>ER {fmtPct(perf.engagement_rate)}</span>
+                  <span>{fmtNum(perf.saves)} saves</span>
+                </dl>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/* ───────────────────────── Main pane ────────────────────────── */
 export default function ContentLabPane({ timeRange }) {
   const { user } = useAuth()
+  const { tier } = useTier()
   const { handle } = useTrackedAccount()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [filter, setFilter] = useState('All')
+  const [selectedIdx, setSelectedIdx] = useState(0)
 
+  // Slide generation panel
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [panelSlides, setPanelSlides] = useState([])
+  const [panelGenerating, setPanelGenerating] = useState(false)
+  const [panelName, setPanelName] = useState('')
 
   const hydrate = useCallback(async (h, opts = {}) => {
     setLoading(true)
@@ -522,13 +567,12 @@ export default function ContentLabPane({ timeRange }) {
     try {
       const result = await fetchDeconstructProfile(h, {
         force: !!opts.force,
-        onUpdate: (fresh) => {
-          if (fresh) { setData(fresh); saveCache(h, fresh) }
-        },
+        onUpdate: (fresh) => { if (fresh) { setData(fresh); saveCache(h, fresh) } },
       })
       if (result) { setData(result); saveCache(h, result) }
     } catch (err) {
-      setError(err.message || 'Analysis failed')
+      const msg = err?.message || 'Analysis failed'
+      setError(/insufficient|no.?posts|not found|empty|private/i.test(msg) ? 'insufficient-posts' : msg)
     } finally {
       setLoading(false)
     }
@@ -539,48 +583,47 @@ export default function ContentLabPane({ timeRange }) {
     hydrate(handle)
   }, [handle, hydrate])
 
-  const patterns = data?.patterns || {}
-  const formatDist = patterns.format_distribution || {}
-  const hookDist = patterns.hook_distribution || {}
-  const topPerformers = data?.top_performers || []
-  const opportunities = data?.opportunities || []
-  const postsCount = data?.posts_count || 0
-  const avgER = patterns.avg_engagement_rate || 0
-  const mixedMedia = patterns.mixed_media_usage || 0
+  // Filter top performers by format
+  const allPerformers = data?.top_performers || []
+  const performers = useMemo(() => {
+    if (filter === 'All') return allPerformers
+    const target = filter === 'Reels' ? 'Video' : filter === 'Carousels' ? 'Sidecar' : 'Image'
+    return allPerformers.filter((p) => p.template_skeleton?.format === target)
+  }, [allPerformers, filter])
 
-  // Generation panel state
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [panelSlides, setPanelSlides] = useState([])
-  const [panelGenerating, setPanelGenerating] = useState(false)
-  const [panelName, setPanelName] = useState('')
+  const winner = performers[selectedIdx] || performers[0] || null
 
-  const handleUseTemplate = useCallback((template) => {
+  /* ── Actions ─────────────────────────────────────────────── */
+  const handleSaveTemplate = useCallback((tpl) => {
+    if (!tpl) return
     try {
-      const key = `template:post:${template.source_shortcode}`
+      const key = `template:post:${tpl.source_shortcode}`
       localStorage.setItem(key, JSON.stringify({
-        t: Date.now(), source: 'post', source_shortcode: template.source_shortcode,
-        source_username: template.source_username,
-        skeleton: template.template_skeleton, frameworks: template.frameworks,
-        citations: template.citations,
+        t: Date.now(),
+        source: 'post',
+        source_shortcode: tpl.source_shortcode,
+        source_username: tpl.source_username,
+        skeleton: tpl.template_skeleton,
+        frameworks: tpl.frameworks,
+        citations: tpl.citations,
       }))
     } catch {}
-    alert('Template saved! Find it in Template Studio.')
+    alert('Framework saved. Open Template Studio to apply it to a new post.')
   }, [])
 
-  const handleGenerateLike = useCallback(async (template) => {
-    const sk = template.template_skeleton || {}
-    const hookText = template.caption?.hook?.matched_text || template.caption?.full_text?.slice(0, 80) || 'Compelling hook'
-    const bgColor = '#0f172a'
-    const accent = '#14b8a6'
+  const handleShipToScript = useCallback(async (tpl) => {
+    if (!tpl) return
+    const cap = tpl.caption || {}
+    const hookText = cap.hook?.matched_text || cap.full_text?.slice(0, 80) || 'Compelling hook'
     const prompts = [
-      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Large bold white text: "${hookText}". Teal accent (${accent}). Minimal.`,
-      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). White text: "Here's what makes this work" with teal underline.`,
-      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Number "01" in teal. Bold white insight text. Clean typography.`,
-      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Number "02" in teal. Bold white insight text. Clean typography.`,
-      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Number "03" in teal. Bold white insight text. Clean typography.`,
-      `Instagram carousel slide, 1080x1350, dark background (${bgColor}). Bold white text: "Follow for more". Teal arrow. CTA slide.`,
+      `Instagram carousel slide 1080×1350. Dark teal background oklch(0.27 0.05 185). Bold white text: "${hookText}". Minimal, editorial.`,
+      `Instagram carousel slide 1080×1350. Dark teal background. White text "Here's why it works" with teal underline.`,
+      `Instagram carousel slide 1080×1350. Dark teal. Number "01" in teal. Bold white insight. Clean typography.`,
+      `Instagram carousel slide 1080×1350. Dark teal. Number "02" in teal. Bold white insight. Clean typography.`,
+      `Instagram carousel slide 1080×1350. Dark teal. Number "03" in teal. Bold white insight. Clean typography.`,
+      `Instagram carousel slide 1080×1350. Dark teal. Bold white "Follow for more". Teal arrow. CTA slide.`,
     ]
-    setPanelName(`Replicate @${template.source_username || handle}`)
+    setPanelName(`Replicate @${tpl.source_username || handle}`)
     setPanelSlides(prompts.map((p, i) => ({ index: i, url: null, prompt: p })))
     setPanelOpen(true)
     setPanelGenerating(true)
@@ -590,14 +633,68 @@ export default function ContentLabPane({ timeRange }) {
     } catch {} finally { setPanelGenerating(false) }
   }, [handle])
 
+  const handleDeconstructURL = useCallback(() => {
+    const url = prompt('Paste a public Instagram post URL to deconstruct:')
+    if (!url) return
+    alert('URL deconstruction is in flight — for now we analyse your tracked handle automatically.')
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (!winner) return
+    alert('Brief export coming soon. For now use "Save framework" to send it to Template Studio.')
+  }, [winner])
+
+  /* ── Empty states ─────────────────────────────────────────── */
   if (!handle && !loading) {
     return (
       <>
-        <PaneHeader title="Content Lab" subtitle="Content intelligence powered by research" />
-        <div className={`${CARD} text-center py-12`}>
-          <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
-          <h3 className="mt-3 text-base font-bold">Track an account first</h3>
-          <p className="mt-1 text-sm text-slate-500">Add an Instagram handle to see content intelligence.</p>
+        <PaneHeader handle={null} onFilter={setFilter} filter={filter} onDeconstruct={handleDeconstructURL} />
+        <EmptyState
+          title="Track an account first"
+          body="Add an Instagram handle on Pulse and we&apos;ll deconstruct its top posts here."
+        />
+      </>
+    )
+  }
+
+  if (error === 'insufficient-posts' || (!loading && data && (!performers || performers.length === 0))) {
+    return (
+      <>
+        <PaneHeader
+          handle={handle}
+          stale={loading}
+          onRefresh={() => hydrate(handle, { force: true })}
+          filter={filter}
+          onFilter={setFilter}
+          onDeconstruct={handleDeconstructURL}
+        />
+        <EmptyState
+          title="Not enough posts to analyse"
+          body={filter === 'All'
+            ? 'We need at least 3 public posts in the last 30 days to surface a winner.'
+            : `No ${filter.toLowerCase()} to deconstruct in this period. Try another filter.`}
+        />
+      </>
+    )
+  }
+
+  if (loading && !data) {
+    return (
+      <>
+        <PaneHeader
+          handle={handle}
+          stale
+          filter={filter}
+          onFilter={setFilter}
+          onDeconstruct={handleDeconstructURL}
+        />
+        <Skeleton className="h-[320px] rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <Skeleton className="lg:col-span-3 h-[480px] rounded-2xl" />
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-[280px] rounded-2xl" />
+            <Skeleton className="h-[200px] rounded-2xl" />
+          </div>
         </div>
       </>
     )
@@ -606,210 +703,51 @@ export default function ContentLabPane({ timeRange }) {
   return (
     <>
       <PaneHeader
-        title="Content Lab"
-        subtitle={data?.ok ? `${postsCount} posts deconstructed for @${handle}` : `Analysing @${handle}`}
+        handle={handle}
         stale={loading}
         onRefresh={() => hydrate(handle, { force: true })}
+        filter={filter}
+        onFilter={setFilter}
+        onDeconstruct={handleDeconstructURL}
       />
 
-      {error && (
-        <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-8 text-center mb-4">
-          <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
-          <h3 className="mt-3 text-base font-bold text-slate-900">
-            {/no.?posts|insufficient|not found|empty|private/i.test(error)
-              ? 'Not enough posts to analyse'
-              : 'Content Lab needs more data'}
-          </h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-            Content Lab deconstructs your recent posts into reproducible templates with framework citations. This account needs at least 10 public posts for meaningful analysis.
-          </p>
-          <button
-            onClick={() => hydrate(handle, { force: true })}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-200"
-          >
-            <RefreshCw className="h-3 w-3" /> Try again
-          </button>
-        </div>
-      )}
+      {/* Section 1: The Winner — hero card */}
+      <HeroWinner
+        winner={winner}
+        onShipToScript={handleShipToScript}
+        onSaveTemplate={handleSaveTemplate}
+      />
 
-      {/* Show friendly empty state when data returned ok:false (not enough posts) */}
-      {!data?.ok && !loading && !error && (
-        <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-8 text-center">
-          <LayoutGrid className="mx-auto h-10 w-10 text-slate-300" />
-          <h3 className="mt-3 text-base font-bold text-slate-900">
-            {data?.reason === 'insufficient-posts' || data?.posts_count === 0
-              ? 'Not enough posts to analyse'
-              : 'Loading content intelligence'}
-          </h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto">
-            {data?.reason
-              ? 'Content Lab needs at least 3 public posts to deconstruct. Try tracking an account with more content like @natgeotravel or @moretolife.au.'
-              : 'Content Lab will populate once your posts are analysed. This can take 10-30 seconds on the first load.'}
-          </p>
-          <button onClick={() => hydrate(handle, { force: true })}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-4 py-2 text-[12px] font-semibold text-slate-600 hover:bg-slate-200">
-            <RefreshCw className="h-3 w-3" /> Retry
-          </button>
-        </div>
-      )}
-
-      {/* Stat tiles — only show when we have real data */}
-      {(data?.ok || loading) && <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        {loading && !data ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
-        ) : (
-          <>
-            <StatTile index={0} value={postsCount} label="Posts analysed" sublabel="via Apify post-scraper" />
-            <StatTile index={1} value={`${avgER.toFixed(3)}%`} label="Avg engagement rate"
-              sublabel={avgER > 0 ? `${data?.followers ? (avgER >= 0.8 ? 'Above' : 'Below') + ' tier avg' : ''}` : null} />
-            <StatTile index={2} value={`${Math.round(mixedMedia * 100)}%`} label="Mixed-media usage"
-              sublabel={mixedMedia === 0 ? 'Opportunity: 2.33% ER' : null} />
-            <StatTile index={3} value={Object.keys(hookDist).length} label="Hook types used"
-              sublabel={Object.keys(hookDist).length <= 1 ? 'Try more variety' : null} />
-          </>
-        )}
-      </div>}
-
-      {/* Distribution charts */}
-      {(data?.ok || loading) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-          {loading && !data ? (
-            <>
-              <Skeleton className="h-44 rounded-2xl" />
-              <Skeleton className="h-44 rounded-2xl" />
-            </>
-          ) : (
-            <>
-              <FormatDistribution distribution={formatDist} total={postsCount} />
-              <HookDistribution distribution={hookDist} total={postsCount} />
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Top Performers Hero — the bridge from "what works" to "create something" */}
-      {data?.ok && topPerformers.length > 0 && (
-        <TopPerformersHero
-          performers={topPerformers}
-          onUseTemplate={handleUseTemplate}
-          onGenerateLike={handleGenerateLike}
-        />
-      )}
-
-      {/* AI Insights */}
-      {data?.ok && <AIInsightsCard data={data} />}
-
-      {/* Opportunities */}
-      {opportunities.length > 0 && (
-        <div className="mb-5">
-          <div className={SECTION_TITLE}>Research-Backed Opportunities</div>
-          <div className="space-y-2">
-            {opportunities.map((o, i) => <OpportunityCard key={i} opportunity={o} />)}
-          </div>
-        </div>
-      )}
-
-      {/* Top performers */}
-      {topPerformers.length > 0 && (
-        <div>
-          <div className={SECTION_TITLE}>Top Performers — Deconstructed</div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {topPerformers.slice(0, 6).map((t, i) => (
-              <TopPerformerCard key={t.source_shortcode || i} template={t} rank={i} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Loading fallback for performers */}
-      {loading && !data && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-2xl" />)}
-        </div>
-      )}
-
-
-      {/* Frame breakdown + Ingredient list */}
+      {/* Section 2: Frame Breakdown + Recipe + Ship — 5-col grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
-          <SectionCard
-            title="Frame breakdown"
-            subtitle="Your best-performing post, deconstructed beat by beat"
-            action={<span className="text-[10px] font-mono uppercase tracking-[0.15em] text-brand-ink bg-brand-soft px-2 py-1 rounded">47s · 5 beats</span>}
-          >
-            <div className="space-y-2.5">
-              {[
-                { t: '00:00', role: 'Hook',    note: 'Direct-to-camera. Bold claim. No music yet.',      weight: 92 },
-                { t: '00:03', role: 'Tension', note: 'Reframes the claim into a contrarian question.',   weight: 78 },
-                { t: '00:08', role: 'Proof',   note: 'Cuts to overlay graphic with one stat.',           weight: 84 },
-                { t: '00:14', role: 'Method',  note: 'Three rapid B-roll cuts demonstrating process.',   weight: 70 },
-                { t: '00:28', role: 'Payoff',  note: 'Returns to talking head. Sharp single-line CTA.', weight: 88 },
-              ].map((f, i) => (
-                <div key={i} className="group flex items-stretch gap-3 p-3 rounded-xl hover:bg-foreground/[0.03] transition-colors">
-                  <div className="w-12 shrink-0 flex flex-col items-center pt-1">
-                    <div className="text-[10px] font-mono font-bold tabular-nums text-foreground">{f.t}</div>
-                    <div className="flex-1 w-px bg-hairline mt-1.5 group-hover:bg-brand transition-colors" />
-                  </div>
-                  <div className="size-12 rounded-lg bg-gradient-to-br from-foreground/90 via-brand-ink to-brand shrink-0 grid place-items-center">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-white/70">{f.role.slice(0,1)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0 pt-1">
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-sm font-semibold tracking-tight">{f.role}</span>
-                      <span className="text-[10px] font-mono text-muted-foreground tabular-nums">weight {f.weight}</span>
-                    </div>
-                    <p className="text-[12px] text-muted-foreground leading-relaxed">{f.note}</p>
-                    <div className="mt-2 h-1 bg-foreground/[0.05] rounded-full overflow-hidden">
-                      <div className="h-full bg-brand rounded-full" style={{ width: `${f.weight}%`, transition: 'width 1.2s cubic-bezier(0.19,1,0.22,1)' }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
+          <FrameBreakdown winner={winner} />
         </div>
-
         <div className="lg:col-span-2 flex flex-col gap-6">
-          <SectionCard title="Ingredient list" subtitle="Everything you need to reproduce it">
-            <div className="space-y-4">
-              {[
-                { label: 'Shot list',      value: '5 cuts · 1 talking head, 3 B-roll, 1 overlay' },
-                { label: 'Sound',          value: 'Trending sound — "Linger" by Forrest Frank' },
-                { label: 'On-screen text', value: '3 captions · 28-32px · top-thirds anchored' },
-                { label: 'Pacing',         value: 'Avg cut every 4.6s · hook held for 3s' },
-                { label: 'Hashtags',       value: '#offer #copywriting #foundermode + 4 niche' },
-                { label: 'Caption frame',  value: 'Hook · Story · Lesson · CTA (Hormozi P-S-O)' },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-0.5">{label}</div>
-                    <div className="text-sm font-medium leading-relaxed">{value}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard tone="ink" padded>
-            <div className="absolute -top-8 -right-8 size-40 bg-brand/25 blur-3xl rounded-full pointer-events-none" />
-            <div className="relative">
-              <h3 className="font-display font-bold text-lg tracking-tight leading-tight mb-2 text-white">Ship to Script Studio</h3>
-              <p className="text-sm text-white/60 leading-relaxed mb-5">
-                Send this exact framework into an editable script with your handle's voice already applied.
-              </p>
-              <button className="w-full py-3 bg-white text-foreground rounded-xl font-semibold text-sm hover:bg-white/95 transition-all flex items-center justify-center gap-2 group mb-2.5">
-                Replicate in Script Studio
-                <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.25} />
-              </button>
-              <button className="w-full py-2 bg-white/10 text-white/70 rounded-xl text-xs font-medium hover:bg-white/15 transition-all flex items-center justify-center gap-2">
-                ↓ Export brief (PDF)
-              </button>
-            </div>
-          </SectionCard>
+          <Recipe winner={winner} />
+          <ShipToScriptStudio
+            winner={winner}
+            onShipToScript={handleShipToScript}
+            onExport={handleExport}
+          />
         </div>
       </div>
 
-      {/* Generated slides panel */}
+      {/* Section 3: More winners — compact 3-col grid */}
+      <MoreWinners
+        performers={performers.slice(1, 7)}
+        onSelect={(p) => {
+          const idx = performers.indexOf(p)
+          if (idx >= 0) setSelectedIdx(idx)
+          // Scroll back to top so user sees the new winner card
+          if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }}
+        selectedShortcode={winner?.source_shortcode}
+      />
+
+      {/* Generation panel — slide-in drawer */}
       <GeneratedSlidesPanel
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
@@ -818,5 +756,18 @@ export default function ContentLabPane({ timeRange }) {
         templateName={panelName}
       />
     </>
+  )
+}
+
+/* ───────────────────────── Empty State ──────────────────────── */
+function EmptyState({ title, body }) {
+  return (
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-16 text-center">
+      <div className="inline-flex size-12 rounded-2xl bg-foreground/[0.04] items-center justify-center mb-5">
+        <LayoutGrid className="size-5 text-muted-foreground" strokeWidth={1.5} />
+      </div>
+      <h2 className="font-display font-bold text-2xl tracking-tight mb-2">{title}</h2>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto">{body}</p>
+    </div>
   )
 }

@@ -1,6 +1,11 @@
 /**
- * DashboardLayout — exact port of insight-flow's DashboardLayout.tsx
- * min-h-screen flex, sidebar + content column, max-w-7xl content area.
+ * DashboardLayout — insight-flow shell with wider canvas + a11y skip link.
+ *
+ * Changes from previous version:
+ *   - max-w-7xl (1280px) → max-w-[1440px] for breathing room on wide screens
+ *   - Skip-to-content link for keyboard users
+ *   - <main> landmark with id="main-content" + tabIndex={-1}
+ *   - Focus-visible utility classes on interactive elements
  */
 'use strict'
 import React, { Suspense, lazy } from 'react'
@@ -28,9 +33,6 @@ function PanePlaceholder({ paneId }) {
   const meta = PANES[paneId]
   return (
     <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-16 text-center">
-      <div className="inline-flex size-12 rounded-2xl bg-brand-soft text-brand-ink items-center justify-center mb-5">
-        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-      </div>
       <h2 className="font-display font-bold text-2xl tracking-tight mb-2">{meta?.label}</h2>
       <p className="text-sm text-muted-foreground max-w-md mx-auto">
         Shell and design language are ready — data wiring is in flight.
@@ -80,12 +82,21 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
+      {/* ── Skip-to-content link (a11y) ───────────────────────────── */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-foreground focus:text-background focus:rounded-lg focus:shadow-pop focus:font-semibold focus:text-sm"
+      >
+        Skip to content
+      </a>
+
       <DashboardSidebar
         user={user}
         tier={tier}
         activePane={activePane}
         onPaneChange={onPaneChange}
       />
+
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
           title={meta.label || 'Dashboard'}
@@ -95,8 +106,15 @@ export default function DashboardLayout({
           onSettingsClick={() => onPaneChange('settings')}
           user={user}
         />
-        <main className="flex-1 px-6 lg:px-8 py-8 animate-fade-up overflow-y-auto">
-          <div className="max-w-7xl mx-auto space-y-8">
+
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 px-6 lg:px-10 py-8 animate-fade-up overflow-y-auto focus:outline-none"
+          aria-label={`${meta.label || 'Dashboard'} content`}
+        >
+          {/* Wider canvas — 1440px max to give complex panes breathing room */}
+          <div className="max-w-[1440px] mx-auto space-y-8">
             <Suspense fallback={<PaneFallback />}>
               <div key={activePane}>
                 <PaneRouter paneId={activePane} timeRange={timeRange} />

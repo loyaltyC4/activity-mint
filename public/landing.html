@@ -669,7 +669,7 @@
               />
             </div>
             <button type="submit" class="btn-mint">
-              Mint my insights
+              Analyse my content
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
           </form>
@@ -697,8 +697,6 @@
           style="width:100%; max-width:440px; margin:0 auto;"
         />
       </div>
-      <div class="hero-sticky sticky-fans">✨ +312 new fans this week</div>
-      <div class="hero-sticky sticky-joy">😍 92% joyful comments</div>
     </div>
   </div>
 </section>
@@ -724,8 +722,8 @@
   <div class="features-inner">
     <div style="max-width:40rem; margin:0 auto; text-align:center;">
       <p class="section-label">Everything you need</p>
-      <h2 class="section-h2">One dashboard. Six superpowers.</h2>
-      <p class="section-sub">Scroll to meet each one — built on live Instagram scrapers, not cached estimates.</p>
+      <h2 class="section-h2">Turn raw metrics into your unfair advantage.</h2>
+      <p class="section-sub">Scroll to meet each tool — built on live Instagram scrapers, not cached estimates.</p>
     </div>
 
     <div class="features-layout">
@@ -740,6 +738,7 @@
             <img class="feat-doodle hidden-doodle" data-feat="3" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/rocket-growth.png" alt="Rocket Growth" />
             <img class="feat-doodle hidden-doodle" data-feat="4" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/phone-hearts.png" alt="Phone Hearts" />
             <img class="feat-doodle hidden-doodle" data-feat="5" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/trophy-streak.png" alt="Trophy Streak" />
+            <img class="feat-doodle hidden-doodle" data-feat="6" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/sentiment-brain.png" alt="Competitor Intel" />
 
             <!-- Sticky note (updated by JS) -->
             <div class="feat-sticky-note" id="feat-sticky-note"
@@ -750,6 +749,7 @@
             <!-- Progress dots -->
             <div class="feat-dots" id="feat-dots">
               <span class="feat-dot active"></span>
+              <span class="feat-dot"></span>
               <span class="feat-dot"></span>
               <span class="feat-dot"></span>
               <span class="feat-dot"></span>
@@ -766,7 +766,7 @@
 
           <li class="feat-item active" data-feat-idx="0">
             <div class="feat-item-header">
-              <span class="feat-mono">01 / 06</span>
+              <span class="feat-mono">01 / 07</span>
               <span class="feat-chip chip-violet">Pulse</span>
             </div>
             <h3 class="feat-title">Your daily performance snapshot</h3>
@@ -778,7 +778,7 @@
 
           <li class="feat-item" data-feat-idx="1">
             <div class="feat-item-header">
-              <span class="feat-mono">02 / 06</span>
+              <span class="feat-mono">02 / 07</span>
               <span class="feat-chip chip-coral">Audience &amp; Mood</span>
             </div>
             <h3 class="feat-title">Know who shows up and how they feel</h3>
@@ -790,7 +790,7 @@
 
           <li class="feat-item" data-feat-idx="2">
             <div class="feat-item-header">
-              <span class="feat-mono">03 / 06</span>
+              <span class="feat-mono">03 / 07</span>
               <span class="feat-chip chip-amber">Content Lab</span>
             </div>
             <h3 class="feat-title">Decode what worked. Replicate it.</h3>
@@ -802,7 +802,7 @@
 
           <li class="feat-item" data-feat-idx="3">
             <div class="feat-item-header">
-              <span class="feat-mono">04 / 06</span>
+              <span class="feat-mono">04 / 07</span>
               <span class="feat-chip chip-sky">Script Studio · Pro</span>
             </div>
             <h3 class="feat-title">Steal your own best patterns — scientifically</h3>
@@ -814,7 +814,7 @@
 
           <li class="feat-item" data-feat-idx="4">
             <div class="feat-item-header">
-              <span class="feat-mono">05 / 06</span>
+              <span class="feat-mono">05 / 07</span>
               <span class="feat-chip chip-primary">Ad Intelligence · Pro</span>
             </div>
             <h3 class="feat-title">See which ads are printing money in your niche</h3>
@@ -826,13 +826,25 @@
 
           <li class="feat-item" data-feat-idx="5">
             <div class="feat-item-header">
-              <span class="feat-mono">06 / 06</span>
+              <span class="feat-mono">06 / 07</span>
               <span class="feat-chip chip-mint">Next Post</span>
             </div>
             <h3 class="feat-title">Never wonder what to post next</h3>
             <p class="feat-body">Best format for your follower count, optimal posting time from your own history, top hook from Script Studio, and a dead-phrases list from your worst performers.</p>
             <div class="feat-mobile-preview bg-sticky-green">
               <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/trophy-streak.png" alt="" />
+            </div>
+          </li>
+
+          <li class="feat-item" data-feat-idx="6">
+            <div class="feat-item-header">
+              <span class="feat-mono">07 / 07</span>
+              <span class="feat-chip chip-coral">Competitor Intel</span>
+            </div>
+            <h3 class="feat-title">Extract competitor comment pain-points</h3>
+            <p class="feat-body">Scan any competitor's comment section and surface the unmet needs, recurring complaints and desire language their audience keeps repeating — then use it to write content that fills the gap before they do.</p>
+            <div class="feat-mobile-preview bg-coral-soft">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/sentiment-brain.png" alt="" />
             </div>
           </li>
 
@@ -874,69 +886,74 @@
 
 
 <!-- ════════════════════════════════════════════
-     PRICING
+     PRICING — REVERSE TRIAL
 ════════════════════════════════════════════ -->
 <section id="pricing">
   <div class="pricing-section">
     <div style="max-width:40rem; margin:0 auto; text-align:center;">
       <p class="section-label">Pricing</p>
-      <h2 class="section-h2">Start free. Upgrade when you're addicted.</h2>
+      <h2 class="section-h2">Your first 7 days are on us.</h2>
+      <p class="section-sub" style="margin-top:0.75rem;">Full Pro access. No credit card. No watered-down free tier designed to make you feel nothing. If you don't see the value in 7 days, you never will.</p>
     </div>
 
-    <div class="pricing-grid">
-      <!-- Free -->
-      <div class="pricing-card">
-        <div class="plan-name">Free</div>
-        <div class="plan-price-row">
-          <span class="plan-price">$0</span>
+    <!-- Trial hero card -->
+    <div style="max-width:48rem; margin:3rem auto 0; position:relative;">
+      <div class="pricing-card highlighted" style="border-radius:1.75rem; padding:2.5rem; text-align:center;">
+        <div class="pricing-badge">Reverse Trial</div>
+
+        <div style="display:inline-flex;align-items:center;gap:0.5rem;background:var(--mint-50);border:1px solid var(--mint-100);border-radius:999px;padding:0.375rem 1rem;font-size:0.8125rem;font-weight:600;color:var(--mint-600);margin-bottom:1.5rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          7 days · full access · no card
+        </div>
+
+        <div style="font-size:clamp(3rem,8vw,5rem);font-weight:700;letter-spacing:-0.05em;line-height:1;margin-bottom:0.5rem;">
+          $0
+        </div>
+        <p style="font-size:1rem;color:var(--muted-foreground);margin-bottom:2rem;">Then $9 / month — or drop to the free tier. Your call.</p>
+
+        <!-- What's included grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.625rem;text-align:left;margin-bottom:2rem;">
+          <div class="plan-feature" style="background:var(--mint-50);border-radius:0.875rem;padding:0.75rem 1rem;align-items:flex-start;"><svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Content Lab</strong> — full post deconstruction</span></div>
+          <div class="plan-feature" style="background:var(--mint-50);border-radius:0.875rem;padding:0.75rem 1rem;align-items:flex-start;"><svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Script Studio</strong> — Steal This Script™</span></div>
+          <div class="plan-feature" style="background:var(--mint-50);border-radius:0.875rem;padding:0.75rem 1rem;align-items:flex-start;"><svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Ad Intelligence</strong> — Meta Ads Library</span></div>
+          <div class="plan-feature" style="background:var(--mint-50);border-radius:0.875rem;padding:0.75rem 1rem;align-items:flex-start;"><svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Competitor Intel</strong> — comment pain-points</span></div>
+          <div class="plan-feature" style="background:var(--mint-50);border-radius:0.875rem;padding:0.75rem 1rem;align-items:flex-start;"><svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Template Studio</strong> + AI slide generation</span></div>
+          <div class="plan-feature" style="background:var(--mint-50);border-radius:0.875rem;padding:0.75rem 1rem;align-items:flex-start;"><svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><strong>All 7 panes</strong> — full dashboard access</span></div>
+        </div>
+
+        <button class="plan-cta primary-cta" style="font-size:1.0625rem;padding:0.875rem 1.5rem;border-radius:1rem;">Start my 7-day trial →</button>
+        <p style="margin-top:0.875rem;font-size:0.75rem;color:var(--muted-foreground);">No credit card required. After 7 days your account stays active on the free tier unless you choose to upgrade.</p>
+      </div>
+    </div>
+
+    <!-- After-trial comparison -->
+    <div style="max-width:48rem;margin:2rem auto 0;display:grid;gap:1rem;grid-template-columns:1fr 1fr;">
+      <div class="pricing-card" style="padding:1.5rem;">
+        <div class="plan-name" style="color:var(--muted-foreground);margin-bottom:0.75rem;">After trial — keep Pro</div>
+        <div class="plan-price-row" style="margin-bottom:1rem;">
+          <span class="plan-price" style="font-size:1.75rem;">$9</span>
+          <span class="plan-sub">/ month</span>
+        </div>
+        <ul class="plan-features" style="gap:0.5rem;">
+          <li class="plan-feature"><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Everything from your trial</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Outreach ideas + draft DMs</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Cancel any time</span></li>
+        </ul>
+      </div>
+      <div class="pricing-card" style="padding:1.5rem;opacity:0.65;">
+        <div class="plan-name" style="color:var(--muted-foreground);margin-bottom:0.75rem;">After trial — stay free</div>
+        <div class="plan-price-row" style="margin-bottom:1rem;">
+          <span class="plan-price" style="font-size:1.75rem;">$0</span>
           <span class="plan-sub">/ forever</span>
         </div>
-        <ul class="plan-features">
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>1 Instagram account</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Pulse KPIs + Mint Score</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Audience &amp; Mood</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Content Lab post breakdowns</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Daily quests + streak</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Next Post recommendations</span></li>
+        <ul class="plan-features" style="gap:0.5rem;">
+          <li class="plan-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color:var(--muted-foreground);">Script Studio locked</span></li>
+          <li class="plan-feature"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span style="color:var(--muted-foreground);">Ad Intelligence locked</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Pulse KPIs remain free</span></li>
         </ul>
-        <button class="plan-cta outline-cta">Start free</button>
-      </div>
-
-      <!-- Pro (highlighted) -->
-      <div class="pricing-card highlighted">
-        <div class="pricing-badge">Most loved</div>
-        <div class="plan-name">Pro</div>
-        <div class="plan-price-row">
-          <span class="plan-price">$9</span>
-          <span class="plan-sub">/ per month</span>
-        </div>
-        <ul class="plan-features">
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Everything in Free</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Script Studio — lexicon + AI scripts</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Template Studio + AI slide generation</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Ad Intelligence — Meta Ads Library</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Outreach ideas with draft DMs</span></li>
-        </ul>
-        <button class="plan-cta primary-cta">Go Pro — $9/mo</button>
-      </div>
-
-      <!-- Agency -->
-      <div class="pricing-card">
-        <div class="plan-name">Agency</div>
-        <div class="plan-price-row">
-          <span class="plan-price">$49</span>
-          <span class="plan-sub">/ per month</span>
-        </div>
-        <ul class="plan-features">
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Everything in Pro</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Up to 10 Instagram accounts</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Weekly AI strategy digest</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Priority scraper queue</span></li>
-          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>White-label PDF reports</span></li>
-        </ul>
-        <button class="plan-cta outline-cta">Talk to us</button>
       </div>
     </div>
+
   </div>
 </section>
 
@@ -946,12 +963,13 @@
 ════════════════════════════════════════════ -->
 <section class="cta-section">
   <div class="cta-box">
-    <h2 class="cta-h2">Stop guessing. Start minting insights.</h2>
-    <p class="cta-sub">Join 180,000+ creators who check Activity Mint before their inbox.</p>
+    <h2 class="cta-h2">7 days. Full access. No card.</h2>
+    <p class="cta-sub">See Content Lab deconstruct your best post and Script Studio write your next three captions — in the first session. That's the promise.</p>
     <div class="cta-buttons">
-      <a href="#get-started" class="btn-cta-primary">Mint my dashboard</a>
-      <a href="#" class="btn-cta-outline">See the demo</a>
+      <a href="#get-started" class="btn-cta-primary">Start my 7-day trial →</a>
+      <a href="#features" class="btn-cta-outline">See what's included</a>
     </div>
+    <p style="margin-top:1.25rem;font-size:0.75rem;color:oklch(0.99 0 0 / 0.45);">No credit card · cancel anytime · takes 8 seconds</p>
   </div>
 </section>
 
@@ -959,18 +977,139 @@
 <!-- ════════════════════════════════════════════
      FOOTER
 ════════════════════════════════════════════ -->
-<footer>
-  <div class="footer-inner">
-    <div class="footer-brand">
-      <div class="footer-logo-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l1.912 5.813a2 2 0 001.272 1.272L21 12l-5.816 1.916a2 2 0 00-1.272 1.272L12 21l-1.912-5.812a2 2 0 00-1.272-1.272L3 12l5.816-1.915a2 2 0 001.272-1.272L12 3z"/>
-        </svg>
+<style>
+  .footer-full {
+    border-top: 1px solid var(--border);
+    background: var(--card);
+    padding: 4rem 0 2rem;
+  }
+  .footer-grid {
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 1.25rem;
+    display: grid; gap: 3rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 640px) { .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2rem; padding: 0 2rem; } }
+  .footer-col-brand p {
+    margin-top: 0.875rem; font-size: 0.875rem;
+    color: var(--muted-foreground); line-height: 1.65;
+    max-width: 22rem;
+  }
+  .footer-col-brand .footer-socials {
+    display: flex; gap: 0.75rem; margin-top: 1.5rem;
+  }
+  .footer-social-link {
+    width: 2.25rem; height: 2.25rem; border-radius: 0.625rem;
+    border: 1px solid var(--border); background: var(--background);
+    display: grid; place-items: center; color: var(--muted-foreground);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .footer-social-link:hover { color: var(--foreground); border-color: var(--foreground); }
+  .footer-col h4 {
+    font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--foreground); margin-bottom: 1rem;
+  }
+  .footer-col ul { display: flex; flex-direction: column; gap: 0.625rem; }
+  .footer-col ul li a {
+    font-size: 0.875rem; color: var(--muted-foreground);
+    transition: color 0.15s;
+  }
+  .footer-col ul li a:hover { color: var(--foreground); }
+  .footer-bottom {
+    max-width: 1200px; margin: 3rem auto 0;
+    padding: 1.5rem 1.25rem 0;
+    border-top: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 0.75rem;
+    font-size: 0.8125rem; color: var(--muted-foreground);
+  }
+  @media (min-width: 768px) { .footer-bottom { padding: 1.5rem 2rem 0; } }
+  .footer-bottom-links { display: flex; gap: 1.5rem; }
+  .footer-bottom-links a { color: var(--muted-foreground); transition: color 0.15s; }
+  .footer-bottom-links a:hover { color: var(--foreground); }
+  .footer-badge {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    background: var(--mint-50); border: 1px solid var(--mint-100);
+    border-radius: 999px; padding: 0.25rem 0.75rem;
+    font-size: 0.6875rem; font-weight: 600; color: var(--mint-600);
+  }
+</style>
+
+<footer class="footer-full">
+  <div class="footer-grid">
+    <!-- Brand col -->
+    <div class="footer-col-brand">
+      <div class="footer-brand" style="margin-bottom:0">
+        <div class="footer-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l1.912 5.813a2 2 0 001.272 1.272L21 12l-5.816 1.916a2 2 0 00-1.272 1.272L12 21l-1.912-5.812a2 2 0 00-1.272-1.272L3 12l5.816-1.915a2 2 0 001.272-1.272L12 3z"/>
+          </svg>
+        </div>
+        <span class="footer-wordmark">Activity Mint</span>
       </div>
-      <span class="footer-wordmark">Activity Mint</span>
-      <span class="footer-year">© 2026</span>
+      <p>Real Instagram analytics built on live scrapers — not cached estimates, not vibes. Know what's working before your next post goes out.</p>
+      <div class="footer-socials">
+        <a href="#" class="footer-social-link" aria-label="Twitter/X">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="#" class="footer-social-link" aria-label="Instagram">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+        </a>
+        <a href="#" class="footer-social-link" aria-label="LinkedIn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+        </a>
+      </div>
     </div>
-    <div class="footer-links">
+
+    <!-- Product col -->
+    <div class="footer-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="#get-started">7-day trial</a></li>
+      </ul>
+    </div>
+
+    <!-- Panes col -->
+    <div class="footer-col">
+      <h4>Panes</h4>
+      <ul>
+        <li><a href="#">Pulse</a></li>
+        <li><a href="#">Content Lab</a></li>
+        <li><a href="#">Script Studio</a></li>
+        <li><a href="#">Ad Intelligence</a></li>
+        <li><a href="#">Competitor Intel</a></li>
+        <li><a href="#">Next Post</a></li>
+      </ul>
+    </div>
+
+    <!-- Company col -->
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#">About</a></li>
+        <li><a href="#">Blog</a></li>
+        <li><a href="#">Changelog</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Service</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <span>© 2026 Activity Mint. All rights reserved.</span>
+      <span class="footer-badge">
+        <span style="width:0.4rem;height:0.4rem;border-radius:50%;background:var(--mint-500);display:inline-block;"></span>
+        4 workers active
+      </span>
+    </div>
+    <div class="footer-bottom-links">
       <a href="#">Privacy</a>
       <a href="#">Terms</a>
       <a href="#">Contact</a>
@@ -1014,15 +1153,16 @@
 
   /* ── Scroll Feature Showcase ── */
   const FEATURES_DATA = [
-    { bg: 'bg-violet-soft', sticky: { text: '💎 Mint Score: 78',        tone: 'bg-sticky-green',  rotate: '-3deg', top: '1.5rem', left: '-0.75rem', right: 'auto', bottom: 'auto' } },
-    { bg: 'bg-coral-soft',  sticky: { text: '😍 92% joyful comments',   tone: 'bg-sticky-peach',  rotate: '2deg',  top: '2.5rem', right: '-0.75rem', left: 'auto', bottom: 'auto' } },
-    { bg: 'bg-amber-soft',  sticky: { text: '🎬 Reels → 3.2× saves',   tone: 'bg-sticky-yellow', rotate: '-2deg', bottom: '2.5rem', left: '-0.5rem', top: 'auto', right: 'auto' } },
-    { bg: 'bg-sky-soft',    sticky: { text: '✍️ 3 scripts ready',        tone: 'bg-sticky-green',  rotate: '3deg',  bottom: '2rem', right: '-0.5rem', top: 'auto', left: 'auto' } },
-    { bg: 'bg-accent',      sticky: { text: '📢 Running 62 days',        tone: 'bg-sticky-yellow', rotate: '-2deg', top: '2rem', left: '-0.75rem', right: 'auto', bottom: 'auto' } },
-    { bg: 'bg-sticky-green',sticky: { text: '📅 Post Friday 7pm',        tone: 'bg-sticky-peach',  rotate: '2deg',  bottom: '3rem', right: '-0.75rem', left: 'auto', top: 'auto' } },
+    { bg: 'bg-violet-soft',  sticky: { text: '💎 Mint Score: 78',          tone: 'bg-sticky-green',  rotate: '-3deg', top: '1.5rem', left: '-0.75rem', right: 'auto', bottom: 'auto' } },
+    { bg: 'bg-coral-soft',   sticky: { text: '😍 92% joyful comments',     tone: 'bg-sticky-peach',  rotate: '2deg',  top: '2.5rem', right: '-0.75rem', left: 'auto', bottom: 'auto' } },
+    { bg: 'bg-amber-soft',   sticky: { text: '🎬 Reels → 3.2× saves',     tone: 'bg-sticky-yellow', rotate: '-2deg', bottom: '2.5rem', left: '-0.5rem', top: 'auto', right: 'auto' } },
+    { bg: 'bg-sky-soft',     sticky: { text: '✍️ 3 scripts ready',          tone: 'bg-sticky-green',  rotate: '3deg',  bottom: '2rem', right: '-0.5rem', top: 'auto', left: 'auto' } },
+    { bg: 'bg-accent',       sticky: { text: '📢 Running 62 days',          tone: 'bg-sticky-yellow', rotate: '-2deg', top: '2rem', left: '-0.75rem', right: 'auto', bottom: 'auto' } },
+    { bg: 'bg-sticky-green', sticky: { text: '📅 Post Friday 7pm',          tone: 'bg-sticky-peach',  rotate: '2deg',  bottom: '3rem', right: '-0.75rem', left: 'auto', top: 'auto' } },
+    { bg: 'bg-coral-soft',   sticky: { text: '🎯 14 pain-points found',     tone: 'bg-sticky-yellow', rotate: '-3deg', top: '1.5rem', right: '-0.75rem', left: 'auto', bottom: 'auto' } },
   ];
 
-  const BG_CLASSES = ['bg-violet-soft','bg-coral-soft','bg-amber-soft','bg-sky-soft','bg-accent','bg-sticky-green'];
+  const BG_CLASSES = ['bg-violet-soft','bg-coral-soft','bg-amber-soft','bg-sky-soft','bg-accent','bg-sticky-green','bg-coral-soft'];
   const TONE_COLORS = {
     'bg-sticky-green':  'var(--sticky-green)',
     'bg-sticky-peach':  'var(--sticky-peach)',

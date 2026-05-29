@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activity Mint — AI social insights you'll actually open</title>
+  <meta name="description" content="Track Instagram, Facebook, Reddit and LinkedIn in one playful, gamified dashboard. Sentiment, personas, AI post ideas — built on live scrapers." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens (exact from styles.css) ── */
+    :root {
+      --radius: 0.75rem;
+      --background: oklch(0.985 0 0);
+      --foreground: oklch(0.16 0.005 264);
+      --card: oklch(1 0 0);
+      --card-foreground: oklch(0.16 0.005 264);
+      --primary: oklch(0.72 0.13 180);
+      --primary-foreground: oklch(0.99 0 0);
+      --secondary: oklch(0.97 0.005 264);
+      --muted: oklch(0.96 0.005 264);
+      --muted-foreground: oklch(0.5 0.01 264);
+      --accent: oklch(0.97 0.04 175);
+      --accent-foreground: oklch(0.3 0.08 180);
+      --border: oklch(0.93 0.005 264);
+      --input: oklch(0.93 0.005 264);
+      --ring: oklch(0.72 0.13 180);
+
+      --mint-50: oklch(0.98 0.025 175);
+      --mint-100: oklch(0.95 0.06 175);
+      --mint-500: oklch(0.72 0.13 180);
+      --mint-600: oklch(0.62 0.12 182);
+      --mint-950: oklch(0.27 0.05 185);
+      --sticky-yellow: oklch(0.97 0.09 100);
+      --sticky-green: oklch(0.95 0.07 150);
+      --sticky-peach: oklch(0.93 0.06 50);
+
+      --violet: oklch(0.66 0.18 290);
+      --violet-soft: oklch(0.96 0.04 290);
+      --coral: oklch(0.68 0.19 25);
+      --coral-soft: oklch(0.96 0.04 25);
+      --amber: oklch(0.78 0.16 75);
+      --amber-soft: oklch(0.97 0.06 90);
+      --sky: oklch(0.74 0.13 230);
+      --sky-soft: oklch(0.96 0.04 230);
+      --pos: oklch(0.72 0.16 160);
+      --neu: oklch(0.78 0.06 250);
+      --neg: oklch(0.68 0.19 25);
+
+      /* RGB fallbacks for shadow */
+      --mint-500-rgb: 100, 195, 180;
+      --mint-950-rgb: 30, 60, 55;
+    }
+
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background-color: var(--background);
+      color: var(--foreground);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+    }
+    img { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { cursor: pointer; border: none; background: none; font-family: inherit; }
+    ul, ol { list-style: none; }
+
+    /* ── Animations ── */
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    @keyframes drift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes entrance {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: scale(0.96) translateY(4px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .animate-float { animation: float 6s ease-in-out infinite; }
+    .animate-entrance { animation: entrance 0.7s cubic-bezier(0.19, 1, 0.22, 1) both; }
+    .animate-fade-in { animation: fade-in 0.4s ease both; }
+
+    /* ── Mesh gradient ── */
+    .bg-mesh {
+      background: linear-gradient(-45deg,
+        oklch(0.98 0.025 175),
+        oklch(0.97 0.015 200),
+        oklch(0.98 0.02 160),
+        oklch(0.99 0.02 90));
+      background-size: 400% 400%;
+      animation: drift 18s ease infinite;
+    }
+
+    /* ── Layout helpers ── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 1.25rem; }
+    @media (min-width: 768px) { .container { padding: 0 2rem; } }
+
+    /* ── NAV ── */
+    header.site-nav {
+      position: sticky; top: 0; z-index: 30;
+      border-bottom: 1px solid var(--border);
+      background: oklch(0.985 0 0 / 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0.75rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    @media (min-width: 768px) { .nav-inner { padding: 0.75rem 2rem; } }
+    .nav-logo {
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .nav-logo-icon {
+      width: 2rem; height: 2rem; border-radius: 0.75rem;
+      background: var(--mint-950); color: white;
+      display: grid; place-items: center;
+    }
+    .nav-logo-icon svg { width: 1rem; height: 1rem; }
+    .nav-wordmark { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.02em; }
+    .nav-links {
+      display: none; gap: 1.75rem; font-size: 0.875rem; color: var(--muted-foreground);
+    }
+    @media (min-width: 768px) { .nav-links { display: flex; align-items: center; } }
+    .nav-links a:hover { color: var(--foreground); }
+    .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
+    .nav-signin {
+      display: none; font-size: 0.875rem; font-weight: 500;
+      color: var(--muted-foreground);
+    }
+    .nav-signin:hover { color: var(--foreground); }
+    @media (min-width: 640px) { .nav-signin { display: inline; } }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      padding: 0.375rem 0.875rem; border-radius: 9999px;
+      background: var(--mint-950); color: white;
+      font-size: 0.875rem; font-weight: 500; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    /* ── HERO ── */
+    .hero-section {
+      position: relative; overflow: hidden;
+    }
+    .hero-mesh {
+      position: absolute; inset: 0; opacity: 0.6; pointer-events: none;
+    }
+    .hero-grid {
+      position: relative; max-width: 1200px; margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;
+      display: grid; gap: 2.5rem;
+    }
+    @media (min-width: 768px) {
+      .hero-grid {
+        grid-template-columns: 7fr 5fr;
+        padding: 5rem 2rem 6rem;
+        gap: 2.5rem;
+      }
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      border: 1px solid var(--border); background: var(--card);
+      padding: 0.25rem 0.75rem; border-radius: 9999px;
+      font-size: 0.75rem; font-weight: 500; color: var(--muted-foreground);
+      box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
+    }
+    .hero-badge-dot {
+      width: 0.5rem; height: 0.5rem; border-radius: 50%;
+      background: var(--primary); display: inline-block;
+    }
+    .hero-h1 {
+      margin-top: 1.25rem;
+      font-size: clamp(2.25rem, 5vw, 3.75rem);
+      font-weight: 600; line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+    .hero-highlight {
+      position: relative; display: inline-block;
+    }
+    .hero-highlight-text { position: relative; z-index: 1; }
+    .hero-highlight-bg {
+      position: absolute; inset-x: 0; bottom: 0.25rem; z-index: 0;
+      height: 0.75rem; border-radius: 4px; background: var(--mint-100);
+    }
+    @media (min-width: 768px) { .hero-highlight-bg { height: 1rem; } }
+    .hero-desc {
+      margin-top: 1.25rem; max-width: 38rem;
+      font-size: 1rem; line-height: 1.7; color: var(--muted-foreground);
+    }
+    @media (min-width: 768px) { .hero-desc { font-size: 1.125rem; } }
+    .hero-picker-wrap { margin-top: 2rem; }
+    .hero-social-proof {
+      margin-top: 1.5rem;
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 0.375rem 1.5rem;
+      font-size: 0.75rem; color: var(--muted-foreground);
+    }
+    .stars { display: flex; align-items: center; gap: 0.25rem; }
+    .star { font-size: 0.75rem; color: var(--amber); }
+    .proof-rating { font-weight: 500; color: var(--foreground); margin-left: 0.25rem; }
+    .proof-divider {
+      display: none; width: 1px; height: 0.75rem; background: var(--border);
+    }
+    @media (min-width: 640px) { .proof-divider { display: block; } }
+
+    /* Hero visual */
+    .hero-visual {
+      position: relative; display: flex; justify-content: center;
+    }
+    .hero-img {
+      width: 100%; max-width: 440px; margin: 0 auto;
+    }
+    .hero-sticky {
+      position: absolute; display: none;
+      border-radius: 1rem; padding: 0.5rem 0.75rem;
+      font-size: 0.75rem; font-weight: 500;
+      box-shadow: 0 4px 12px oklch(0 0 0 / 0.08);
+    }
+    @media (min-width: 768px) { .hero-sticky { display: block; } }
+    .sticky-fans {
+      top: 1.5rem; left: -0.5rem;
+      background: var(--sticky-yellow); transform: rotate(-8deg);
+    }
+    .sticky-joy {
+      bottom: 2.5rem; right: -0.5rem;
+      background: var(--sticky-green); transform: rotate(6deg);
+    }
+
+    /* ── TRUST BAR ── */
+    .trust-bar {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: oklch(1 0 0 / 0.5);
+    }
+    .trust-grid {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1.5rem; padding: 2rem 1.25rem; text-align: center;
+    }
+    @media (min-width: 768px) {
+      .trust-grid { grid-template-columns: repeat(4,1fr); padding: 2rem; }
+    }
+    .trust-num {
+      font-size: 1.5rem; font-weight: 600; letter-spacing: -0.03em;
+    }
+    @media (min-width: 768px) { .trust-num { font-size: 1.875rem; } }
+    .trust-label { margin-top: 0.25rem; font-size: 0.75rem; color: var(--muted-foreground); }
+
+    /* ── FEATURES SHOWCASE ── */
+    .features-section {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: oklch(0.985 0 0 / 0.3);
+    }
+    .features-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 5rem 1.25rem;
+    }
+    @media (min-width: 768px) { .features-inner { padding: 7rem 2rem; } }
+    .section-label {
+      font-size: 0.75rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--primary);
+    }
+    .section-h2 {
+      margin-top: 0.75rem;
+      font-size: clamp(1.875rem, 4vw, 3rem);
+      font-weight: 600; letter-spacing: -0.03em;
+    }
+    .section-sub {
+      margin-top: 0.75rem; color: var(--muted-foreground);
+    }
+    .features-layout {
+      margin-top: 4rem; display: grid; gap: 2.5rem;
+    }
+    @media (min-width: 768px) {
+      .features-layout { grid-template-columns: 5fr 7fr; gap: 3rem; }
+    }
+
+    /* Sticky illustration panel */
+    .features-sticky-wrap { position: relative; }
+    @media (min-width: 768px) {
+      .features-sticky-inner {
+        position: sticky; top: 6rem;
+      }
+    }
+    .features-card {
+      position: relative; border-radius: 2rem; border: 1px solid var(--border);
+      overflow: hidden; transition: background-color 0.7s;
+      aspect-ratio: 1;
+    }
+    .features-card img.feat-doodle {
+      position: absolute; inset: 0; margin: auto;
+      width: 70%; height: 70%; object-fit: contain;
+      transition: opacity 0.7s, transform 0.7s, filter 0.7s;
+    }
+    .features-card img.feat-doodle.hidden-doodle {
+      opacity: 0; transform: scale(0.95); filter: blur(4px);
+    }
+    .features-card img.feat-doodle.active-doodle {
+      opacity: 1; transform: scale(1); filter: blur(0);
+    }
+    .feat-sticky-note {
+      position: absolute; z-index: 10; border-radius: 1rem;
+      padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 500;
+      box-shadow: 0 4px 10px oklch(0 0 0 / 0.08);
+      transition: opacity 0.4s;
+    }
+    .feat-dots {
+      position: absolute; bottom: 1.25rem; left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; gap: 0.375rem;
+    }
+    .feat-dot {
+      height: 0.375rem; border-radius: 9999px;
+      background: oklch(0.27 0.05 185 / 0.15);
+      transition: width 0.5s, background-color 0.5s;
+      width: 0.375rem;
+    }
+    .feat-dot.active { width: 1.5rem; background: var(--mint-950); }
+
+    /* Feature list */
+    .features-list { display: flex; flex-direction: column; gap: 6rem; }
+    @media (min-width: 768px) { .features-list { gap: 10rem; } }
+    .feat-item { min-height: 40vh; transition: opacity 0.5s; opacity: 0.4; }
+    .feat-item.active { opacity: 1; }
+    .feat-item-header { display: flex; align-items: center; gap: 0.75rem; }
+    .feat-mono { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--muted-foreground); }
+    .feat-chip { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+    .feat-title {
+      margin-top: 0.75rem;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      font-weight: 600; letter-spacing: -0.02em;
+    }
+    .feat-body {
+      margin-top: 1rem; max-width: 32rem;
+      font-size: 1rem; line-height: 1.7; color: var(--muted-foreground);
+    }
+    @media (min-width: 768px) { .feat-body { font-size: 1.125rem; } }
+    .feat-mobile-preview {
+      margin-top: 1.5rem; height: 11rem; border-radius: 1rem;
+      display: grid; place-items: center;
+    }
+    .feat-mobile-preview img { width: 8rem; height: 8rem; object-fit: contain; }
+    @media (min-width: 768px) { .feat-mobile-preview { display: none; } }
+
+    /* Feature background colours */
+    .bg-violet-soft { background-color: var(--violet-soft); }
+    .bg-coral-soft  { background-color: var(--coral-soft); }
+    .bg-amber-soft  { background-color: var(--amber-soft); }
+    .bg-sky-soft    { background-color: var(--sky-soft); }
+    .bg-accent      { background-color: var(--accent); }
+    .bg-sticky-green { background-color: var(--sticky-green); }
+    .bg-sticky-yellow { background-color: var(--sticky-yellow); }
+    .bg-sticky-peach  { background-color: var(--sticky-peach); }
+
+    .chip-violet { color: var(--violet); }
+    .chip-coral  { color: var(--coral); }
+    .chip-amber  { color: var(--amber); }
+    .chip-sky    { color: var(--sky); }
+    .chip-mint   { color: var(--mint-600); }
+    .chip-primary { color: var(--primary); }
+
+    /* ── HOW IT WORKS ── */
+    .how-section {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: oklch(1 0 0 / 0.4);
+    }
+    .how-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 5rem 1.25rem;
+    }
+    @media (min-width: 768px) { .how-inner { padding: 6rem 2rem; } }
+    .how-grid {
+      margin-top: 3rem; display: grid; gap: 1.5rem;
+    }
+    @media (min-width: 768px) { .how-grid { grid-template-columns: repeat(3, 1fr); } }
+    .how-card {
+      border-radius: 1.5rem; border: 1px solid var(--border);
+      background: var(--card); padding: 1.75rem;
+    }
+    .how-num {
+      font-size: 3rem; font-weight: 600; letter-spacing: -0.04em;
+      color: var(--mint-100);
+    }
+    .how-title { margin-top: 0.75rem; font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+    .how-body { margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.6; color: var(--muted-foreground); }
+
+    /* ── PRICING ── */
+    .pricing-section {
+      max-width: 1200px; margin: 0 auto;
+      padding: 5rem 1.25rem;
+    }
+    @media (min-width: 768px) { .pricing-section { padding: 7rem 2rem; } }
+    .pricing-grid {
+      margin-top: 3rem; display: grid; gap: 1.25rem;
+    }
+    @media (min-width: 768px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); } }
+    .pricing-card {
+      border-radius: 1.5rem; border: 1px solid var(--border);
+      background: var(--card); padding: 1.75rem; position: relative;
+    }
+    .pricing-card.highlighted {
+      border-color: var(--mint-950);
+      box-shadow: 0 30px 80px -40px oklch(0.27 0.05 185 / 0.5);
+    }
+    @media (min-width: 768px) { .pricing-card.highlighted { transform: translateY(-0.5rem); } }
+    .pricing-badge {
+      position: absolute; top: -0.75rem; left: 50%; transform: translateX(-50%);
+      background: var(--mint-950); color: white;
+      padding: 0.25rem 0.75rem; border-radius: 9999px;
+      font-size: 0.6875rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      white-space: nowrap;
+    }
+    .plan-name { font-size: 0.875rem; font-weight: 600; letter-spacing: -0.01em; }
+    .plan-price-row { margin-top: 0.75rem; display: flex; align-items: baseline; gap: 0.25rem; }
+    .plan-price { font-size: 2.25rem; font-weight: 600; letter-spacing: -0.04em; }
+    .plan-sub { font-size: 0.875rem; color: var(--muted-foreground); }
+    .plan-features { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .plan-feature { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.875rem; }
+    .check-icon { color: var(--primary); flex-shrink: 0; margin-top: 0.125rem; }
+    .plan-cta {
+      margin-top: 1.75rem; width: 100%; padding: 0.75rem 1rem;
+      border-radius: 1rem; font-size: 1rem; font-weight: 600;
+      transition: all 0.15s;
+    }
+    .plan-cta.primary-cta {
+      background: var(--mint-950); color: white;
+    }
+    .plan-cta.primary-cta:hover { opacity: 0.88; }
+    .plan-cta.outline-cta {
+      background: var(--background); color: var(--foreground);
+      border: 1px solid var(--border);
+    }
+    .plan-cta.outline-cta:hover { background: var(--muted); }
+
+    /* ── FINAL CTA ── */
+    .cta-section { padding: 0 1.25rem 5rem; }
+    @media (min-width: 768px) { .cta-section { padding: 0 2rem 7rem; } }
+    .cta-box {
+      max-width: 1100px; margin: 0 auto;
+      border-radius: 2rem; border: 1px solid transparent;
+      background: var(--mint-950);
+      padding: 3.5rem 1.5rem; text-align: center;
+      overflow: hidden;
+    }
+    @media (min-width: 768px) { .cta-box { padding: 5rem 3rem; } }
+    .cta-h2 {
+      max-width: 38rem; margin: 0 auto;
+      font-size: clamp(1.875rem, 4vw, 3rem);
+      font-weight: 600; letter-spacing: -0.03em;
+      color: white; line-height: 1.1;
+    }
+    .cta-sub { margin-top: 1rem; max-width: 32rem; margin-left: auto; margin-right: auto; font-size: 1rem; color: oklch(0.99 0 0 / 0.7); }
+    .cta-buttons { margin-top: 2rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+    .btn-cta-primary {
+      display: inline-flex; align-items: center;
+      padding: 0.75rem 1.5rem; border-radius: 1rem;
+      background: var(--primary); color: var(--mint-950);
+      font-size: 1rem; font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    .btn-cta-primary:hover { opacity: 0.88; }
+    .btn-cta-outline {
+      display: inline-flex; align-items: center;
+      padding: 0.75rem 1.5rem; border-radius: 1rem;
+      border: 1px solid oklch(0.99 0 0 / 0.2);
+      background: transparent; color: white;
+      font-size: 1rem; font-weight: 500;
+      transition: background 0.15s;
+    }
+    .btn-cta-outline:hover { background: oklch(0.99 0 0 / 0.08); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 2rem 1.25rem;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: space-between; gap: 0.75rem;
+      font-size: 0.875rem; color: var(--muted-foreground);
+    }
+    @media (min-width: 768px) { .footer-inner { flex-direction: row; padding: 2rem; } }
+    .footer-brand { display: flex; align-items: center; gap: 0.5rem; }
+    .footer-logo-icon {
+      width: 1.5rem; height: 1.5rem; border-radius: 0.375rem;
+      background: var(--mint-950); color: white;
+      display: grid; place-items: center;
+    }
+    .footer-logo-icon svg { width: 0.75rem; height: 0.75rem; }
+    .footer-wordmark { font-weight: 500; color: var(--foreground); }
+    .footer-year { margin-left: 0.5rem; }
+    .footer-links { display: flex; gap: 1.25rem; }
+    .footer-links a:hover { color: var(--foreground); }
+
+    /* ── PLATFORM PICKER ── */
+    .picker-card {
+      border-radius: 1.5rem; border: 1px solid var(--border);
+      background: var(--card); padding: 1.25rem;
+      box-shadow: 0 30px 80px -40px oklch(0.27 0.05 185 / 0.35);
+    }
+    @media (min-width: 768px) { .picker-card { padding: 1.75rem; } }
+    .picker-label {
+      font-size: 0.75rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted-foreground);
+    }
+    .platform-tabs {
+      margin-top: 0.75rem;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    @media (min-width: 640px) { .platform-tabs { grid-template-columns: repeat(4, 1fr); } }
+    .platform-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0.5rem; border-radius: 1rem; border: 1px solid var(--border);
+      background: var(--background); padding: 0.625rem 0.75rem;
+      font-size: 0.875rem; font-weight: 500; transition: all 0.2s;
+      color: var(--muted-foreground);
+    }
+    .platform-btn:hover { background: var(--muted); color: var(--foreground); }
+    .platform-btn.active { border-color: transparent; }
+    .platform-btn.active.insta  { background: var(--coral-soft); box-shadow: 0 0 0 2px var(--coral); color: var(--foreground); }
+    .platform-btn.active.fb     { background: var(--sky-soft);   box-shadow: 0 0 0 2px var(--sky);   color: var(--foreground); }
+    .platform-btn.active.reddit { background: var(--amber-soft); box-shadow: 0 0 0 2px var(--amber); color: var(--foreground); }
+    .platform-btn.active.li     { background: var(--accent);     box-shadow: 0 0 0 2px var(--primary); color: var(--foreground); }
+    .picker-handle-label { margin-top: 1.25rem; }
+    .handle-form { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    @media (min-width: 640px) { .handle-form { flex-direction: row; } }
+    .handle-input-wrap { position: relative; flex: 1; display: flex; align-items: center; }
+    .handle-prefix {
+      position: absolute; left: 1rem;
+      font-size: 0.875rem; font-weight: 500; color: var(--muted-foreground);
+      pointer-events: none; z-index: 1;
+    }
+    .handle-input {
+      width: 100%; height: 3rem; border-radius: 1rem;
+      border: 2px solid var(--border); background: var(--background);
+      padding: 0 1rem; padding-left: 3.5rem;
+      font-size: 1rem; font-family: inherit; outline: none;
+      transition: border-color 0.15s;
+    }
+    .handle-input:focus { border-color: var(--primary); }
+    .btn-mint {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      height: 3rem; padding: 0 1.5rem; border-radius: 1rem;
+      background: var(--mint-950); color: white;
+      font-size: 1rem; font-weight: 600; white-space: nowrap;
+      transition: opacity 0.15s; flex-shrink: 0;
+    }
+    .btn-mint:hover { opacity: 0.88; }
+    .btn-mint svg { width: 1rem; height: 1rem; }
+    .picker-footnote { margin-top: 0.75rem; font-size: 0.75rem; color: var(--muted-foreground); }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     NAV
+════════════════════════════════════════════ -->
+<header class="site-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.912 5.813a2 2 0 001.272 1.272L21 12l-5.816 1.916a2 2 0 00-1.272 1.272L12 21l-1.912-5.812a2 2 0 00-1.272-1.272L3 12l5.816-1.915a2 2 0 001.272-1.272L12 3z"/>
+        </svg>
+      </div>
+      <span class="nav-wordmark">Activity Mint</span>
+    </a>
+
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+    </nav>
+
+    <div class="nav-actions">
+      <a href="#" class="nav-signin">Sign in</a>
+      <a href="#get-started" class="btn-primary">Get started</a>
+    </div>
+  </div>
+</header>
+
+
+<!-- ════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════ -->
+<section class="hero-section">
+  <div class="hero-mesh bg-mesh" aria-hidden="true"></div>
+
+  <div class="hero-grid">
+    <!-- Left col -->
+    <div class="animate-entrance">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Instagram analytics · live scrapers · 4 workers active
+      </div>
+
+      <h1 class="hero-h1">
+        Your social media,
+        <span class="hero-highlight">
+          <span class="hero-highlight-text">freshly minted</span>
+          <span class="hero-highlight-bg" aria-hidden="true"></span>
+        </span>
+        every morning.
+      </h1>
+
+      <p class="hero-desc">
+        Activity Mint turns Instagram, Facebook, Reddit and LinkedIn into a
+        dashboard you'll actually want to open. Sentiment, personas, post
+        ideas and gamified streaks — built on real scraped data, not vibes.
+      </p>
+
+      <div class="hero-picker-wrap">
+        <!-- Platform Picker -->
+        <div class="picker-card" id="get-started">
+          <p class="picker-label">1. Pick your platform</p>
+          <div class="platform-tabs">
+            <button class="platform-btn active insta" data-platform="instagram" onclick="switchPlatform(this, 'instagram')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+              Instagram
+            </button>
+            <button class="platform-btn fb" data-platform="facebook" onclick="switchPlatform(this, 'facebook')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+              Facebook
+            </button>
+            <button class="platform-btn reddit" data-platform="reddit" onclick="switchPlatform(this, 'reddit')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-1.1-.9-2-2-2-.5 0-1 .2-1.4.6-1.4-1-3.3-1.6-5.3-1.7l.9-4.2 2.9.6c0 .8.6 1.4 1.4 1.4s1.4-.6 1.4-1.4S19.3 4 18.5 4c-.5 0-1 .3-1.3.7l-3.3-.7c-.2 0-.4.1-.4.3L12.5 9c-2.1.1-3.9.7-5.4 1.7-.4-.4-.9-.6-1.4-.6-1.1 0-2 .9-2 2 0 .8.5 1.5 1.2 1.8 0 .2-.1.4-.1.6 0 2.7 3.1 4.9 7 4.9s7-2.2 7-4.9c0-.2 0-.4-.1-.6.8-.3 1.3-1 1.3-1.9zM7 13.5c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5S9.3 15 8.5 15 7 14.3 7 13.5zm8.4 3.7c-.9.9-2.6 1-3.4 1s-2.5-.1-3.4-1c-.1-.1-.1-.4 0-.5s.4-.1.5 0c.6.6 1.8.8 2.9.8s2.3-.2 2.9-.8c.1-.1.4-.1.5 0s.1.4 0 .5zm-.4-2.2c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5z"/></svg>
+              Reddit
+            </button>
+            <button class="platform-btn li" data-platform="linkedin" onclick="switchPlatform(this, 'linkedin')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+              LinkedIn
+            </button>
+          </div>
+
+          <p class="picker-label picker-handle-label">2. Add your handle</p>
+          <form class="handle-form" onsubmit="goToDashboard(event)">
+            <div class="handle-input-wrap">
+              <span class="handle-prefix" id="handle-prefix">@</span>
+              <input
+                id="handle-input"
+                type="text"
+                class="handle-input"
+                placeholder="yourhandle"
+                aria-label="Instagram handle"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <button type="submit" class="btn-mint">
+              Mint my insights
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </form>
+          <p class="picker-footnote">Free forever. No credit card. Insights in under 30 seconds.</p>
+        </div>
+      </div>
+
+      <div class="hero-social-proof">
+        <div class="stars">
+          <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+          <span class="proof-rating">4.9</span>
+          <span style="margin-left:0.25rem">from 1,200+ creators</span>
+        </div>
+        <div class="proof-divider"></div>
+        <span>No card · cancel anytime</span>
+      </div>
+    </div>
+
+    <!-- Right col: hero doodle -->
+    <div class="hero-visual">
+      <div class="animate-float hero-img">
+        <img
+          src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/hero-scene.png"
+          alt="A friendly character holding a magnifying glass over a social feed"
+          style="width:100%; max-width:440px; margin:0 auto;"
+        />
+      </div>
+      <div class="hero-sticky sticky-fans">✨ +312 new fans this week</div>
+      <div class="hero-sticky sticky-joy">😍 92% joyful comments</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     TRUST BAR
+════════════════════════════════════════════ -->
+<section class="trust-bar">
+  <div class="trust-grid">
+    <div><div class="trust-num">12M+</div><div class="trust-label">comments analyzed</div></div>
+    <div><div class="trust-num">180k</div><div class="trust-label">creators tracked</div></div>
+    <div><div class="trust-num">4</div><div class="trust-label">social platforms</div></div>
+    <div><div class="trust-num">&lt;30s</div><div class="trust-label">to first insight</div></div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     FEATURES SCROLL SHOWCASE
+════════════════════════════════════════════ -->
+<section id="features" class="features-section" aria-label="Feature showcase">
+  <div class="features-inner">
+    <div style="max-width:40rem; margin:0 auto; text-align:center;">
+      <p class="section-label">Everything you need</p>
+      <h2 class="section-h2">One dashboard. Six superpowers.</h2>
+      <p class="section-sub">Scroll to meet each one — built on live Instagram scrapers, not cached estimates.</p>
+    </div>
+
+    <div class="features-layout">
+      <!-- Sticky illustration panel -->
+      <div class="features-sticky-wrap">
+        <div class="features-sticky-inner">
+          <div class="features-card bg-violet-soft" id="feat-card">
+            <!-- Doodles (all layered, toggled by JS) -->
+            <img class="feat-doodle active-doodle" data-feat="0" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/sentiment-brain.png" alt="Sentiment Brain" />
+            <img class="feat-doodle hidden-doodle" data-feat="1" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/personas.png" alt="Personas" />
+            <img class="feat-doodle hidden-doodle" data-feat="2" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/ideas-bulb.png" alt="Ideas Bulb" />
+            <img class="feat-doodle hidden-doodle" data-feat="3" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/rocket-growth.png" alt="Rocket Growth" />
+            <img class="feat-doodle hidden-doodle" data-feat="4" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/phone-hearts.png" alt="Phone Hearts" />
+            <img class="feat-doodle hidden-doodle" data-feat="5" src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/trophy-streak.png" alt="Trophy Streak" />
+
+            <!-- Sticky note (updated by JS) -->
+            <div class="feat-sticky-note" id="feat-sticky-note"
+              style="background:var(--sticky-green); transform:rotate(-3deg); top:1.5rem; left:-0.75rem;">
+              😍 92% joyful today
+            </div>
+
+            <!-- Progress dots -->
+            <div class="feat-dots" id="feat-dots">
+              <span class="feat-dot active"></span>
+              <span class="feat-dot"></span>
+              <span class="feat-dot"></span>
+              <span class="feat-dot"></span>
+              <span class="feat-dot"></span>
+              <span class="feat-dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrolling feature list -->
+      <div>
+        <ol class="features-list" id="feat-list">
+
+          <li class="feat-item active" data-feat-idx="0">
+            <div class="feat-item-header">
+              <span class="feat-mono">01 / 06</span>
+              <span class="feat-chip chip-violet">Pulse</span>
+            </div>
+            <h3 class="feat-title">Your daily performance snapshot</h3>
+            <p class="feat-body">Mint Score™, real engagement rate, follower sparklines and stories — all in one glance. Know if today is a win before you open another tab.</p>
+            <div class="feat-mobile-preview bg-violet-soft">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/sentiment-brain.png" alt="" />
+            </div>
+          </li>
+
+          <li class="feat-item" data-feat-idx="1">
+            <div class="feat-item-header">
+              <span class="feat-mono">02 / 06</span>
+              <span class="feat-chip chip-coral">Audience &amp; Mood</span>
+            </div>
+            <h3 class="feat-title">Know who shows up and how they feel</h3>
+            <p class="feat-body">Top commenters, geographic spread, interest tags and a live mood meter — extracted from real comment data, not demographic guesses.</p>
+            <div class="feat-mobile-preview bg-coral-soft">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/personas.png" alt="" />
+            </div>
+          </li>
+
+          <li class="feat-item" data-feat-idx="2">
+            <div class="feat-item-header">
+              <span class="feat-mono">03 / 06</span>
+              <span class="feat-chip chip-amber">Content Lab</span>
+            </div>
+            <h3 class="feat-title">Decode what worked. Replicate it.</h3>
+            <p class="feat-body">Format distribution by ER, hook classifier across 7 proven formulas, top-performer breakdowns and the exact phrases that spike your saves.</p>
+            <div class="feat-mobile-preview bg-amber-soft">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/ideas-bulb.png" alt="" />
+            </div>
+          </li>
+
+          <li class="feat-item" data-feat-idx="3">
+            <div class="feat-item-header">
+              <span class="feat-mono">04 / 06</span>
+              <span class="feat-chip chip-sky">Script Studio · Pro</span>
+            </div>
+            <h3 class="feat-title">Steal your own best patterns — scientifically</h3>
+            <p class="feat-body">Log-odds lexicon surfaces the exact words your winners use. Blueprint maps your structural pattern. Claude Haiku writes the next 3 scripts in your voice.</p>
+            <div class="feat-mobile-preview bg-sky-soft">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/rocket-growth.png" alt="" />
+            </div>
+          </li>
+
+          <li class="feat-item" data-feat-idx="4">
+            <div class="feat-item-header">
+              <span class="feat-mono">05 / 06</span>
+              <span class="feat-chip chip-primary">Ad Intelligence · Pro</span>
+            </div>
+            <h3 class="feat-title">See which ads are printing money in your niche</h3>
+            <p class="feat-body">Live Meta Ads Library cross-reference. Longevity scores (30+ days = profitable), scaling detection, and one-click "replicate with my brand" carousel template.</p>
+            <div class="feat-mobile-preview bg-accent">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/phone-hearts.png" alt="" />
+            </div>
+          </li>
+
+          <li class="feat-item" data-feat-idx="5">
+            <div class="feat-item-header">
+              <span class="feat-mono">06 / 06</span>
+              <span class="feat-chip chip-mint">Next Post</span>
+            </div>
+            <h3 class="feat-title">Never wonder what to post next</h3>
+            <p class="feat-body">Best format for your follower count, optimal posting time from your own history, top hook from Script Studio, and a dead-phrases list from your worst performers.</p>
+            <div class="feat-mobile-preview bg-sticky-green">
+              <img src="https://raw.githubusercontent.com/loyaltyC4/spark-insights/main/src/assets/doodles/trophy-streak.png" alt="" />
+            </div>
+          </li>
+
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     HOW IT WORKS
+════════════════════════════════════════════ -->
+<section id="how" class="how-section">
+  <div class="how-inner">
+    <div style="max-width:40rem; margin:0 auto; text-align:center;">
+      <p class="section-label">How it works</p>
+      <h2 class="section-h2">From handle to insights in 3 sips of coffee.</h2>
+    </div>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">01</div>
+        <h3 class="how-title">Drop your @</h3>
+        <p class="how-body">Pick Instagram, Facebook, Reddit or LinkedIn and paste your handle. That's it.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">02</div>
+        <h3 class="how-title">We scrape, AI thinks</h3>
+        <p class="how-body">Live scrapers pull every post, comment and DM. Lovable AI scores sentiment and finds patterns.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">03</div>
+        <h3 class="how-title">Open. Act. Repeat.</h3>
+        <p class="how-body">Get a fresh dashboard each morning with quests, post ideas and the one thing to do today.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     PRICING
+════════════════════════════════════════════ -->
+<section id="pricing">
+  <div class="pricing-section">
+    <div style="max-width:40rem; margin:0 auto; text-align:center;">
+      <p class="section-label">Pricing</p>
+      <h2 class="section-h2">Start free. Upgrade when you're addicted.</h2>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="pricing-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price-row">
+          <span class="plan-price">$0</span>
+          <span class="plan-sub">/ forever</span>
+        </div>
+        <ul class="plan-features">
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>1 Instagram account</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Pulse KPIs + Mint Score</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Audience &amp; Mood</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Content Lab post breakdowns</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Daily quests + streak</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Next Post recommendations</span></li>
+        </ul>
+        <button class="plan-cta outline-cta">Start free</button>
+      </div>
+
+      <!-- Pro (highlighted) -->
+      <div class="pricing-card highlighted">
+        <div class="pricing-badge">Most loved</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price-row">
+          <span class="plan-price">$9</span>
+          <span class="plan-sub">/ per month</span>
+        </div>
+        <ul class="plan-features">
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Everything in Free</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Script Studio — lexicon + AI scripts</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Template Studio + AI slide generation</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Ad Intelligence — Meta Ads Library</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Outreach ideas with draft DMs</span></li>
+        </ul>
+        <button class="plan-cta primary-cta">Go Pro — $9/mo</button>
+      </div>
+
+      <!-- Agency -->
+      <div class="pricing-card">
+        <div class="plan-name">Agency</div>
+        <div class="plan-price-row">
+          <span class="plan-price">$49</span>
+          <span class="plan-sub">/ per month</span>
+        </div>
+        <ul class="plan-features">
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Everything in Pro</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Up to 10 Instagram accounts</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Weekly AI strategy digest</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Priority scraper queue</span></li>
+          <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>White-label PDF reports</span></li>
+        </ul>
+        <button class="plan-cta outline-cta">Talk to us</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     FINAL CTA
+════════════════════════════════════════════ -->
+<section class="cta-section">
+  <div class="cta-box">
+    <h2 class="cta-h2">Stop guessing. Start minting insights.</h2>
+    <p class="cta-sub">Join 180,000+ creators who check Activity Mint before their inbox.</p>
+    <div class="cta-buttons">
+      <a href="#get-started" class="btn-cta-primary">Mint my dashboard</a>
+      <a href="#" class="btn-cta-outline">See the demo</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.912 5.813a2 2 0 001.272 1.272L21 12l-5.816 1.916a2 2 0 00-1.272 1.272L12 21l-1.912-5.812a2 2 0 00-1.272-1.272L3 12l5.816-1.915a2 2 0 001.272-1.272L12 3z"/>
+        </svg>
+      </div>
+      <span class="footer-wordmark">Activity Mint</span>
+      <span class="footer-year">© 2026</span>
+    </div>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+  /* ── Platform Picker ── */
+  const prefixes = {
+    instagram: '@',
+    facebook: 'fb.com/',
+    reddit: 'r/',
+    linkedin: 'in/'
+  };
+  const placeholders = {
+    instagram: 'yourhandle',
+    facebook: 'yourpage',
+    reddit: 'yoursub',
+    linkedin: 'your-name'
+  };
+
+  function switchPlatform(btn, platform) {
+    // Remove active from all
+    document.querySelectorAll('.platform-btn').forEach(b => {
+      b.classList.remove('active', 'insta', 'fb', 'reddit', 'li');
+    });
+    // Activate clicked
+    btn.classList.add('active', platform === 'instagram' ? 'insta' : platform === 'facebook' ? 'fb' : platform === 'reddit' ? 'reddit' : 'li');
+    // Update prefix + placeholder
+    document.getElementById('handle-prefix').textContent = prefixes[platform];
+    document.getElementById('handle-input').placeholder = placeholders[platform];
+  }
+
+  function goToDashboard(e) {
+    e.preventDefault();
+    // In a real app this would navigate; here we scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── Scroll Feature Showcase ── */
+  const FEATURES_DATA = [
+    { bg: 'bg-violet-soft', sticky: { text: '💎 Mint Score: 78',        tone: 'bg-sticky-green',  rotate: '-3deg', top: '1.5rem', left: '-0.75rem', right: 'auto', bottom: 'auto' } },
+    { bg: 'bg-coral-soft',  sticky: { text: '😍 92% joyful comments',   tone: 'bg-sticky-peach',  rotate: '2deg',  top: '2.5rem', right: '-0.75rem', left: 'auto', bottom: 'auto' } },
+    { bg: 'bg-amber-soft',  sticky: { text: '🎬 Reels → 3.2× saves',   tone: 'bg-sticky-yellow', rotate: '-2deg', bottom: '2.5rem', left: '-0.5rem', top: 'auto', right: 'auto' } },
+    { bg: 'bg-sky-soft',    sticky: { text: '✍️ 3 scripts ready',        tone: 'bg-sticky-green',  rotate: '3deg',  bottom: '2rem', right: '-0.5rem', top: 'auto', left: 'auto' } },
+    { bg: 'bg-accent',      sticky: { text: '📢 Running 62 days',        tone: 'bg-sticky-yellow', rotate: '-2deg', top: '2rem', left: '-0.75rem', right: 'auto', bottom: 'auto' } },
+    { bg: 'bg-sticky-green',sticky: { text: '📅 Post Friday 7pm',        tone: 'bg-sticky-peach',  rotate: '2deg',  bottom: '3rem', right: '-0.75rem', left: 'auto', top: 'auto' } },
+  ];
+
+  const BG_CLASSES = ['bg-violet-soft','bg-coral-soft','bg-amber-soft','bg-sky-soft','bg-accent','bg-sticky-green'];
+  const TONE_COLORS = {
+    'bg-sticky-green':  'var(--sticky-green)',
+    'bg-sticky-peach':  'var(--sticky-peach)',
+    'bg-sticky-yellow': 'var(--sticky-yellow)',
+  };
+
+  let currentFeat = 0;
+
+  function updateFeatCard(idx) {
+    if (idx === currentFeat) return;
+    currentFeat = idx;
+    const card = document.getElementById('feat-card');
+    const fd = FEATURES_DATA[idx];
+
+    // Swap background
+    BG_CLASSES.forEach(c => card.classList.remove(c));
+    card.classList.add(fd.bg);
+
+    // Swap doodle
+    document.querySelectorAll('.feat-doodle').forEach((img, i) => {
+      if (i === idx) {
+        img.classList.remove('hidden-doodle');
+        img.classList.add('active-doodle');
+      } else {
+        img.classList.add('hidden-doodle');
+        img.classList.remove('active-doodle');
+      }
+    });
+
+    // Swap sticky note
+    const sn = document.getElementById('feat-sticky-note');
+    const s = fd.sticky;
+    sn.textContent = s.text;
+    sn.style.background = TONE_COLORS[s.tone] || 'var(--sticky-yellow)';
+    sn.style.transform = `rotate(${s.rotate})`;
+    sn.style.top = s.top || 'auto';
+    sn.style.left = s.left || 'auto';
+    sn.style.right = s.right || 'auto';
+    sn.style.bottom = s.bottom || 'auto';
+    sn.classList.remove('animate-fade-in');
+    void sn.offsetWidth; // reflow
+    sn.classList.add('animate-fade-in');
+
+    // Swap dots
+    document.querySelectorAll('.feat-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === idx);
+    });
+
+    // Swap feat-item opacity
+    document.querySelectorAll('.feat-item').forEach((item, i) => {
+      item.classList.toggle('active', i === idx);
+    });
+  }
+
+  // IntersectionObserver for scroll-driven feature switching
+  const featItems = document.querySelectorAll('.feat-item');
+  const observers = [];
+  featItems.forEach((el, i) => {
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) updateFeatCard(i); },
+      { rootMargin: '-45% 0px -45% 0px', threshold: 0 }
+    );
+    obs.observe(el);
+    observers.push(obs);
+  });
+</script>
+
+</body>
+</html>

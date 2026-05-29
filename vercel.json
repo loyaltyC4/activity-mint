@@ -1,10 +1,12 @@
 {
   "functions": {
-    "api/apify-proxy.js": {
-      "maxDuration": 300
-    },
-    "api/proxy-image.js": {
-      "maxDuration": 15
-    }
-  }
+    "api/apify-proxy.js": { "maxDuration": 300 },
+    "api/proxy-image.js": { "maxDuration": 15 }
+  },
+  "routes": [
+    { "src": "^/$", "dest": "/landing.html" },
+    { "src": "^/api/(.*)", "dest": "/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }

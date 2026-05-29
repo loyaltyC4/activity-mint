@@ -1,19 +1,14 @@
 /**
- * Dashboard layout shell.
- * Full-page: h-screen overflow-hidden with scrolling only in the content area.
- * Design system: Insight Flow tokens (brand teal, Inter Tight, JetBrains Mono)
- * unified with the Minted Bento landing page palette.
+ * DashboardLayout — exact port of insight-flow's DashboardLayout.tsx
+ * min-h-screen flex, sidebar + content column, max-w-7xl content area.
  */
-
 'use strict'
-
 import React, { Suspense, lazy } from 'react'
+import DashboardSidebar from './Sidebar'
 import Topbar from './Topbar'
-import Sidebar from './Sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PANES } from './index'
 
-// ── Lazy-loaded panes ────────────────────────────────────────────────────
 const PulsePane          = lazy(() => import('./panes/PulsePane'))
 const AudiencePane       = lazy(() => import('./panes/AudiencePane'))
 const ContentPane        = lazy(() => import('./panes/ContentLabPane'))
@@ -32,26 +27,25 @@ const SettingsPane       = lazy(() => import('./panes/SettingsPane'))
 function PanePlaceholder({ paneId }) {
   const meta = PANES[paneId]
   return (
-    <div className="rounded-2xl border border-[var(--hairline)] bg-card p-8 shadow-pane">
-      <div className="mb-1.5 font-jbmono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-        {meta?.group}
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-16 text-center">
+      <div className="inline-flex size-12 rounded-2xl bg-brand-soft text-brand-ink items-center justify-center mb-5">
+        <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
       </div>
-      <h2 className="font-tight text-2xl font-bold tracking-tight">{meta?.label}</h2>
-      <p className="mt-2 text-sm text-muted-foreground">Coming soon.</p>
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
-      </div>
+      <h2 className="font-display font-bold text-2xl tracking-tight mb-2">{meta?.label}</h2>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto">
+        Shell and design language are ready — data wiring is in flight.
+      </p>
     </div>
   )
 }
 
 function PaneFallback() {
   return (
-    <div className="rounded-2xl border border-[var(--hairline)] bg-card p-6 shadow-pane">
-      <Skeleton className="h-6 w-1/4 rounded-full" />
-      <Skeleton className="mt-2 h-4 w-2/5 rounded-full" />
-      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[0,1,2,3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] shadow-pane p-6">
+      <Skeleton className="h-6 w-1/4 rounded-full mb-2" />
+      <Skeleton className="h-4 w-2/5 rounded-full mb-6" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[0,1,2,3].map((i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
       </div>
     </div>
   )
@@ -82,37 +76,32 @@ export default function DashboardLayout({
   activePane, onPaneChange,
   timeRange, onTimeRangeChange,
 }) {
+  const meta = PANES[activePane] || {}
+
   return (
-    /* Full-page shell — only the content column scrolls */
-    <div className="flex h-screen flex-col overflow-hidden"
-         style={{ background: 'oklch(0.99 0.002 180)', color: 'oklch(0.16 0.01 240)' }}>
-
-      <Topbar
+    <div className="min-h-screen flex bg-background text-foreground">
+      <DashboardSidebar
         user={user}
-        timeRange={timeRange}
-        onTimeRangeChange={onTimeRangeChange}
-        onSettingsClick={() => onPaneChange('settings')}
+        tier={tier}
+        activePane={activePane}
+        onPaneChange={onPaneChange}
       />
-
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
+      <div className="flex-1 flex flex-col min-w-0">
+        <Topbar
+          title={meta.label || 'Dashboard'}
+          subtitle={`${meta.group || ''} — ${timeRange} view`}
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+          onSettingsClick={() => onPaneChange('settings')}
           user={user}
-          tier={tier}
-          activePane={activePane}
-          onPaneChange={onPaneChange}
         />
-
-        {/* Scrollable content column */}
-        <main
-          className="min-w-0 flex-1 overflow-y-auto"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: 'oklch(0.85 0.005 240) transparent' }}
-        >
-          <div className="px-6 py-6 pb-12 md:px-8">
-            <div key={activePane} className="animate-entrance">
-              <Suspense fallback={<PaneFallback />}>
+        <main className="flex-1 px-6 lg:px-8 py-8 animate-fade-up overflow-y-auto">
+          <div className="max-w-7xl mx-auto space-y-8">
+            <Suspense fallback={<PaneFallback />}>
+              <div key={activePane}>
                 <PaneRouter paneId={activePane} timeRange={timeRange} />
-              </Suspense>
-            </div>
+              </div>
+            </Suspense>
           </div>
         </main>
       </div>

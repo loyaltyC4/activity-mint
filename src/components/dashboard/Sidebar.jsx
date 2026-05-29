@@ -1,354 +1,182 @@
 /**
- * Sidebar — Insight Flow design system.
- *
- * 228px fixed width, fills 100vh.
- * Tokens: brand teal, Inter Tight headings, JetBrains Mono labels.
- * Groups: Overview · Intelligence · Create · Grow · You
- * Badges: PRO (dark ink bg) · NEW (brand bg)
- * Active state: brand-soft bg + brand-ink text (no left-border)
- * Bottom upgrade card: dark ink card with brand CTA
+ * DashboardSidebar — exact port of insight-flow's Sidebar.tsx
+ * Adapted for Activity Mint's tab-based routing (no react-router).
  */
-
 'use strict'
-
 import React from 'react'
 import {
-  Home, Users, MessageSquare,
-  LayoutGrid, PenTool, Megaphone,
-  CalendarDays, Palette,
+  Activity, Users, MessageSquare,
+  LayoutGrid, FileCode, Megaphone,
+  CalendarPlus, FileText,
   TrendingUp, Phone, Wrench, Globe,
-  Award, Settings as Cog,
-  Zap, ChevronDown,
-  MonitorPlay, Hash, UserMinus, UserCheck,
-  Search, Link, Repeat2,
+  Award, Settings, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSwitcher from './shared/AccountSwitcher'
 
-// ── Nav structure ────────────────────────────────────────────────────────
-const NAV_GROUPS = [
+const groups = [
   {
     label: 'Overview',
     items: [
-      { id: 'pulse',     Icon: Home,          label: 'Pulse' },
-      { id: 'audience',  Icon: Users,         label: 'Audience & Mood' },
-      { id: 'sentiment', Icon: MessageSquare, label: 'Sentiment' },
+      { id: 'pulse',     label: 'Pulse',            Icon: Activity },
+      { id: 'audience',  label: 'Audience & Mood',  Icon: Users },
+      { id: 'sentiment', label: 'Sentiment',         Icon: MessageSquare },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { id: 'content', Icon: LayoutGrid, label: 'Content Lab' },
-      { id: 'script',  Icon: PenTool,   label: 'Script Studio', badge: 'pro' },
-      { id: 'adlab',   Icon: Megaphone, label: 'Ad Intelligence', badge: 'new' },
+      { id: 'content', label: 'Content Lab',     Icon: LayoutGrid },
+      { id: 'script',  label: 'Script Studio',   Icon: FileCode,   badge: 'PRO' },
+      { id: 'adlab',   label: 'Ad Intelligence', Icon: Megaphone,  badge: 'NEW' },
     ],
   },
   {
     label: 'Create',
     items: [
-      { id: 'planner',   Icon: CalendarDays, label: 'Next Post',        badge: 'new' },
-      { id: 'templates', Icon: Palette,      label: 'Template Studio',  badge: 'new' },
+      { id: 'planner',   label: 'Next Post',        Icon: CalendarPlus, badge: 'NEW' },
+      { id: 'templates', label: 'Template Studio',  Icon: FileText,     badge: 'NEW' },
     ],
   },
   {
     label: 'Grow',
     items: [
-      { id: 'trends',      Icon: TrendingUp, label: 'Trends & Insights', badge: 'new' },
-      { id: 'outreach',    Icon: Phone,      label: 'Outreach Ideas' },
-      { id: 'toolkit',     Icon: Wrench,     label: 'Tools' },
-      { id: 'competitors', Icon: Globe,      label: 'Competitors', badge: 'pro' },
+      { id: 'trends',      label: 'Trends & Insights', Icon: TrendingUp, badge: 'NEW' },
+      { id: 'outreach',    label: 'Outreach Ideas',    Icon: Phone },
+      { id: 'toolkit',     label: 'Tools',             Icon: Wrench },
+      { id: 'competitors', label: 'Competitors',       Icon: Globe,      badge: 'PRO' },
     ],
   },
   {
     label: 'You',
     items: [
-      { id: 'rewards',  Icon: Award, label: 'Rewards' },
-      { id: 'settings', Icon: Cog,   label: 'Settings' },
+      { id: 'rewards',  label: 'Rewards',  Icon: Award },
+      { id: 'planner',  label: 'Pricing',  Icon: Sparkles },
+      { id: 'settings', label: 'Settings', Icon: Settings },
     ],
   },
 ]
 
-// ── Badge component ──────────────────────────────────────────────────────
-function NavBadge({ type }) {
-  if (type === 'pro') return (
-    <span style={{
-      background: 'var(--ink)',
-      color: '#fff',
-      fontSize: '9.5px',
-      fontFamily: '"JetBrains Mono", monospace',
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em',
-      borderRadius: '4px',
-      padding: '2px 5px',
-      lineHeight: 1,
-    }}>PRO</span>
-  )
-  if (type === 'new') return (
-    <span style={{
-      background: 'var(--brand)',
-      color: '#fff',
-      fontSize: '9.5px',
-      fontFamily: '"JetBrains Mono", monospace',
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em',
-      borderRadius: '4px',
-      padding: '2px 5px',
-      lineHeight: 1,
-    }}>NEW</span>
-  )
-  return null
-}
-
-// ── Nav item ─────────────────────────────────────────────────────────────
-function NavItem({ id, Icon, label, badge, active, onClick }) {
-  return (
-    <button
-      onClick={() => onClick(id)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        width: '100%',
-        textAlign: 'left',
-        padding: '7px 12px',
-        margin: '1px 8px',
-        width: 'calc(100% - 16px)',
-        borderRadius: '7px',
-        fontSize: '13.5px',
-        fontWeight: active ? 500 : 450,
-        fontFamily: 'Inter, ui-sans-serif, sans-serif',
-        letterSpacing: '-0.01em',
-        cursor: 'pointer',
-        border: 'none',
-        background: active ? 'var(--brand-soft)' : 'transparent',
-        color: active ? 'var(--brand-ink)' : 'oklch(0.5 0.01 240)',
-        transition: 'background 0.12s, color 0.12s',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = 'oklch(0.97 0.003 240)'
-          e.currentTarget.style.color = 'oklch(0.16 0.01 240)'
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = 'transparent'
-          e.currentTarget.style.color = 'oklch(0.5 0.01 240)'
-        }
-      }}
-    >
-      <Icon
-        style={{
-          width: 15, height: 15, flexShrink: 0,
-          color: active ? 'var(--brand)' : 'currentColor',
-        }}
-      />
-      <span style={{ flex: 1 }}>{label}</span>
-      {badge && <NavBadge type={badge} />}
-    </button>
-  )
-}
-
-// ── Brand area ───────────────────────────────────────────────────────────
-function SidebarBrand() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '10px',
-      padding: '18px 16px 14px',
-      borderBottom: '1px solid oklch(0.91 0.005 240)',
-    }}>
-      {/* Logo tile */}
-      <div style={{
-        width: 28, height: 28, borderRadius: 7,
-        background: 'var(--brand)',
-        display: 'grid', placeItems: 'center',
-        flexShrink: 0,
-        boxShadow: '0 1px 4px oklch(0.72 0.13 180 / 0.3)',
-      }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3l1.912 5.813a2 2 0 001.272 1.272L21 12l-5.816 1.916a2 2 0 00-1.272 1.272L12 21l-1.912-5.812a2 2 0 00-1.272-1.272L3 12l5.816-1.915a2 2 0 001.272-1.272L12 3z"/>
-        </svg>
-      </div>
-      {/* Wordmark */}
-      <div>
-        <div style={{
-          fontFamily: '"Inter Tight", Inter, sans-serif',
-          fontSize: 15, fontWeight: 700,
-          letterSpacing: '-0.3px',
-          color: 'oklch(0.16 0.01 240)',
-          lineHeight: 1.15,
-        }}>Activity Mint</div>
-        <div style={{
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: 9, fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.1em',
-          color: 'oklch(0.5 0.01 240)',
-          lineHeight: 1,
-          marginTop: 2,
-        }}>INTELLIGENCE</div>
-      </div>
-    </div>
-  )
-}
-
-// ── Account switcher area ────────────────────────────────────────────────
-function AccountArea({ user }) {
+export default function DashboardSidebar({ user, tier, activePane, onPaneChange }) {
   const handle = user?.user_metadata?.tracked_handle || user?.email?.split('@')[0] || 'you'
-  const initial = handle[0]?.toUpperCase() || 'A'
+  const initial = handle[0]?.toUpperCase() || 'M'
 
-  return (
-    <div style={{ margin: '10px 12px' }}>
-      {/* Tracked account chip */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        background: 'oklch(0.985 0.003 240)',
-        borderRadius: 8, padding: '7px 10px',
-        border: '1px solid oklch(0.91 0.005 240)',
-        cursor: 'pointer',
-      }}>
-        {/* Avatar */}
-        <div style={{
-          width: 28, height: 28, borderRadius: 6,
-          background: 'var(--ink)',
-          display: 'grid', placeItems: 'center',
-          color: '#fff', fontSize: 11, fontWeight: 700,
-          flexShrink: 0,
-        }}>{initial}</div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 12, fontWeight: 500, letterSpacing: '-0.01em',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            color: 'oklch(0.16 0.01 240)',
-          }}>@{handle}</div>
-          <div style={{
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: '0.06em', color: 'oklch(0.5 0.01 240)',
-          }}>Tracked</div>
-        </div>
-        <ChevronDown style={{ width: 13, height: 13, color: 'oklch(0.5 0.01 240)' }} />
-      </div>
-
-      {/* Full account switcher (existing component) */}
-      <div style={{ marginTop: 6 }}>
-        <AccountSwitcher compact />
-      </div>
-    </div>
-  )
-}
-
-// ── Upgrade card ─────────────────────────────────────────────────────────
-function UpgradeCard({ tier }) {
-  const tierLabel = tier === 'standard' ? 'Solo-Hunter'
-    : tier === 'premium' ? 'Pipeline Intercept'
+  const tierLabel = tier === 'premium' ? 'Pipeline Intercept'
+    : tier === 'standard' ? 'Solo-Hunter'
     : 'Freemium'
 
   const nextTier = tier === 'premium' ? null
     : tier === 'standard' ? 'Pipeline Intercept'
     : 'Solo-Hunter'
 
-  if (!nextTier) return null
-
-  const price = tier === 'standard' ? '$149/mo' : '$39/mo'
-
   return (
-    <div style={{
-      margin: '10px 10px 16px',
-      borderRadius: 10,
-      background: 'oklch(0.14 0.015 185)',
-      padding: '14px 14px 16px',
-      position: 'relative', overflow: 'hidden',
-    }}>
-      {/* Glow blob */}
-      <div style={{
-        position: 'absolute', bottom: -20, right: -20,
-        width: 80, height: 80, borderRadius: '50%',
-        background: 'var(--brand)', filter: 'blur(30px)',
-        opacity: 0.3, pointerEvents: 'none',
-      }} />
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-hairline bg-surface-2/40 backdrop-blur-sm sticky top-0 h-screen">
 
-      <div style={{ position: 'relative' }}>
-        <div style={{
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: '0.08em', color: 'var(--brand)', marginBottom: 4,
-        }}>{tierLabel} plan</div>
-
-        <p style={{
-          fontFamily: '"Inter Tight", Inter, sans-serif',
-          fontSize: 12.5, fontWeight: 600, color: '#fff',
-          lineHeight: 1.4, marginBottom: 10,
-        }}>Unlock {nextTier}</p>
-
-        <button
-          onClick={() => window.location.href = '#pricing'}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 5, width: '100%', padding: '8px 12px', borderRadius: 7,
-            background: 'var(--brand)', color: 'oklch(0.16 0.01 240)',
-            fontFamily: '"Inter Tight", Inter, sans-serif',
-            fontSize: 11.5, fontWeight: 700, border: 'none', cursor: 'pointer',
-            transition: 'opacity 0.12s',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-        >
-          <Zap style={{ width: 12, height: 12 }} />
-          Upgrade · {price}
-        </button>
+      {/* Brand area — h-16 exactly */}
+      <div className="h-16 px-5 flex items-center gap-2.5 border-b border-hairline">
+        <div className="size-8 rounded-lg grid place-items-center relative overflow-hidden bg-foreground">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand to-brand-ink opacity-90" />
+          <Sparkles className="size-4 text-white relative z-10" strokeWidth={2.5} />
+        </div>
+        <div className="flex flex-col leading-none">
+          <span className="font-display font-bold text-[15px] tracking-tight">Pulse</span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground mt-0.5">Intelligence</span>
+        </div>
       </div>
-    </div>
-  )
-}
 
-// ── Main Sidebar ─────────────────────────────────────────────────────────
-export default function Sidebar({ user, tier, activePane, onPaneChange }) {
-  return (
-    <aside style={{
-      width: 228, flexShrink: 0,
-      height: '100%', overflowY: 'auto',
-      display: 'flex', flexDirection: 'column',
-      background: '#fff',
-      borderRight: '1px solid oklch(0.91 0.005 240)',
-      scrollbarWidth: 'none',
-    }}>
-      <style>{`aside::-webkit-scrollbar { display: none; }`}</style>
+      {/* Account switcher */}
+      <div className="px-3 py-3 border-b border-hairline">
+        <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-foreground/[0.03] transition-colors">
+          <div className="size-9 rounded-md bg-gradient-to-br from-brand-ink to-foreground grid place-items-center text-white font-display font-bold text-sm flex-shrink-0">
+            {initial}
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <div className="text-sm font-semibold tracking-tight truncate">@{handle}</div>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">3 accounts</div>
+          </div>
+          <svg className="size-3 text-muted-foreground flex-shrink-0" viewBox="0 0 12 12" fill="none">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+        {/* Existing AccountSwitcher for actual account switching */}
+        <div className="mt-1">
+          <AccountSwitcher compact />
+        </div>
+      </div>
 
-      <SidebarBrand />
-      <AccountArea user={user} />
-
-      {/* Navigation */}
-      <div style={{ flex: 1, padding: '4px 0' }}>
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label} style={{ marginBottom: 4 }}>
-            {/* Group label */}
-            <div style={{
-              padding: '10px 20px 4px',
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: 10.5, fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              color: 'oklch(0.5 0.01 240)',
-            }}>{group.label}</div>
-
-            {/* Items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {group.items.map((item) => (
-                <NavItem
-                  key={item.id}
-                  {...item}
-                  active={activePane === item.id}
-                  onClick={onPaneChange}
-                />
-              ))}
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" style={{ scrollbarWidth: 'none' }}>
+        <style>{`nav::-webkit-scrollbar{display:none}`}</style>
+        {groups.map((g) => (
+          <div key={g.label}>
+            <div className="px-2 mb-2 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground/70">
+              {g.label}
+            </div>
+            <div className="space-y-0.5">
+              {g.items.map((item) => {
+                const active = activePane === item.id
+                const { Icon } = item
+                return (
+                  <button
+                    key={`${item.id}-${item.label}`}
+                    onClick={() => onPaneChange(item.id)}
+                    className={cn(
+                      'flex items-center gap-3 px-2.5 py-2 rounded-md text-sm font-medium transition-all relative w-full text-left',
+                      active
+                        ? 'bg-brand-soft text-brand-ink'
+                        : 'text-foreground/70 hover:text-foreground hover:bg-foreground/[0.03]'
+                    )}
+                  >
+                    {active && (
+                      <div className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-brand rounded-r" />
+                    )}
+                    <Icon
+                      className={cn('size-[15px] shrink-0', active ? 'text-brand' : '')}
+                      strokeWidth={1.75}
+                    />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.badge && (
+                      <span className={cn(
+                        'text-[9px] font-bold px-1.5 py-0.5 rounded',
+                        item.badge === 'PRO'
+                          ? 'bg-amber/15 text-amber'
+                          : 'bg-brand-soft text-brand-ink'
+                      )}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         ))}
-      </div>
+      </nav>
 
-      <UpgradeCard tier={tier} />
+      {/* Upgrade card */}
+      {nextTier && (
+        <div className="p-3 border-t border-hairline">
+          <button
+            onClick={() => window.location.href = '/#pricing'}
+            className="w-full block p-4 rounded-xl bg-foreground text-white relative overflow-hidden group text-left"
+          >
+            <div className="absolute -top-12 -right-8 size-32 rounded-full bg-brand/40 blur-2xl group-hover:bg-brand/60 transition-colors" />
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="size-1.5 rounded-full bg-brand animate-pulse" />
+                <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/60">{tierLabel}</span>
+              </div>
+              <p className="text-sm font-display font-semibold mb-3 leading-tight">Unlock {nextTier}</p>
+              <div className="flex items-center gap-2 text-xs font-medium">
+                <span className="px-2 py-1 bg-brand text-foreground rounded-md font-semibold">Upgrade</span>
+                <span className="text-white/50">
+                  {tier === 'standard' ? 'from $149/mo' : 'from $39/mo'}
+                </span>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

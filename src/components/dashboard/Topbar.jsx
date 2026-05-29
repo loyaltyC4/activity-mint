@@ -1,175 +1,101 @@
 /**
- * Topbar — Insight Flow design system.
- * 58px height, full-width (no max-w), brand icon tile, JetBrains Mono labels.
- * Unified with landing page Minted Bento palette.
+ * Topbar — exact port of insight-flow's Topbar.tsx
+ * h-16, streaming indicator, range picker, refresh, settings, upgrade.
  */
-
 'use strict'
+import React, { useState } from 'react'
+import { RefreshCw, Settings as SettingsIcon, Sparkles } from 'lucide-react'
 
-import React from 'react'
-import { Settings, RotateCcw, Zap } from 'lucide-react'
-import { cn } from '@/lib/utils'
+const RANGES = ['7d', '30d', '90d']
 
-const RANGES = [
-  { id: '7d',  label: '7d'  },
-  { id: '30d', label: '30d' },
-  { id: '90d', label: '90d' },
-]
+export default function Topbar({
+  title, subtitle,
+  timeRange, onTimeRangeChange,
+  onSettingsClick,
+  user,
+}) {
+  const [refreshing, setRefreshing] = useState(false)
+  const accountTag = user?.user_metadata?.tracked_handle
+    ? `@${user.user_metadata.tracked_handle}`
+    : `@${user?.email?.split('@')[0] || 'you'}`
 
-export default function Topbar({ user, timeRange, onTimeRangeChange, onSettingsClick }) {
-  const handleDisplay = user?.user_metadata?.tracked_handle || user?.email?.split('@')[0] || 'you'
+  const handleRefresh = () => {
+    setRefreshing(true)
+    setTimeout(() => setRefreshing(false), 1500)
+  }
 
   return (
-    <header
-      style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        height: 58, flexShrink: 0,
-        borderBottom: '1px solid oklch(0.91 0.005 240)',
-        background: 'rgba(255,255,255,0.88)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
-        display: 'flex', alignItems: 'center',
-      }}
-    >
-      <div style={{
-        width: '100%',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 12, padding: '0 20px 0 0',
-        /* NOTE: no left padding — sidebar sits flush at 228px */
-      }}>
+    <header className="h-16 px-6 lg:px-8 border-b border-hairline bg-background/80 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between gap-4 flex-shrink-0">
 
-        {/* Left: logo tile + wordmark + handle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 16 }}>
-          {/* Brand icon tile */}
-          <div style={{
-            width: 28, height: 28, borderRadius: 7,
-            background: 'var(--brand)',
-            display: 'grid', placeItems: 'center', flexShrink: 0,
-            boxShadow: '0 2px 8px oklch(0.72 0.13 180 / 0.3)',
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                 stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3l1.912 5.813a2 2 0 001.272 1.272L21 12l-5.816 1.916a2 2 0 00-1.272 1.272L12 21l-1.912-5.812a2 2 0 00-1.272-1.272L3 12l5.816-1.915a2 2 0 001.272-1.272L12 3z"/>
-            </svg>
+      {/* Left: live dot + title + account tag */}
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="size-2 rounded-full bg-positive animate-pulse flex-shrink-0" />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display font-semibold tracking-tight text-base truncate">
+              {title}
+            </h2>
+            <span className="text-[10px] font-mono uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-brand-soft text-brand-ink flex-shrink-0">
+              {accountTag}
+            </span>
           </div>
+          {subtitle && (
+            <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+          )}
+        </div>
+      </div>
 
-          {/* Wordmark */}
-          <span style={{
-            fontFamily: '"Inter Tight", Inter, sans-serif',
-            fontSize: 15, fontWeight: 700, letterSpacing: '-0.3px',
-            color: 'oklch(0.16 0.01 240)',
-          }}>Activity Mint</span>
+      {/* Right: range + refresh + settings + divider + upgrade */}
+      <div className="flex items-center gap-2 flex-shrink-0">
 
-          {/* Handle pill */}
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            background: 'oklch(0.985 0.003 240)',
-            border: '1px solid oklch(0.91 0.005 240)',
-            borderRadius: 999, padding: '3px 10px',
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 11, fontWeight: 500,
-            color: 'oklch(0.5 0.01 240)',
-          }}>
-            <span style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: 'var(--brand)', flexShrink: 0,
-            }} />
-            @{handleDisplay}
-          </span>
+        {/* Time range picker */}
+        <div className="flex p-0.5 bg-foreground/[0.04] rounded-lg ring-1 ring-foreground/5">
+          {RANGES.map((r) => (
+            <button
+              key={r}
+              onClick={() => onTimeRangeChange?.(r)}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                timeRange === r
+                  ? 'bg-card text-foreground shadow-pane'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
         </div>
 
-        {/* Right: range + refresh + settings + upgrade */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Refresh */}
+        <button
+          onClick={handleRefresh}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground/70 hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
+        >
+          <RefreshCw
+            className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`}
+            strokeWidth={2}
+          />
+          <span className="hidden sm:inline">{refreshing ? 'Syncing' : 'Refresh'}</span>
+        </button>
 
-          {/* Time range group */}
-          <div style={{
-            display: 'flex', gap: 2,
-            background: 'oklch(0.97 0.003 240)',
-            borderRadius: 9, padding: 3,
-            border: '1px solid oklch(0.91 0.005 240)',
-          }}>
-            {RANGES.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => onTimeRangeChange(r.id)}
-                style={{
-                  borderRadius: 6, padding: '3px 10px',
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: 11, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                  border: 'none', cursor: 'pointer',
-                  transition: 'all 0.12s',
-                  background: timeRange === r.id
-                    ? '#fff'
-                    : 'transparent',
-                  color: timeRange === r.id
-                    ? 'oklch(0.16 0.01 240)'
-                    : 'oklch(0.5 0.01 240)',
-                  boxShadow: timeRange === r.id
-                    ? '0 1px 4px oklch(0 0 0 / 0.06)'
-                    : 'none',
-                }}
-              >{r.label}</button>
-            ))}
-          </div>
+        {/* Settings */}
+        <button
+          onClick={onSettingsClick}
+          className="size-8 grid place-items-center rounded-lg text-foreground/60 hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
+          title="Settings"
+        >
+          <SettingsIcon className="size-4" strokeWidth={1.75} />
+        </button>
 
-          {/* Refresh */}
-          <button
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              borderRadius: 8, border: '1px solid oklch(0.91 0.005 240)',
-              background: '#fff', padding: '5px 10px',
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: 11, fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '0.04em',
-              color: 'oklch(0.5 0.01 240)', cursor: 'pointer',
-              transition: 'color 0.12s, background 0.12s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'oklch(0.97 0.003 240)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff' }}
-            onClick={() => window.location.reload()}
-          >
-            <RotateCcw style={{ width: 12, height: 12 }} />
-            Refresh
-          </button>
+        <div className="h-5 w-px bg-hairline mx-1" />
 
-          {/* Settings */}
-          <button
-            onClick={onSettingsClick}
-            title="Settings"
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              border: '1px solid oklch(0.91 0.005 240)',
-              background: '#fff', display: 'grid', placeItems: 'center',
-              cursor: 'pointer', transition: 'background 0.12s',
-              color: 'oklch(0.5 0.01 240)',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'oklch(0.97 0.003 240)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff' }}
-          >
-            <Settings style={{ width: 14, height: 14 }} />
-          </button>
-
-          {/* Upgrade CTA */}
-          <button
-            onClick={() => window.location.href = '/#pricing'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              borderRadius: 8, border: 'none', cursor: 'pointer',
-              background: 'var(--ink)', color: '#fff',
-              padding: '5px 12px',
-              fontFamily: '"Inter Tight", Inter, sans-serif',
-              fontSize: 12, fontWeight: 700,
-              letterSpacing: '-0.01em',
-              transition: 'opacity 0.12s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82' }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
-          >
-            <Zap style={{ width: 12, height: 12 }} />
-            Upgrade
-          </button>
-        </div>
+        {/* Upgrade */}
+        <button
+          onClick={() => window.location.href = '/#pricing'}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-white text-xs font-semibold hover:bg-foreground/90 transition-all"
+        >
+          <Sparkles className="size-3.5" strokeWidth={2.25} />
+          Upgrade
+        </button>
       </div>
     </header>
   )

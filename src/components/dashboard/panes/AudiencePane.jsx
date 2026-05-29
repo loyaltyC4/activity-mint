@@ -110,7 +110,7 @@ function PaneHeader({ title, subtitle, refreshing }) {
   return (
     <div className="mb-5 flex items-end gap-3">
       <div>
-        <h1 className="text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-tight text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
         <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
       </div>
       {refreshing && (
@@ -125,7 +125,7 @@ function PaneHeader({ title, subtitle, refreshing }) {
 /* ─── Top Commenters Card ─────────────────────────────────────────────── */
 function TopCommentersCard({ data, loading, error, handle }) {
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-rose-50 text-rose-600">
           <Heart className="h-5 w-5" />
@@ -250,7 +250,7 @@ function AudienceInterestCard({ enrichedFollowers, loading }) {
   }, [enrichedFollowers])
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
           <Sparkles className="h-5 w-5" />
@@ -294,7 +294,7 @@ function AudienceInterestCard({ enrichedFollowers, loading }) {
           </div>
           {topHashtags.length > 0 && (
             <>
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#64756f]">
+              <div className="font-jbmono mb-2 text-[11px] font-bold uppercase tracking-wider text-[#64756f]">
                 Top bio hashtags
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -426,7 +426,7 @@ function GeographicSpreadCard({ enrichedFollowers, loading }) {
   }, [cities])
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-sky-50 text-sky-600">
           <MapPin className="h-5 w-5" />
@@ -501,7 +501,7 @@ function AudienceOverlapCard({ handle }) {
   }, [competitor, handle])
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
           <Users className="h-5 w-5" />

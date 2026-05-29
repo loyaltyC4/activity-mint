@@ -108,7 +108,7 @@ function PaneHeader({ title, subtitle, refreshing }) {
   return (
     <div className="mb-5 flex items-end gap-3">
       <div>
-        <h1 className="text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-tight text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
         <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
       </div>
       {refreshing && (
@@ -136,7 +136,7 @@ function MoodMeter({ scored, loading }) {
   }, [scored])
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="flex items-start gap-3 mb-4">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
           <Heart className="h-5 w-5" />
@@ -229,7 +229,7 @@ function ThemeCloud({ comments, loading }) {
   }, [comments])
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="flex items-start gap-3 mb-4">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
           <MessageSquare className="h-5 w-5" />
@@ -307,7 +307,7 @@ function WatchList({ comments, loading }) {
   }, [comments])
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
       <div className="flex items-start gap-3 mb-4">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600">
           <AlertCircle className="h-5 w-5" />
@@ -430,7 +430,7 @@ export default function SentimentPane({ timeRange }) {
       <>
         <PaneHeader title="Sentiment" subtitle="Loading your tracked handle…" />
         <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-3xl" />)}
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-2xl" />)}
         </div>
       </>
     )
@@ -440,7 +440,7 @@ export default function SentimentPane({ timeRange }) {
     return (
       <>
         <PaneHeader title="Sentiment" subtitle="Add an Instagram handle first" />
-        <div className="rounded-3xl bg-white p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] text-center">
+        <div className="rounded-2xl bg-white p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] text-center">
           <MessageCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
           <div className="font-bold text-slate-700 mb-1">No tracked handle yet</div>
           <div className="text-sm text-[#64756f]">

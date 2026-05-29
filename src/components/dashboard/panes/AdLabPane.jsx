@@ -134,7 +134,7 @@ function AdCard({ ad, onReplicate }) {
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] flex flex-col gap-3">
+    <div className="rounded-2xl bg-white p-5 shadow-pane flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className="grid h-12 w-12 place-items-center rounded-xl bg-amber-50 text-amber-600 shrink-0">
@@ -287,7 +287,7 @@ export default function AdLabPane({ timeRange }) {
         subtitle="Meta Ad Library longevity — see which competitor ads are actually scaling"
       />
 
-      <div className="rounded-3xl bg-white p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.05)] mb-4">
+      <div className="rounded-2xl bg-white border border-[var(--hairline)] p-5 shadow-pane mb-4">
         <div className="text-xs font-bold uppercase tracking-wider text-[#64756f] mb-2">Track an advertiser</div>
         <div className="flex gap-2">
           <input
@@ -326,7 +326,7 @@ export default function AdLabPane({ timeRange }) {
       )}
 
       {!loading && !error && !data && (
-        <div className="rounded-3xl bg-white p-12 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+        <div className="rounded-2xl bg-white border border-[var(--hairline)] p-12 text-center shadow-pane">
           <Megaphone className="mx-auto h-12 w-12 text-slate-300" />
           <h3 className="mt-3 text-base font-bold text-slate-900">Search to begin</h3>
           <p className="mt-1 text-sm text-[#64756f]">Enter an advertiser's Meta Ad Library URL or page ID above to see their active ads ranked by longevity.</p>
@@ -336,17 +336,17 @@ export default function AdLabPane({ timeRange }) {
       {ads.length > 0 && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div className="rounded-2xl bg-white p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+            <div className="rounded-2xl bg-white p-4 shadow-pane">
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Scaling (30+ days)</div>
               <div className="text-2xl font-extrabold text-emerald-700 mt-1">{scaling.length}</div>
               <div className="text-[11px] text-[#64756f] mt-1">Ads still live after a month - likely profitable</div>
             </div>
-            <div className="rounded-2xl bg-white p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+            <div className="rounded-2xl bg-white p-4 shadow-pane">
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Steady (7-30 days)</div>
               <div className="text-2xl font-extrabold text-amber-700 mt-1">{steady.length}</div>
               <div className="text-[11px] text-[#64756f] mt-1">Past the burn-out window - watch these</div>
             </div>
-            <div className="rounded-2xl bg-white p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+            <div className="rounded-2xl bg-white p-4 shadow-pane">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700">Total fetched</div>
               <div className="text-2xl font-extrabold text-slate-700 mt-1">{ads.length}</div>
               <div className="text-[11px] text-[#64756f] mt-1">For {data?.page_name || 'this advertiser'}</div>

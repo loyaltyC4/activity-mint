@@ -14,7 +14,7 @@
 'use strict'
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell, Sparkles, Radio, Smile, Brain, Loader2 } from 'lucide-react'
+import { Flame, TrendingUp, Activity, Heart, MessageCircle, Clock, Bell, Sparkles, Radio, Smile, Brain, Loader2, ArrowRight, Eye, Plus, Mic } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '../../../context/AuthContext'
 import { useTrackedAccount } from '../../../context/TrackedAccountContext'

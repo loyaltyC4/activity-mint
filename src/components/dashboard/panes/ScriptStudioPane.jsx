@@ -87,7 +87,7 @@ function DistributionCard({ distribution, baselines, buckets }) {
   const maxCount = Math.max(1, ...counts)
 
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-teal-50 text-teal-600">
           <BarChart3 className="h-5 w-5" />
@@ -126,7 +126,7 @@ function LexiconCard({ lexicon }) {
   const winners = lexicon.winners || []
   const losers = lexicon.losers || []
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
           <Sparkles className="h-5 w-5" />
@@ -181,7 +181,7 @@ function BlueprintCard({ blueprint }) {
     { label: 'Avg length', value: `${blueprint.avg_length} chars`, share: null },
   ]
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
           <FileText className="h-5 w-5" />
@@ -244,7 +244,7 @@ function ScriptsCard({ scripts, scriptsAi }) {
   const hasAi = Array.isArray(scriptsAi) && scriptsAi.length > 0
   const list = hasAi ? scriptsAi : scripts
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="mb-4 flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600">
           <PenTool className="h-5 w-5" />
@@ -291,7 +291,7 @@ function ScriptsCard({ scripts, scriptsAi }) {
 
 function PlaceholderCard({ title, subtitle }) {
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="text-base font-bold">{title}</div>
       <div className="mt-1 text-xs text-[#64756f]">{subtitle}</div>
       <div className="mt-4 grid place-items-center py-8 text-slate-400">
@@ -490,7 +490,7 @@ export default function ScriptStudioPane({ timeRange }) {
     return (
       <>
         <PaneHeader title="Script Studio" subtitle="Mathematical copywriting blueprint from your post history" />
-        <div className="rounded-3xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
           <PenTool className="mx-auto h-10 w-10 text-slate-300" />
           <h3 className="mt-3 text-base font-bold text-slate-900">Track an account first</h3>
           <p className="mt-1 text-sm text-[#64756f]">Add an Instagram account in your dashboard to unlock Script Studio.</p>
@@ -505,7 +505,7 @@ export default function ScriptStudioPane({ timeRange }) {
     return (
       <>
         <PaneHeader title="Script Studio" subtitle={`@${handle}`} onRefresh={() => hydrate(handle, { force: true })} />
-        <div className="rounded-3xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
           <PenTool className="mx-auto h-10 w-10 text-slate-300" />
           <h3 className="mt-3 text-base font-bold text-slate-900">
             {isNoData ? 'Not enough posts to analyse' : isNetwork ? 'Temporarily unavailable' : 'Analysis couldn\'t complete'}
@@ -548,7 +548,7 @@ export default function ScriptStudioPane({ timeRange }) {
         onRefresh={() => hydrate(handle, { force: true })}
       />
       {insufficient && (
-        <div className="rounded-3xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
           <PenTool className="mx-auto h-10 w-10 text-slate-300" />
           <h3 className="mt-3 text-base font-bold text-slate-900">Not enough posts yet</h3>
           <p className="mt-1 text-sm text-[#64756f]">We need at least 10 recent posts to compute a baseline. @{handle} has {data.posts_count} so far.</p>
@@ -558,13 +558,13 @@ export default function ScriptStudioPane({ timeRange }) {
         <div className="space-y-4">
           {ready ? (
             <DistributionCard distribution={data.distribution} baselines={data.baselines} buckets={data.buckets} />
-          ) : <Skeleton className="h-44 w-full rounded-3xl" />}
+          ) : <Skeleton className="h-44 w-full rounded-2xl" />}
           {ready ? (
             <LexiconCard lexicon={data.lexicon} />
-          ) : <Skeleton className="h-64 w-full rounded-3xl" />}
+          ) : <Skeleton className="h-64 w-full rounded-2xl" />}
           {ready ? (
             <BlueprintCard blueprint={data.blueprint} />
-          ) : <Skeleton className="h-32 w-full rounded-3xl" />}
+          ) : <Skeleton className="h-32 w-full rounded-2xl" />}
           {ready ? (
             <>
               <div className="flex items-center justify-between mb-2">
@@ -573,7 +573,7 @@ export default function ScriptStudioPane({ timeRange }) {
               </div>
               <ScriptsCard scripts={data.scripts} scriptsAi={data.scripts_ai} />
             </>
-          ) : <Skeleton className="h-48 w-full rounded-3xl" />}
+          ) : <Skeleton className="h-48 w-full rounded-2xl" />}
         </div>
       )}
     </>

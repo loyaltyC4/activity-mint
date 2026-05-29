@@ -22,6 +22,7 @@ import {
   Smile, Frown, Meh, Loader2, MessageCircle,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import SectionCard from '../shared/SectionCard'
 import { useAuth } from '../../../context/AuthContext'
 import { useTrackedAccount } from '../../../context/TrackedAccountContext'
 import { supabase } from '../../../lib/supabase'
@@ -108,7 +109,7 @@ function PaneHeader({ title, subtitle, refreshing }) {
   return (
     <div className="mb-5 flex items-end gap-3">
       <div>
-        <h1 className="font-tight text-[1.6rem] font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-display font-bold text-4xl tracking-tight leading-[1.05]">{title}</h1>
         <div className="mt-0.5 text-sm text-[#64756f]">{subtitle}</div>
       </div>
       {refreshing && (
@@ -136,7 +137,7 @@ function MoodMeter({ scored, loading }) {
   }, [scored])
 
   return (
-    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="flex items-start gap-3 mb-4">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
           <Heart className="h-5 w-5" />
@@ -229,7 +230,7 @@ function ThemeCloud({ comments, loading }) {
   }, [comments])
 
   return (
-    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="flex items-start gap-3 mb-4">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
           <MessageSquare className="h-5 w-5" />
@@ -250,7 +251,7 @@ function ThemeCloud({ comments, loading }) {
       {themes.words.length > 0 && (
         <>
           <div className="mb-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-[#64756f] mb-2">Top words</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">Top words</div>
             <div className="flex flex-wrap gap-1.5">
               {themes.words.map(([w, c], i) => {
                 // Size by frequency: top words bigger
@@ -269,7 +270,7 @@ function ThemeCloud({ comments, loading }) {
           </div>
           {themes.hashtags.length > 0 && (
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-[#64756f] mb-2">Hashtags</div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">Hashtags</div>
               <div className="flex flex-wrap gap-1.5">
                 {themes.hashtags.map(([h, c]) => (
                   <span key={h} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
@@ -307,7 +308,7 @@ function WatchList({ comments, loading }) {
   }, [comments])
 
   return (
-    <div className="rounded-2xl bg-white p-6 border border-[var(--hairline)] shadow-pane">
+    <div className="rounded-2xl bg-card ring-1 ring-foreground/[0.06] p-6 shadow-pane">
       <div className="flex items-start gap-3 mb-4">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600">
           <AlertCircle className="h-5 w-5" />

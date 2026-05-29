@@ -595,8 +595,8 @@
     </nav>
 
     <div class="nav-actions">
-      <a href="#" class="nav-signin">Sign in</a>
-      <a href="#get-started" class="btn-primary">Get started</a>
+      <a href="/app?auth=signin" class="nav-signin">Sign in</a>
+      <a href="/app?action=signup" class="btn-primary">Get started</a>
     </div>
   </div>
 </header>
@@ -655,7 +655,7 @@
           </div>
 
           <p class="picker-label picker-handle-label">2. Add your handle</p>
-          <form class="handle-form" onsubmit="goToDashboard(event)">
+          <form class="handle-form" onsubmit="submitHandle(event)">
             <div class="handle-input-wrap">
               <span class="handle-prefix" id="handle-prefix">@</span>
               <input
@@ -937,7 +937,7 @@
           <li class="plan-feature" style="opacity:0.5;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>AI scripts &amp; carousels</span></li>
           <li class="plan-feature" style="opacity:0.5;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Ad Intelligence</span></li>
         </ul>
-        <button class="plan-cta outline-cta">Get started free</button>
+        <button class="plan-cta outline-cta" onclick="window.location.href='/app?action=signup'">Get started free</button>
       </div>
 
       <!-- Solo-Hunter -->
@@ -958,7 +958,7 @@
           <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Steal This Script™ templates</span></li>
           <li class="plan-feature" style="opacity:0.5;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Competitor Ad Intelligence</span></li>
         </ul>
-        <button class="plan-cta primary-cta">Start Solo-Hunter →</button>
+        <button class="plan-cta primary-cta" onclick="window.location.href='/app?action=signup&plan=solo-hunter'">Start Solo-Hunter →</button>
       </div>
 
       <!-- Pipeline Intercept -->
@@ -978,7 +978,7 @@
           <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>50 HD AI carousels / month</span></li>
           <li class="plan-feature"><svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Priority data processing</span></li>
         </ul>
-        <button class="plan-cta outline-cta">Start Pipeline Intercept →</button>
+        <button class="plan-cta outline-cta" onclick="window.location.href='/app?action=signup&plan=pipeline'">Start Pipeline Intercept →</button>
       </div>
     </div>
 
@@ -1031,7 +1031,7 @@
     <h2 class="cta-h2">Start free. Upgrade when the data tells you to.</h2>
     <p class="cta-sub">Your first baseline audit is free — no card, no commitment. When Content Lab shows you what your next post should be, you'll know exactly which tier to upgrade to.</p>
     <div class="cta-buttons">
-      <a href="#get-started" class="btn-cta-primary">Analyse my content →</a>
+      <a href="/app?action=signup" class="btn-cta-primary">Analyse my content →</a>
       <a href="#pricing" class="btn-cta-outline">Compare plans</a>
     </div>
     <p style="margin-top:1.25rem;font-size:0.75rem;color:oklch(0.99 0 0 / 0.45);">Free tier available · no credit card · takes 8 seconds</p>
@@ -1134,8 +1134,9 @@
         <li><a href="#features">Features</a></li>
         <li><a href="#how">How it works</a></li>
         <li><a href="#pricing">Pricing</a></li>
+        <li><a href="/app">Dashboard</a></li>
         <li><a href="/dashboard">Dashboard</a></li>
-        <li><a href="#get-started">7-day trial</a></li>
+        <li><a href="/app?action=signup">Get started free</a></li>
       </ul>
     </div>
 
@@ -1143,12 +1144,12 @@
     <div class="footer-col">
       <h4>Panes</h4>
       <ul>
-        <li><a href="#">Pulse</a></li>
-        <li><a href="#">Content Lab</a></li>
-        <li><a href="#">Script Studio</a></li>
-        <li><a href="#">Ad Intelligence</a></li>
-        <li><a href="#">Competitor Intel</a></li>
-        <li><a href="#">Next Post</a></li>
+        <li><a href="/app">Pulse</a></li>
+        <li><a href="/app">Content Lab</a></li>
+        <li><a href="/app">Script Studio</a></li>
+        <li><a href="/app">Ad Intelligence</a></li>
+        <li><a href="/app">Competitor Intel</a></li>
+        <li><a href="/app">Next Post</a></li>
       </ul>
     </div>
 
@@ -1210,10 +1211,14 @@
     document.getElementById('handle-input').placeholder = placeholders[platform];
   }
 
-  function goToDashboard(e) {
+  function submitHandle(e) {
     e.preventDefault();
-    // In a real app this would navigate; here we scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const handle = document.getElementById('handle-input').value.trim().replace(/^@/, '');
+    if (handle) {
+      window.location.href = '/app?handle=' + encodeURIComponent(handle);
+    } else {
+      window.location.href = '/app?action=signup';
+    }
   }
 
   /* ── Scroll Feature Showcase ── */

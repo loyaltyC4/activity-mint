@@ -339,9 +339,9 @@ const FaqItem = ({ q, a, isOpen, onToggle }) => (
 
 /* ─── Auth Modal ────────────────────────────────────────────────────────── */
 
-const AuthModal = ({ onClose }) => {
+const AuthModal = ({ onClose, initialMode = 'login' }) => {
   const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [mode, setMode] = useState(initialMode); // 'login' | 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -440,6 +440,43 @@ export default function App() {
   const [demoResult, setDemoResult] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+
+  // ── Handle landing page CTAs that navigate to /app with query params ──
+  // ?action=signup  → open modal in signup mode
+  // ?auth=signin    → open modal in login mode
+  // ?handle=X       → pre-fill the search handle
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const auth   = params.get('auth');
+    const handle = params.get('handle');
+    if (action === 'signup') {
+      setAuthMode('signup');
+      setAuthOpen(true);
+    } else if (auth === 'signin' || auth === 'open') {
+      setAuthMode('login');
+      setAuthOpen(true);
+    }
+    if (handle) {
+      setSearchQuery(decodeURIComponent(handle));
+    }
+  }, []); // mount only
+
+  // When user logs in (or is already logged in) after arriving from landing,
+  // redirect straight to the dashboard tab.
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    if (
+      window.location.pathname === '/app' ||
+      params.get('action') ||
+      params.get('auth') ||
+      params.get('handle')
+    ) {
+      setActiveTab('dashboard');
+    }
+  }, [user]);
 
   const [searchError, setSearchError] = useState('');
 
@@ -485,7 +522,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-emerald-200">
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} initialMode={authMode} />}
 
       {/* Nav */}
       <nav className="fixed top-0 w-full bg-white/80 backdrop-blur-md z-50 border-b border-slate-100">

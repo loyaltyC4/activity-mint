@@ -728,6 +728,87 @@ export default function ContentLabPane({ timeRange }) {
         </div>
       )}
 
+
+      {/* Frame breakdown + Ingredient list */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3">
+          <SectionCard
+            title="Frame breakdown"
+            subtitle="Your best-performing post, deconstructed beat by beat"
+            action={<span className="text-[10px] font-mono uppercase tracking-[0.15em] text-brand-ink bg-brand-soft px-2 py-1 rounded">47s · 5 beats</span>}
+          >
+            <div className="space-y-2.5">
+              {[
+                { t: '00:00', role: 'Hook',    note: 'Direct-to-camera. Bold claim. No music yet.',      weight: 92 },
+                { t: '00:03', role: 'Tension', note: 'Reframes the claim into a contrarian question.',   weight: 78 },
+                { t: '00:08', role: 'Proof',   note: 'Cuts to overlay graphic with one stat.',           weight: 84 },
+                { t: '00:14', role: 'Method',  note: 'Three rapid B-roll cuts demonstrating process.',   weight: 70 },
+                { t: '00:28', role: 'Payoff',  note: 'Returns to talking head. Sharp single-line CTA.', weight: 88 },
+              ].map((f, i) => (
+                <div key={i} className="group flex items-stretch gap-3 p-3 rounded-xl hover:bg-foreground/[0.03] transition-colors">
+                  <div className="w-12 shrink-0 flex flex-col items-center pt-1">
+                    <div className="text-[10px] font-mono font-bold tabular-nums text-foreground">{f.t}</div>
+                    <div className="flex-1 w-px bg-hairline mt-1.5 group-hover:bg-brand transition-colors" />
+                  </div>
+                  <div className="size-12 rounded-lg bg-gradient-to-br from-foreground/90 via-brand-ink to-brand shrink-0 grid place-items-center">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-white/70">{f.role.slice(0,1)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-sm font-semibold tracking-tight">{f.role}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground tabular-nums">weight {f.weight}</span>
+                    </div>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed">{f.note}</p>
+                    <div className="mt-2 h-1 bg-foreground/[0.05] rounded-full overflow-hidden">
+                      <div className="h-full bg-brand rounded-full" style={{ width: `${f.weight}%`, transition: 'width 1.2s cubic-bezier(0.19,1,0.22,1)' }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          <SectionCard title="Ingredient list" subtitle="Everything you need to reproduce it">
+            <div className="space-y-4">
+              {[
+                { label: 'Shot list',      value: '5 cuts · 1 talking head, 3 B-roll, 1 overlay' },
+                { label: 'Sound',          value: 'Trending sound — "Linger" by Forrest Frank' },
+                { label: 'On-screen text', value: '3 captions · 28-32px · top-thirds anchored' },
+                { label: 'Pacing',         value: 'Avg cut every 4.6s · hook held for 3s' },
+                { label: 'Hashtags',       value: '#offer #copywriting #foundermode + 4 niche' },
+                { label: 'Caption frame',  value: 'Hook · Story · Lesson · CTA (Hormozi P-S-O)' },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-0.5">{label}</div>
+                    <div className="text-sm font-medium leading-relaxed">{value}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard tone="ink" padded>
+            <div className="absolute -top-8 -right-8 size-40 bg-brand/25 blur-3xl rounded-full pointer-events-none" />
+            <div className="relative">
+              <h3 className="font-display font-bold text-lg tracking-tight leading-tight mb-2 text-white">Ship to Script Studio</h3>
+              <p className="text-sm text-white/60 leading-relaxed mb-5">
+                Send this exact framework into an editable script with your handle's voice already applied.
+              </p>
+              <button className="w-full py-3 bg-white text-foreground rounded-xl font-semibold text-sm hover:bg-white/95 transition-all flex items-center justify-center gap-2 group mb-2.5">
+                Replicate in Script Studio
+                <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.25} />
+              </button>
+              <button className="w-full py-2 bg-white/10 text-white/70 rounded-xl text-xs font-medium hover:bg-white/15 transition-all flex items-center justify-center gap-2">
+                ↓ Export brief (PDF)
+              </button>
+            </div>
+          </SectionCard>
+        </div>
+      </div>
+
       {/* Generated slides panel */}
       <GeneratedSlidesPanel
         open={panelOpen}

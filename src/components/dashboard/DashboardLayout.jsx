@@ -1,6 +1,8 @@
 /**
- * Layout shell: topbar at the top, sidebar on the left, pane content centre.
- * Each pane is lazy-loaded so the initial bundle stays small.
+ * Dashboard layout shell.
+ * Full-page: h-screen overflow-hidden with scrolling only in the content area.
+ * Design system: Insight Flow tokens (brand teal, Inter Tight, JetBrains Mono)
+ * unified with the Minted Bento landing page palette.
  */
 
 'use strict'
@@ -12,32 +14,32 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { PANES } from './index'
 
 // ── Lazy-loaded panes ────────────────────────────────────────────────────
-const PulsePane       = lazy(() => import('./panes/PulsePane'))
-const AudiencePane    = lazy(() => import('./panes/AudiencePane'))
-const ContentPane     = lazy(() => import('./panes/ContentLabPane'))
-const ScriptStudioPane = lazy(() => import('./panes/ScriptStudioPane'))
-const SentimentPane   = lazy(() => import('./panes/SentimentPane'))
-const TrendsPane      = lazy(() => import('./panes/TrendsPane'))
-const AdLabPane       = lazy(() => import('./panes/AdLabPane'))
-const NextPostPane    = lazy(() => import('./panes/NextPostPane'))
+const PulsePane          = lazy(() => import('./panes/PulsePane'))
+const AudiencePane       = lazy(() => import('./panes/AudiencePane'))
+const ContentPane        = lazy(() => import('./panes/ContentLabPane'))
+const ScriptStudioPane   = lazy(() => import('./panes/ScriptStudioPane'))
+const SentimentPane      = lazy(() => import('./panes/SentimentPane'))
+const TrendsPane         = lazy(() => import('./panes/TrendsPane'))
+const AdLabPane          = lazy(() => import('./panes/AdLabPane'))
+const NextPostPane       = lazy(() => import('./panes/NextPostPane'))
 const TemplateStudioPane = lazy(() => import('./panes/TemplateStudioPane'))
-const OutreachPane    = lazy(() => import('./panes/OutreachPane'))
-const ToolsPane       = lazy(() => import('./panes/ToolsPane'))
-const CompetitorsPane = lazy(() => import('./panes/CompetitorsPane'))
-const RewardsPane     = lazy(() => import('./panes/RewardsPane'))
-const SettingsPane    = lazy(() => import('./panes/SettingsPane'))
+const OutreachPane       = lazy(() => import('./panes/OutreachPane'))
+const ToolsPane          = lazy(() => import('./panes/ToolsPane'))
+const CompetitorsPane    = lazy(() => import('./panes/CompetitorsPane'))
+const RewardsPane        = lazy(() => import('./panes/RewardsPane'))
+const SettingsPane       = lazy(() => import('./panes/SettingsPane'))
 
 function PanePlaceholder({ paneId }) {
   const meta = PANES[paneId]
   return (
-    <div className="rounded-3xl bg-card p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-      <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-2xl border border-[var(--hairline)] bg-card p-8 shadow-pane">
+      <div className="mb-1.5 font-jbmono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
         {meta?.group}
       </div>
-      <h2 className="text-2xl font-bold tracking-tight">{meta?.label}</h2>
-      <p className="mt-2 text-sm text-muted-foreground">Coming in the next phase 2 commit.</p>
+      <h2 className="font-tight text-2xl font-bold tracking-tight">{meta?.label}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Coming soon.</p>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
       </div>
     </div>
   )
@@ -45,11 +47,11 @@ function PanePlaceholder({ paneId }) {
 
 function PaneFallback() {
   return (
-    <div className="rounded-3xl bg-white p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-      <Skeleton className="h-8 w-1/3 rounded-full" />
-      <Skeleton className="mt-2 h-4 w-1/2 rounded-full" />
+    <div className="rounded-2xl border border-[var(--hairline)] bg-card p-6 shadow-pane">
+      <Skeleton className="h-6 w-1/4 rounded-full" />
+      <Skeleton className="mt-2 h-4 w-2/5 rounded-full" />
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[0,1,2,3].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+        {[0,1,2,3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
       </div>
     </div>
   )
@@ -81,19 +83,37 @@ export default function DashboardLayout({
   timeRange, onTimeRangeChange,
 }) {
   return (
-    <div className="min-h-screen bg-[#f7faf9] text-foreground antialiased">
+    /* Full-page shell — only the content column scrolls */
+    <div className="flex h-screen flex-col overflow-hidden"
+         style={{ background: 'oklch(0.99 0.002 180)', color: 'oklch(0.16 0.01 240)' }}>
+
       <Topbar
         user={user}
         timeRange={timeRange}
         onTimeRangeChange={onTimeRangeChange}
         onSettingsClick={() => onPaneChange('settings')}
       />
-      <div className="mx-auto flex max-w-[1400px]">
-        <Sidebar user={user} tier={tier} activePane={activePane} onPaneChange={onPaneChange} />
-        <main className="min-w-0 flex-1 px-7 pb-24 pt-7">
-          <Suspense fallback={<PaneFallback />}>
-            <PaneRouter paneId={activePane} timeRange={timeRange} />
-          </Suspense>
+
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar
+          user={user}
+          tier={tier}
+          activePane={activePane}
+          onPaneChange={onPaneChange}
+        />
+
+        {/* Scrollable content column */}
+        <main
+          className="min-w-0 flex-1 overflow-y-auto"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'oklch(0.85 0.005 240) transparent' }}
+        >
+          <div className="px-6 py-6 pb-12 md:px-8">
+            <div key={activePane} className="animate-entrance">
+              <Suspense fallback={<PaneFallback />}>
+                <PaneRouter paneId={activePane} timeRange={timeRange} />
+              </Suspense>
+            </div>
+          </div>
         </main>
       </div>
     </div>

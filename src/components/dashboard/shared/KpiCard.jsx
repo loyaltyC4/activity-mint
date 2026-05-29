@@ -1,159 +1,257 @@
 /**
- * KPI tile: label, big number, trend delta, and an engaging area-sparkline
- * rendered from REAL data passed via the `sparkData` prop.
+ * KPI tile — Insight Flow design system.
  *
- * Speed-v6 visual upgrade:
- *   - Smooth cubic bezier path instead of straight polyline
- *   - Linear-gradient fill below the line (per-color)
- *   - Subtle dot at the latest datapoint
- *   - Hover ring + accent glow on the card
- *   - Stagger entrance via `animate-in fade-in slide-in-from-bottom-2`
- *   - When no data: a gentle placeholder dashed line so the card never feels empty
+ * Shimmer loading → animated bar sparkline → value count-up.
+ * Font: Inter Tight for numbers, JetBrains Mono for labels.
+ * Icon tile: 28×28, 7px radius, color-matched.
+ * shadow-glow on hover + featured cards.
  */
 
 'use strict'
 
-import React, { useId, useMemo } from 'react'
-import { TrendingUp } from 'lucide-react'
+import React, { useId, useMemo, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
-const STROKE = {
-  teal:   '#14b8a6',
-  sky:    '#0ea5e9',
-  coral:  '#f43f5e',
-  violet: '#8b5cf6',
-  amber:  '#f59e0b',
+// ── Color maps ────────────────────────────────────────────────────────────
+const COLORS = {
+  teal:   { stroke: 'var(--brand)',    tile: 'var(--brand-soft)', icon: 'var(--brand)' },
+  sky:    { stroke: 'oklch(0.68 0.13 230)', tile: 'oklch(0.96 0.03 230)', icon: 'oklch(0.55 0.13 230)' },
+  coral:  { stroke: 'var(--negative)', tile: 'oklch(0.96 0.04 25)', icon: 'var(--negative)' },
+  violet: { stroke: 'var(--violet)',   tile: 'oklch(0.95 0.04 290)', icon: 'var(--violet)' },
+  amber:  { stroke: 'var(--amber)',    tile: 'oklch(0.96 0.04 75)', icon: 'var(--amber)' },
+  green:  { stroke: 'var(--positive)', tile: 'oklch(0.94 0.04 160)', icon: 'var(--positive)' },
 }
 
-const ICON_TINT = {
-  teal:   ['text-teal-500',   'ring-teal-100'],
-  sky:    ['text-sky-500',    'ring-sky-100'],
-  coral:  ['text-rose-500',   'ring-rose-100'],
-  violet: ['text-violet-600', 'ring-violet-100'],
-  amber:  ['text-amber-500',  'ring-amber-100'],
-}
-
-/**
- * Smooth cubic-bezier SVG path through points using Catmull-Rom-to-Bezier
- * conversion. tension ~0.18 keeps the curve hugging the data without
- * dramatic overshoot.
- */
-function smoothPath(points, tension = 0.18) {
-  if (points.length < 2) return ''
-  const parts = [`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`]
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] || points[i]
-    const p1 = points[i]
-    const p2 = points[i + 1]
-    const p3 = points[i + 2] || p2
-    const cp1x = p1.x + (p2.x - p0.x) * tension
-    const cp1y = p1.y + (p2.y - p0.y) * tension
-    const cp2x = p2.x - (p3.x - p1.x) * tension
-    const cp2y = p2.y - (p3.y - p1.y) * tension
-    parts.push(`C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`)
-  }
-  return parts.join(' ')
-}
-
-function AreaSparkline({ data, color = 'teal', emptyHint }) {
-  const id = useId()
-  const stroke = STROKE[color] || STROKE.teal
-  const W = 140
-  const H = 38
-
-  const safe = useMemo(() => {
-    if (!Array.isArray(data) || data.length === 0) return []
-    return data.map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0))
+// ── Animated bar sparkline ─────────────────────────────────────────────────
+function BarSparkline({ data = [], color = 'teal', animate = true }) {
+  const cols = COLORS[color] || COLORS.teal
+  const bars = useMemo(() => {
+    const safe = Array.isArray(data) ? data.slice(-10) : []
+    if (safe.length === 0) return Array(8).fill(0.15)
+    const mx = Math.max(...safe, 0.001)
+    return safe.map((v) => Math.max(0.08, (v / mx)))
   }, [data])
 
-  if (safe.length < 2) {
-    return (
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mt-3">
-        <line x1="0" y1={H / 2} x2={W} y2={H / 2}
-          stroke={stroke} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.25" />
-        {emptyHint && (
-          <text x={W / 2} y={H / 2 + 4} textAnchor="middle"
-            style={{ fontSize: 8, opacity: 0.5, fill: stroke }}>{emptyHint}</text>
-        )}
-      </svg>
-    )
-  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2.5, height: 28, marginTop: 10 }}>
+      {bars.map((pct, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1,
+            borderRadius: 3,
+            background: cols.stroke,
+            opacity: 0.3 + pct * 0.7,
+            height: `${Math.round(pct * 100)}%`,
+            '--fill-w': `${Math.round(pct * 100)}%`,
+            animation: animate
+              ? `bar-fill 0.9s cubic-bezier(0.19,1,0.22,1) ${i * 55}ms both`
+              : 'none',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
 
-  const max = Math.max(...safe)
-  const min = Math.min(...safe)
-  const range = max - min || 1
-  const step = (W - 4) / (safe.length - 1)
-  const pts = safe.map((v, i) => ({
-    x: 2 + i * step,
-    y: H - 4 - ((v - min) / range) * (H - 10),
-  }))
+// ── Smooth SVG area sparkline (fallback for single-value data) ─────────────
+function AreaSparkline({ data = [], color = 'teal' }) {
+  const id = useId()
+  const cols = COLORS[color] || COLORS.teal
+  const W = 120, H = 32
 
-  const path = smoothPath(pts)
-  const areaPath = `${path} L ${pts[pts.length - 1].x.toFixed(1)} ${H} L ${pts[0].x.toFixed(1)} ${H} Z`
+  const pts = useMemo(() => {
+    const safe = Array.isArray(data) ? data.filter(Number.isFinite) : []
+    if (safe.length < 2) return []
+    const mn = Math.min(...safe), mx = Math.max(...safe)
+    const rng = mx - mn || 1
+    return safe.map((v, i) => ({
+      x: (i / (safe.length - 1)) * W,
+      y: H - 4 - ((v - mn) / rng) * (H - 8),
+    }))
+  }, [data])
+
+  if (pts.length < 2) return (
+    <div style={{ height: 28, marginTop: 10,
+      display: 'flex', alignItems: 'flex-end', gap: 2.5 }}>
+      {[0.2,0.4,0.3,0.6,0.5,0.8,0.7,1].map((h, i) => (
+        <div key={i} style={{
+          flex: 1, borderRadius: 3, height: `${h * 100}%`,
+          background: cols.stroke, opacity: 0.15,
+        }} />
+      ))}
+    </div>
+  )
+
+  const path = pts.map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`)).join(' ')
+  const area = `${path} L${pts[pts.length-1].x},${H} L0,${H} Z`
+  const last = pts[pts.length - 1]
 
   return (
-    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="mt-3 overflow-visible">
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}
+         preserveAspectRatio="none" style={{ marginTop: 10, display: 'block' }}>
       <defs>
         <linearGradient id={`g-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.32" />
-          <stop offset="80%" stopColor={stroke} stopOpacity="0.04" />
-          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+          <stop offset="0" stopColor={cols.stroke} stopOpacity="0.2" />
+          <stop offset="1" stopColor={cols.stroke} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={areaPath} fill={`url(#g-${id})`} />
-      <path d={path} fill="none" stroke={stroke} strokeWidth="2.25"
-        strokeLinecap="round" strokeLinejoin="round" />
-      {/* Last-point "current" dot */}
-      <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y}
-        r="2.6" fill={stroke} stroke="white" strokeWidth="1.5" />
+      <path d={area} fill={`url(#g-${id})`} />
+      <path d={path} fill="none" stroke={cols.stroke} strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last.x} cy={last.y} r="3" fill={cols.stroke} />
     </svg>
   )
 }
 
+// ── Count-up hook ──────────────────────────────────────────────────────────
+function useCountUp(target, duration = 700, enabled = true) {
+  const [val, setVal] = useState(0)
+  const start = useRef(null)
+
+  useEffect(() => {
+    if (!enabled || typeof target !== 'number') { setVal(target); return }
+    const step = (ts) => {
+      if (!start.current) start.current = ts
+      const pct = Math.min((ts - start.current) / duration, 1)
+      const ease = 1 - Math.pow(1 - pct, 3) // cubic ease-out
+      setVal(target * ease)
+      if (pct < 1) requestAnimationFrame(step)
+    }
+    start.current = null
+    requestAnimationFrame(step)
+  }, [target, enabled])
+
+  return val
+}
+
+// ── Format value ───────────────────────────────────────────────────────────
+function fmt(raw, format, animated) {
+  const v = animated ?? raw
+  if (format === 'k')   return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : Math.round(v).toString()
+  if (format === 'pct') return `${typeof v === 'number' ? v.toFixed(1) : v}%`
+  if (format === 'int') return Math.round(v).toLocaleString()
+  return `${Math.round(v)}`
+}
+
+// ── Main KpiCard ───────────────────────────────────────────────────────────
 export default function KpiCard({
-  label,
+  label = '',
   value,
-  trend,
-  trendLabel,
-  Icon,
-  emoji,
-  sparkData,
-  sparkColor = 'teal',
-  emptyHint = 'No data yet',
-  index = 0,
+  format = 'int',
+  delta,
+  trend = 'up',
+  color = 'teal',
+  icon: IconComponent,
+  sparkData = [],
+  loading = false,
+  className,
+  style,
 }) {
-  const trendPositive = trend === undefined || trend === null ? null : trend >= 0
-  const [iconCls, ringCls] = ICON_TINT[sparkColor] || ICON_TINT.teal
+  const cols = COLORS[color] || COLORS.teal
+  const animated = useCountUp(
+    typeof value === 'number' ? value : 0,
+    700,
+    !loading && typeof value === 'number',
+  )
+
+  // Shimmer loading state
+  if (loading) {
+    return (
+      <div className={cn('rounded-2xl overflow-hidden', className)}
+           style={{
+             padding: 16, minHeight: 110,
+             background: 'oklch(0.985 0.003 240)',
+             border: '1px solid oklch(0.91 0.005 240)',
+             position: 'relative',
+             ...style,
+           }}>
+        {/* Shimmer sweep */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.65) 50%,transparent 100%)',
+          animation: 'shimmer 1.4s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+        <div style={{ height: 11, width: '55%', borderRadius: 6,
+          background: 'oklch(0.92 0.005 240)', marginBottom: 10 }} />
+        <div style={{ height: 26, width: '40%', borderRadius: 6,
+          background: 'oklch(0.92 0.005 240)', marginBottom: 8 }} />
+        <div style={{ height: 10, width: '60%', borderRadius: 6,
+          background: 'oklch(0.92 0.005 240)' }} />
+      </div>
+    )
+  }
+
+  const isUp = trend === 'up'
+  const displayVal = fmt(value, format, animated)
+
   return (
     <div
-      className={cn(
-        'group rounded-[20px] bg-white p-[18px] shadow-[0_0_0_1px_rgba(0,0,0,0.05)] transition-all duration-300',
-        'hover:shadow-[0_12px_28px_-12px_rgba(0,0,0,0.14)] hover:-translate-y-0.5',
-        'animate-in fade-in slide-in-from-bottom-2 fill-mode-both'
-      )}
-      style={{ animationDelay: `${index * 60}ms`, animationDuration: '400ms' }}
+      className={cn('rounded-2xl transition-shadow', className)}
+      style={{
+        padding: 16,
+        minHeight: 110,
+        background: '#fff',
+        border: '1px solid oklch(0.91 0.005 240)',
+        boxShadow: 'var(--shadow-pane)',
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'default',
+        ...style,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-glow)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-pane)' }}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-[#64756f]">{label}</span>
-        {Icon ? (
-          <span className={cn('grid h-7 w-7 place-items-center rounded-lg bg-white ring-1 transition-transform group-hover:scale-110', ringCls)}>
-            <Icon className={cn('h-3.5 w-3.5', iconCls)} strokeWidth={2.2} />
-          </span>
-        ) : emoji ? <span>{emoji}</span> : null}
-      </div>
-      <div className="mt-2 text-[26px] font-extrabold leading-none tracking-tight">{value ?? '--'}</div>
-      {(trendLabel || trendPositive !== null) && (
-        <div
-          className={cn(
-            'mt-1.5 flex items-center gap-1 text-[11px] font-bold',
-            trendPositive === false ? 'text-rose-500' : 'text-teal-600'
-          )}
-        >
-          <TrendingUp className={cn('h-3 w-3', trendPositive === false && 'rotate-180')} />
-          {trendLabel ?? `${trendPositive ? '+' : ''}${trend}%`}
+      {/* Label */}
+      <div style={{
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: 11, fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: '0.08em',
+        color: 'oklch(0.5 0.01 240)',
+        marginBottom: 6,
+        paddingRight: 36, // leave space for icon tile
+      }}>{label}</div>
+
+      {/* Icon tile — top right */}
+      {IconComponent && (
+        <div style={{
+          position: 'absolute', top: 14, right: 14,
+          width: 28, height: 28, borderRadius: 7,
+          background: cols.tile,
+          display: 'grid', placeItems: 'center',
+        }}>
+          <IconComponent style={{ width: 14, height: 14, color: cols.icon }} />
         </div>
       )}
-      <AreaSparkline data={sparkData} color={sparkColor} emptyHint={emptyHint} />
+
+      {/* Value */}
+      <div style={{
+        fontFamily: '"Inter Tight", Inter, sans-serif',
+        fontSize: 26, fontWeight: 700,
+        letterSpacing: '-0.8px', lineHeight: 1,
+        color: cols.stroke,
+        marginBottom: 4,
+      }}>{displayVal}</div>
+
+      {/* Delta */}
+      {delta && (
+        <div style={{
+          fontSize: 12, fontWeight: 500,
+          color: isUp ? 'var(--positive)' : 'var(--negative)',
+          display: 'flex', alignItems: 'center', gap: 3,
+        }}>
+          <span>{isUp ? '↗' : '↘'}</span>
+          <span>{delta}</span>
+          <span style={{ color: 'oklch(0.5 0.01 240)', fontWeight: 400 }}>vs prev</span>
+        </div>
+      )}
+
+      {/* Bar sparkline */}
+      <BarSparkline data={sparkData} color={color} animate />
     </div>
   )
 }
+
+// Named export for panes that import both
+export { AreaSparkline, BarSparkline }

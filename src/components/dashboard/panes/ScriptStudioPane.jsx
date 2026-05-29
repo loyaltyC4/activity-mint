@@ -301,56 +301,123 @@ function PlaceholderCard({ title, subtitle }) {
   )
 }
 
-function ProLockedHero() {
+function FeatureBullet({ Icon, title, copy }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-white to-violet-50 p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-      {/* Subtle decorative grid */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.05]"
-        style={{
-          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,1) 1px, transparent 0)',
-          backgroundSize: '16px 16px',
-        }}
-      />
-      <div className="relative">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-white shadow-[0_8px_24px_-8px_rgba(245,158,11,0.6)]">
-            <Crown className="h-4 w-4" />
-          </span>
-          <span className="rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold px-2.5 py-1">Pro feature</span>
-        </div>
-        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">Script Studio</h2>
-        <p className="mt-2 max-w-xl text-sm text-slate-600 leading-relaxed">
-          A mathematical copywriting blueprint built from your own engagement history.
-          We compute a per-post performance delta against your median baseline,
-          then run a log-odds analysis to surface the exact phrases driving your
-          winners — and the dead phrases dragging you down.
-        </p>
-        <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <FeatureBullet Icon={BarChart3} title="Performance Distribution" copy="See exactly where every post lands vs your baseline" />
-          <FeatureBullet Icon={Sparkles}  title="Verified Lexicon" copy="High-traction phrases · dead phrases · with statistical lift %" />
-          <FeatureBullet Icon={PenTool}   title="Steal-This-Script" copy="3 fill-in-the-blank templates mirroring your winning structure" />
-        </div>
-        <button
-          onClick={() => alert('Upgrade flow coming — contact us to enable Pro')}
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-5 text-sm shadow-[0_8px_24px_-8px_rgba(15,23,42,0.5)] transition-transform hover:scale-[1.02]"
-        >
-          Upgrade to unlock <ArrowRight className="h-4 w-4" />
-        </button>
+    <div style={{
+      borderRadius: 10, padding: '12px 14px',
+      background: 'rgba(255,255,255,0.07)',
+      border: '1px solid rgba(255,255,255,0.1)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+        <span style={{
+          width: 26, height: 26, borderRadius: 6,
+          background: 'var(--brand-soft)',
+          display: 'grid', placeItems: 'center', flexShrink: 0,
+        }}>
+          <Icon style={{ width: 13, height: 13, color: 'var(--brand)' }} />
+        </span>
+        <div style={{
+          fontFamily: '"Inter Tight", Inter, sans-serif',
+          fontSize: 12.5, fontWeight: 600, color: '#fff',
+          letterSpacing: '-0.1px',
+        }}>{title}</div>
       </div>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>{copy}</div>
     </div>
   )
 }
 
-function FeatureBullet({ Icon, title, copy }) {
+function ProLockedHero() {
   return (
-    <div className="rounded-xl bg-white p-3 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-      <div className="flex items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-slate-700">
-          <Icon className="h-3.5 w-3.5" />
-        </span>
-        <div className="text-xs font-bold text-slate-900">{title}</div>
+    <div style={{
+      position: 'relative', overflow: 'hidden',
+      borderRadius: 16,
+      background: 'oklch(0.14 0.015 185)',
+      padding: '32px 28px',
+      border: '1px solid rgba(255,255,255,0.05)',
+      boxShadow: 'var(--shadow-glow)',
+    }}>
+      {/* Ambient teal glow blob */}
+      <div style={{
+        position: 'absolute', bottom: -40, right: -40,
+        width: 200, height: 200, borderRadius: '50%',
+        background: 'var(--brand)', filter: 'blur(70px)',
+        opacity: 0.18, pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', top: -30, left: '40%',
+        width: 120, height: 120, borderRadius: '50%',
+        background: 'var(--violet)', filter: 'blur(50px)',
+        opacity: 0.1, pointerEvents: 'none',
+      }} />
+
+      <div style={{ position: 'relative' }}>
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 9,
+            background: 'linear-gradient(135deg, var(--brand), var(--brand-ink))',
+            display: 'grid', placeItems: 'center',
+            boxShadow: '0 4px 16px oklch(0.72 0.13 180 / 0.4)',
+          }}>
+            <Crown style={{ width: 16, height: 16, color: '#fff' }} />
+          </div>
+          <span style={{
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 9.5, fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            background: 'var(--brand-soft)', color: 'var(--brand-ink)',
+            borderRadius: 5, padding: '3px 8px',
+          }}>Solo-Hunter · Pro</span>
+        </div>
+
+        {/* Heading */}
+        <h2 style={{
+          fontFamily: '"Inter Tight", Inter, sans-serif',
+          fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px',
+          color: '#fff', marginBottom: 10,
+        }}>Script Studio</h2>
+        <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6,
+          maxWidth: '38rem', marginBottom: 22 }}>
+          A mathematical copywriting engine built from your own engagement data.
+          Log-odds analysis surfaces the exact phrases driving your winners — and
+          the dead words dragging you down. Then Claude writes the next 3 scripts in your voice.
+        </p>
+
+        {/* Feature bullets */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))',
+          gap: 10, marginBottom: 24 }}>
+          <FeatureBullet Icon={BarChart3} title="Performance Distribution"
+            copy="Where every post lands vs your median baseline" />
+          <FeatureBullet Icon={Sparkles}  title="Verified Lexicon"
+            copy="High-traction phrases with statistical lift %" />
+          <FeatureBullet Icon={PenTool}   title="Steal-This-Script"
+            copy="3 fill-in-the-blank templates from your winning structure" />
+        </div>
+
+        {/* CTA */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => window.location.href = '/#pricing'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              borderRadius: 9, padding: '10px 20px',
+              background: 'var(--brand)', color: 'oklch(0.16 0.01 240)',
+              fontFamily: '"Inter Tight", Inter, sans-serif',
+              fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+              boxShadow: '0 4px 16px oklch(0.72 0.13 180 / 0.45)',
+              transition: 'opacity 0.12s, transform 0.12s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.88'; e.currentTarget.style.transform = 'scale(1.02)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1)' }}
+          >
+            Unlock Script Studio <ArrowRight style={{ width: 14, height: 14 }} />
+          </button>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+            Solo-Hunter plan · $39/mo
+          </span>
+        </div>
       </div>
-      <div className="mt-1.5 text-[11px] text-slate-600 leading-relaxed">{copy}</div>
     </div>
   )
 }

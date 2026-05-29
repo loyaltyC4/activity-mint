@@ -138,7 +138,104 @@
       display: none; gap: 1.75rem; font-size: 0.875rem; color: var(--muted-foreground);
     }
     @media (min-width: 768px) { .nav-links { display: flex; align-items: center; } }
+
     .nav-links a:hover { color: var(--foreground); }
+
+    /* ── Mega-menu dropdown ─────────────────────────────────────────── */
+    .nav-dropdown { position: relative; }
+    .nav-dropdown-trigger {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      font-size: 0.875rem; color: var(--muted-foreground);
+      background: none; border: none; cursor: pointer;
+      font-family: inherit; padding: 0;
+      transition: color 0.15s;
+    }
+    .nav-dropdown-trigger:hover,
+    .nav-dropdown[data-open="true"] .nav-dropdown-trigger {
+      color: var(--foreground);
+    }
+    .nav-dropdown-trigger svg {
+      transition: transform 0.2s;
+    }
+    .nav-dropdown[data-open="true"] .nav-dropdown-trigger svg {
+      transform: rotate(180deg);
+    }
+    .nav-megamenu {
+      position: absolute;
+      top: calc(100% + 0.625rem);
+      left: 50%;
+      transform: translateX(-50%) translateY(-4px);
+      width: 640px;
+      max-width: calc(100vw - 2rem);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      box-shadow: 0 24px 64px -16px oklch(0 0 0 / 0.18),
+                  0 1px 3px oklch(0 0 0 / 0.08);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.18s, transform 0.18s, visibility 0.18s;
+      z-index: 40;
+    }
+    .nav-dropdown[data-open="true"] .nav-megamenu {
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+    .nav-megamenu-cols {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+    .nav-megamenu-col {
+      display: flex; flex-direction: column;
+    }
+    .nav-megamenu-heading {
+      font-size: 0.65rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--mint-600);
+      margin-bottom: 0.5rem;
+    }
+    .nav-megamenu-col a {
+      display: block;
+      padding: 0.4rem 0.5rem;
+      margin: 0 -0.5rem;
+      font-size: 0.825rem; font-weight: 500;
+      color: var(--foreground);
+      border-radius: 0.5rem;
+      transition: background 0.12s;
+    }
+    .nav-megamenu-col a:hover {
+      background: var(--mint-50);
+      color: var(--mint-600);
+    }
+    .nav-megamenu-footer {
+      display: block;
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--mint-600);
+      text-align: center;
+    }
+    .nav-megamenu-footer:hover { color: var(--mint-950); }
+    @media (max-width: 900px) {
+      .nav-megamenu {
+        width: 320px;
+        left: auto;
+        right: 0;
+        transform: translateY(-4px);
+      }
+      .nav-dropdown[data-open="true"] .nav-megamenu {
+        transform: translateY(0);
+      }
+      .nav-megamenu-cols {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+    }
+
     .nav-actions { display: flex; align-items: center; gap: 0.5rem; }
     .nav-signin {
       display: none; font-size: 0.875rem; font-weight: 500;
@@ -592,6 +689,46 @@
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
       <a href="#pricing">Pricing</a>
+
+      <!-- Toolkit mega-menu (compact 3-column) -->
+      <div class="nav-dropdown" id="toolkitDropdown">
+        <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false" onclick="toggleDropdown('toolkitDropdown')">
+          Toolkit
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="nav-megamenu" role="menu">
+          <div class="nav-megamenu-cols">
+            <div class="nav-megamenu-col">
+              <p class="nav-megamenu-heading">Instagram</p>
+              <a href="/app?tab=story-viewer">Story Viewer</a>
+              <a href="/app?tab=post-viewer">Post Viewer</a>
+              <a href="/app?tab=highlights-viewer">Highlights Viewer</a>
+              <a href="/app?tab=like-viewer">Like Viewer</a>
+              <a href="/app?tab=recent-follower">Recent Followers</a>
+              <a href="/app?tab=unfollower">Unfollower Tracker</a>
+            </div>
+            <div class="nav-megamenu-col">
+              <p class="nav-megamenu-heading">Other Platforms</p>
+              <a href="/app?tab=tiktok">TikTok Scraper</a>
+              <a href="/app?tab=facebook-posts">Facebook Posts</a>
+              <a href="/app?tab=linkedin-posts">LinkedIn Posts</a>
+              <a href="/app?tab=youtube-transcript">YouTube Transcript</a>
+              <a href="/app?tab=threads-downloader">Threads Downloader</a>
+            </div>
+            <div class="nav-megamenu-col">
+              <p class="nav-megamenu-heading">Utilities</p>
+              <a href="/app?tab=hashtag-generator">Hashtag Generator</a>
+              <a href="/app?tab=shadowban-checker">Shadowban Checker</a>
+              <a href="/app?tab=instagram-comments">Comment Scraper</a>
+              <a href="/app?tab=follower-export">Follower Export</a>
+            </div>
+          </div>
+          <a href="/app?tab=toolkit" class="nav-megamenu-footer">View all tools →</a>
+        </div>
+      </div>
+
+      <a href="/app?tab=help-center">Help Centre</a>
+      <a href="/app?tab=affiliate">Affiliate</a>
     </nav>
 
     <div class="nav-actions">
@@ -1297,6 +1434,38 @@
     );
     obs.observe(el);
     observers.push(obs);
+  });
+
+  /* ── Dropdown toggle ── */
+  function toggleDropdown(id) {
+    const dd = document.getElementById(id);
+    if (!dd) return;
+    const isOpen = dd.getAttribute('data-open') === 'true';
+    // Close all other dropdowns
+    document.querySelectorAll('.nav-dropdown').forEach(d => d.setAttribute('data-open', 'false'));
+    dd.setAttribute('data-open', isOpen ? 'false' : 'true');
+    const btn = dd.querySelector('.nav-dropdown-trigger');
+    if (btn) btn.setAttribute('aria-expanded', !isOpen);
+  }
+  // Click outside to close
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.nav-dropdown')) {
+      document.querySelectorAll('.nav-dropdown').forEach(d => {
+        d.setAttribute('data-open', 'false');
+        const btn = d.querySelector('.nav-dropdown-trigger');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      });
+    }
+  });
+  // ESC to close
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.nav-dropdown').forEach(d => {
+        d.setAttribute('data-open', 'false');
+        const btn = d.querySelector('.nav-dropdown-trigger');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      });
+    }
   });
 </script>
 

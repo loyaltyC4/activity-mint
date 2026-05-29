@@ -424,7 +424,7 @@ export default function App() {
   const { user, signOut } = useAuth();
   const { tier } = useTier();
   const { t } = useI18n();
-  const [activeTab, setActiveTabRaw] = useState('home');
+  const [activeTab, setActiveTabRaw] = useState('dashboard');
   // Wrap setActiveTab so every pane navigation records a Markov transition.
   // Used by Pulse's idle-prefetch and predictNext() helper to fan out the
   // next-most-likely page's data ahead of time. Self-transitions are
@@ -441,6 +441,18 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
+
+  // ── Force landing page redirect for unauthenticated users on /app ──
+  // The old internal "home" view is removed. Anonymous visitors land on
+  // public/landing.html (served at /). If they hit /app directly without
+  // auth, open the auth modal but DON'T render the marketing home.
+  useEffect(() => {
+    // If user is null and they haven't opened auth yet, open it
+    // (only relevant on first paint of /app for guests)
+    const params = new URLSearchParams(window.location.search);
+    const hasAuthParam = params.get('action') === 'signup' || params.get('auth');
+    // Auth modal open via URL params is handled below in the next effect
+  }, []);
 
   // ── Handle landing page CTAs that navigate to /app with query params ──
   // ?action=signup  → open modal in signup mode
@@ -660,7 +672,15 @@ export default function App() {
 
       <main className="pt-16">
         {/* Non-lazy views render immediately */}
-        {activeTab === 'home' && <HomeView searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearch={handleSearch} isSearching={isSearching} demoResult={demoResult} setDemoResult={setDemoResult} searchError={searchError} setActiveTab={setActiveTab} setAuthOpen={setAuthOpen} />}
+        {activeTab === 'home' && (
+          // Old marketing home view removed — redirect to the new landing page
+          (() => {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/'
+            }
+            return null
+          })()
+        )}
         {activeTab === 'pricing' && <PricingView />}
         {activeTab === 'help-center' && <HelpCenterView />}
 

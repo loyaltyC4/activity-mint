@@ -442,38 +442,49 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
 
-  // ── Force landing page redirect for unauthenticated users on /app ──
-  // The old internal "home" view is removed. Anonymous visitors land on
-  // public/landing.html (served at /). If they hit /app directly without
-  // auth, open the auth modal but DON'T render the marketing home.
-  useEffect(() => {
-    // If user is null and they haven't opened auth yet, open it
-    // (only relevant on first paint of /app for guests)
-    const params = new URLSearchParams(window.location.search);
-    const hasAuthParam = params.get('action') === 'signup' || params.get('auth');
-    // Auth modal open via URL params is handled below in the next effect
-  }, []);
-
   // ── Handle landing page CTAs that navigate to /app with query params ──
-  // ?action=signup  → open modal in signup mode
-  // ?auth=signin    → open modal in login mode
+  // ?action=signup  → open modal in signup mode (only if user is signed out)
+  // ?auth=signin    → open modal in login mode (only if user is signed out)
   // ?handle=X       → pre-fill the search handle
+  //
+  // We read `user` synchronously from the AuthContext (which is now seeded
+  // from an optimistic localStorage cache) so the modal does NOT open for
+  // already-signed-in users hitting a stale link or refreshing on /app.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const action = params.get('action');
     const auth   = params.get('auth');
     const handle = params.get('handle');
-    if (action === 'signup') {
-      setAuthMode('signup');
-      setAuthOpen(true);
-    } else if (auth === 'signin' || auth === 'open') {
-      setAuthMode('login');
-      setAuthOpen(true);
+    if (!user) {
+      if (action === 'signup') {
+        setAuthMode('signup');
+        setAuthOpen(true);
+      } else if (auth === 'signin' || auth === 'open') {
+        setAuthMode('login');
+        setAuthOpen(true);
+      }
     }
     if (handle) {
       setSearchQuery(decodeURIComponent(handle));
     }
-  }, []); // mount only
+    // Strip the auth-related query params so a refresh doesn't re-trigger
+    // the modal logic (and so it can't appear to a user who has since
+    // signed in via a different surface).
+    if (action || auth) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('action');
+        url.searchParams.delete('auth');
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
+  }, []); // mount only — `user` is intentionally captured from initial state
+
+  // Close the auth modal once a session is restored (e.g. cached session
+  // hydrates after the modal briefly opened on first paint).
+  useEffect(() => {
+    if (user && authOpen) setAuthOpen(false);
+  }, [user, authOpen]);
 
   // When user logs in (or is already logged in) after arriving from landing,
   // redirect straight to the dashboard tab.

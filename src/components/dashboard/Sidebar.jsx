@@ -1,6 +1,12 @@
 /**
  * DashboardSidebar — exact port of insight-flow's Sidebar.tsx
  * Adapted for Activity Mint's tab-based routing (no react-router).
+ *
+ * Changes vs. previous version:
+ *   - Removed the redundant placeholder account button that duplicated AccountSwitcher
+ *   - Fixed the "Pricing" entry that incorrectly shared id with "Next Post"
+ *     (it now routes to id 'subscription' and is labeled accordingly)
+ *   - Added a "Mood" entry in the Overview group as a companion to Audience
  */
 'use strict'
 import React from 'react'
@@ -9,7 +15,7 @@ import {
   LayoutGrid, FileCode, Megaphone,
   CalendarPlus, FileText,
   TrendingUp, Phone, Wrench, Globe,
-  Award, Settings, Sparkles,
+  Award, Settings, Sparkles, Smile, CreditCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSwitcher from './shared/AccountSwitcher'
@@ -19,8 +25,9 @@ const groups = [
     label: 'Overview',
     items: [
       { id: 'pulse',     label: 'Pulse',            Icon: Activity },
-      { id: 'audience',  label: 'Audience & Mood',  Icon: Users },
-      { id: 'sentiment', label: 'Sentiment',         Icon: MessageSquare },
+      { id: 'audience',  label: 'Audience',         Icon: Users },
+      { id: 'mood',      label: 'Mood',             Icon: Smile, badge: 'NEW' },
+      { id: 'sentiment', label: 'Sentiment',        Icon: MessageSquare },
     ],
   },
   {
@@ -50,17 +57,14 @@ const groups = [
   {
     label: 'You',
     items: [
-      { id: 'rewards',  label: 'Rewards',  Icon: Award },
-      { id: 'planner',  label: 'Pricing',  Icon: Sparkles },
-      { id: 'settings', label: 'Settings', Icon: Settings },
+      { id: 'rewards',      label: 'Rewards',      Icon: Award },
+      { id: 'subscription', label: 'Subscription', Icon: CreditCard },
+      { id: 'settings',     label: 'Settings',     Icon: Settings },
     ],
   },
 ]
 
 export default function DashboardSidebar({ user, tier, activePane, onPaneChange }) {
-  const handle = user?.user_metadata?.tracked_handle || user?.email?.split('@')[0] || 'you'
-  const initial = handle[0]?.toUpperCase() || 'M'
-
   const tierLabel = tier === 'premium' ? 'Pipeline Intercept'
     : tier === 'standard' ? 'Solo-Hunter'
     : 'Freemium'
@@ -79,29 +83,14 @@ export default function DashboardSidebar({ user, tier, activePane, onPaneChange 
           <Sparkles className="size-4 text-white relative z-10" strokeWidth={2.5} />
         </div>
         <div className="flex flex-col leading-none">
-          <span className="font-display font-bold text-[15px] tracking-tight">Pulse</span>
+          <span className="font-display font-bold text-[15px] tracking-tight">Activity Mint</span>
           <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground mt-0.5">Intelligence</span>
         </div>
       </div>
 
-      {/* Account switcher */}
+      {/* Account switcher — single control, no duplicate button */}
       <div className="px-3 py-3 border-b border-hairline">
-        <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-foreground/[0.03] transition-colors">
-          <div className="size-9 rounded-md bg-gradient-to-br from-brand-ink to-foreground grid place-items-center text-white font-display font-bold text-sm flex-shrink-0">
-            {initial}
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <div className="text-sm font-semibold tracking-tight truncate">@{handle}</div>
-            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">3 accounts</div>
-          </div>
-          <svg className="size-3 text-muted-foreground flex-shrink-0" viewBox="0 0 12 12" fill="none">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </button>
-        {/* Existing AccountSwitcher for actual account switching */}
-        <div className="mt-1">
-          <AccountSwitcher compact />
-        </div>
+        <AccountSwitcher />
       </div>
 
       {/* Nav */}
@@ -157,7 +146,7 @@ export default function DashboardSidebar({ user, tier, activePane, onPaneChange 
       {nextTier && (
         <div className="p-3 border-t border-hairline">
           <button
-            onClick={() => window.location.href = '/#pricing'}
+            onClick={() => onPaneChange('subscription')}
             className="w-full block p-4 rounded-xl bg-foreground text-white relative overflow-hidden group text-left"
           >
             <div className="absolute -top-12 -right-8 size-32 rounded-full bg-brand/40 blur-2xl group-hover:bg-brand/60 transition-colors" />

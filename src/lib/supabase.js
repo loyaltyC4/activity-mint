@@ -10,4 +10,17 @@ const _c = '.CKx_1FHG9ZgnW6ChaEGq4wKfOcwC9AyDrgua_UBXUHI';
 const supabaseUrl = 'https://hccgwhhmpmucislxufyp.supabase.co';
 const supabaseAnonKey = _a + _b + _c;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Explicit auth config so the session survives reloads. Defaults are already
+// persistSession:true / autoRefreshToken:true but we set them explicitly to
+// document intent and use a stable storageKey so future Supabase SDK updates
+// can't silently change behavior.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'am.auth.session.v1',
+    flowType: 'pkce',
+  },
+});

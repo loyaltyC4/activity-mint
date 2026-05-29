@@ -1,10 +1,17 @@
 /**
  * Topbar — exact port of insight-flow's Topbar.tsx
  * h-16, streaming indicator, range picker, refresh, settings, upgrade.
+ *
+ * Changes vs. previous version:
+ *   - Pulls the active tracked handle from TrackedAccountContext so it
+ *     updates live when the user switches accounts
+ *   - Upgrade button routes to the in-app Subscription pane instead of
+ *     redirecting to the marketing pricing anchor
  */
 'use strict'
 import React, { useState } from 'react'
 import { RefreshCw, Settings as SettingsIcon, Sparkles } from 'lucide-react'
+import { useTrackedAccount } from '../../context/TrackedAccountContext'
 
 const RANGES = ['7d', '30d', '90d']
 
@@ -12,10 +19,15 @@ export default function Topbar({
   title, subtitle,
   timeRange, onTimeRangeChange,
   onSettingsClick,
+  onUpgradeClick,
   user,
 }) {
+  const { handle } = useTrackedAccount()
   const [refreshing, setRefreshing] = useState(false)
-  const accountTag = user?.user_metadata?.tracked_handle
+
+  const accountTag = handle
+    ? `@${handle}`
+    : user?.user_metadata?.tracked_handle
     ? `@${user.user_metadata.tracked_handle}`
     : `@${user?.email?.split('@')[0] || 'you'}`
 
@@ -88,9 +100,9 @@ export default function Topbar({
 
         <div className="h-5 w-px bg-hairline mx-1" />
 
-        {/* Upgrade */}
+        {/* Upgrade — opens Subscription pane in-app */}
         <button
-          onClick={() => window.location.href = '/#pricing'}
+          onClick={onUpgradeClick}
           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-white text-xs font-semibold hover:bg-foreground/90 transition-all"
         >
           <Sparkles className="size-3.5" strokeWidth={2.25} />

@@ -20,24 +20,26 @@ import { NavigationContext } from './NavigationContext'
 
 export const PANES = {
   // Overview — what's happening now
-  pulse:       { group: 'Overview',      label: 'Pulse' },
-  audience:    { group: 'Overview',      label: 'Audience & Mood' },
-  sentiment:   { group: 'Overview',      label: 'Sentiment' },
+  pulse:        { group: 'Overview',     label: 'Pulse' },
+  audience:     { group: 'Overview',     label: 'Audience' },
+  mood:         { group: 'Overview',     label: 'Mood',           badge: 'new' },
+  sentiment:    { group: 'Overview',     label: 'Sentiment' },
   // Intelligence — what works and why
-  content:     { group: 'Intelligence',  label: 'Content Lab' },
-  script:      { group: 'Intelligence',  label: 'Script Studio', badge: 'pro' },
-  adlab:       { group: 'Intelligence',  label: 'Ad Intelligence', badge: 'new' },
+  content:      { group: 'Intelligence', label: 'Content Lab' },
+  script:       { group: 'Intelligence', label: 'Script Studio',  badge: 'pro' },
+  adlab:        { group: 'Intelligence', label: 'Ad Intelligence', badge: 'new' },
   // Create — turn insights into action
-  planner:     { group: 'Create',        label: 'Next Post',       badge: 'new' },
-  templates:   { group: 'Create',        label: 'Template Studio', badge: 'new' },
+  planner:      { group: 'Create',       label: 'Next Post',       badge: 'new' },
+  templates:    { group: 'Create',       label: 'Template Studio', badge: 'new' },
   // Grow — scale what works
-  trends:      { group: 'Grow',          label: 'Trends & Insights', badge: 'new' },
-  outreach:    { group: 'Grow',          label: 'Outreach Ideas' },
-  toolkit:     { group: 'Grow',          label: 'Tools' },
-  competitors: { group: 'Grow',          label: 'Competitors', badge: 'pro' },
+  trends:       { group: 'Grow',         label: 'Trends & Insights', badge: 'new' },
+  outreach:     { group: 'Grow',         label: 'Outreach Ideas' },
+  toolkit:      { group: 'Grow',         label: 'Tools' },
+  competitors:  { group: 'Grow',         label: 'Competitors',     badge: 'pro' },
   // You
-  rewards:     { group: 'You',           label: 'Rewards' },
-  settings:    { group: 'You',           label: 'Settings' },
+  rewards:      { group: 'You',          label: 'Rewards' },
+  subscription: { group: 'You',          label: 'Subscription' },
+  settings:     { group: 'You',          label: 'Settings' },
 }
 
 export default function DashboardV2({ setActiveTab }) {

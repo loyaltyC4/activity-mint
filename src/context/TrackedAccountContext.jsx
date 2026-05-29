@@ -5,7 +5,7 @@
  * tracked_accounts. Now all panes read from useTrackedAccount() and
  * automatically re-fetch when the user switches handles.
  *
- * Provides: { handle, setHandle, accounts, addAccount, loading }
+ * Provides: { handle, setHandle, accounts, addAccount, removeAccount, loading }
  */
 
 'use strict'
@@ -19,13 +19,29 @@ const TrackedAccountContext = createContext({
   setHandle: () => {},
   accounts: [],
   addAccount: async () => {},
+  removeAccount: async () => {},
   loading: true,
 })
+
+// Persist the last-active handle so refresh keeps the user on the same account
+const LAST_HANDLE_KEY = 'am.tracked.last_handle.v1'
+
+function readLastHandle() {
+  if (typeof window === 'undefined') return null
+  try { return window.localStorage.getItem(LAST_HANDLE_KEY) || null } catch { return null }
+}
+function writeLastHandle(h) {
+  if (typeof window === 'undefined') return
+  try {
+    if (h) window.localStorage.setItem(LAST_HANDLE_KEY, h)
+    else window.localStorage.removeItem(LAST_HANDLE_KEY)
+  } catch {}
+}
 
 export function TrackedAccountProvider({ children }) {
   const { user } = useAuth()
   const [accounts, setAccounts] = useState([])
-  const [handle, setHandleRaw] = useState(null)
+  const [handle, setHandleRaw] = useState(readLastHandle)
   const [loading, setLoading] = useState(true)
 
   // Load all tracked accounts for this user
@@ -33,6 +49,7 @@ export function TrackedAccountProvider({ children }) {
     if (!user) {
       setAccounts([])
       setHandleRaw(null)
+      writeLastHandle(null)
       setLoading(false)
       return
     }
@@ -45,11 +62,20 @@ export function TrackedAccountProvider({ children }) {
           .select('id, username, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-        if (!cancelled && !error && data) {
+        if (cancelled) return
+        if (!error && data) {
           setAccounts(data)
-          // Default to most recent if no handle selected
-          if (!handle && data.length > 0) {
+          const lastHandle = readLastHandle()
+          // Prefer the last-active handle if it's still in the user's list
+          const lastInList = lastHandle && data.find((a) => a.username === lastHandle)
+          if (lastInList) {
+            setHandleRaw(lastHandle)
+          } else if (data.length > 0) {
             setHandleRaw(data[0].username)
+            writeLastHandle(data[0].username)
+          } else {
+            setHandleRaw(null)
+            writeLastHandle(null)
           }
         }
       } catch {}
@@ -62,8 +88,11 @@ export function TrackedAccountProvider({ children }) {
     const clean = (username || '').trim().replace(/^@/, '')
     if (!clean) return
     setHandleRaw(clean)
+    writeLastHandle(clean)
     // Clear all per-handle localStorage caches so panes fetch fresh data
-    // for the new handle instead of showing stale cached data from the old one
+    // for the new handle instead of showing stale cached data from the old one.
+    // IMPORTANT: do NOT clear keys starting with 'am.auth.' or 'sb-' (Supabase
+    // auth session) — that would sign the user out.
     if (typeof window !== 'undefined') {
       const keysToRemove = []
       for (let i = 0; i < window.localStorage.length; i++) {
@@ -114,8 +143,41 @@ export function TrackedAccountProvider({ children }) {
     return true
   }, [user, accounts, setHandle])
 
+  /**
+   * removeAccount — stop watching a handle. Removes the row from Supabase
+   * (best-effort) and from the local list. If the removed handle was the
+   * active one, falls back to the most recent remaining account.
+   */
+  const removeAccount = useCallback(async (username) => {
+    const clean = (username || '').trim().replace(/^@/, '')
+    if (!clean) return false
+
+    // Optimistic local removal
+    const remaining = accounts.filter((a) => a.username !== clean)
+    setAccounts(remaining)
+
+    // If the active handle was the removed one, switch to next available
+    if (handle === clean) {
+      const nextHandle = remaining[0]?.username || null
+      setHandleRaw(nextHandle)
+      writeLastHandle(nextHandle)
+    }
+
+    // Best-effort delete from Supabase
+    if (user) {
+      try {
+        await supabase
+          .from('tracked_accounts')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('username', clean)
+      } catch {}
+    }
+    return true
+  }, [user, accounts, handle])
+
   return (
-    <TrackedAccountContext.Provider value={{ handle, setHandle, accounts, addAccount, loading }}>
+    <TrackedAccountContext.Provider value={{ handle, setHandle, accounts, addAccount, removeAccount, loading }}>
       {children}
     </TrackedAccountContext.Provider>
   )

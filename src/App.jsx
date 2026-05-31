@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { IntelligenceSection, PlatformsSection, ManifestoSection } from './components/home/FeatureSections';
 
 /* ─── Lazy-loaded components for code-splitting ────────────────────────── */
 const Dashboard   = lazy(() => import('./components/Dashboard'));
@@ -1036,6 +1037,13 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
       </div>
     </section>
 
+
+    {/* ── Intelligence Layer ── */}
+    <IntelligenceSection onGetStarted={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(() => document.querySelector('input[type="text"]')?.focus(), 300); }} />
+
+    {/* ── Platforms Grid ── */}
+    <PlatformsSection />
+
     <section className="py-24 bg-muted/20 border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
@@ -1218,6 +1226,10 @@ const HomeView = ({ searchQuery, setSearchQuery, handleSearch, isSearching, demo
         </div>
       </div>
     </section>
+
+
+    {/* ── Brand Manifesto ── */}
+    <ManifestoSection onGetStarted={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(() => document.querySelector('input[type="text"]')?.focus(), 300); }} />
 
     <section className="py-20 bg-background pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -99,7 +99,7 @@ const BENTO_CARDS = [
   {
     icon: <Layers className="w-4 h-4 text-primary" />,
     label: 'Learns Behaviour Patterns',
-    description: 'Builds a continuous model of any public account's posting rhythm, engagement windows, and interaction style.',
+    description: "Builds a continuous model of any public account's posting rhythm, engagement windows, and interaction style.",
     visual: <ColorDots />,
   },
   {

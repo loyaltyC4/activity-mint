@@ -52,6 +52,7 @@ const { scrapeStories } = require('./scrapers/stories');
 const { scrapePosts } = require('./scrapers/posts');
 const { scrapeComments } = require('./scrapers/comments');
 const { enrichAudience } = require('./scrapers/audience_enrichment');
+const { exportSlides } = require('./scrapers/export');
 const { isBlockedSignal } = require('./scrapers/utils');
 
 // ─── Config from env ─────────────────────────────────────────────────────
@@ -453,6 +454,7 @@ app.post('/scrape', requireSecret, async (req, res) => {
       case 'posts':                items = await scrapePosts(page, payload || {}, log); break;
       case 'comments':             items = await scrapeComments(page, payload || {}, log); break;
       case 'audience_enrichment':  items = await enrichAudience(page, payload || {}, log); break;
+      case 'export_slides':        items = await exportSlides(page, payload || {}, log); break;
       default: {
         const e = new Error(`unknown_action:${action}`);
         e.statusCode = 400;

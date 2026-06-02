@@ -1,37 +1,22 @@
 /**
- * api/carousels.js — Vercel Serverless Function
- *
- * GET  /api/carousels          — list user's carousels (newest first)
- * POST /api/carousels          — create a new carousel
+ * api/carousels.js
+ * GET  /api/carousels   — list user's carousels (newest first)
+ * POST /api/carousels   — create a new carousel
  */
 
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-)
-
-async function getUser(req) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user }, error } = await supabase.auth.getUser(token)
-  return error ? null : user
-}
+import { getUserClient } from './_supabase.js'
 
 export default async function handler(req, res) {
-  const user = await getUser(req)
-  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+  const auth = await getUserClient(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { user, db } = auth
 
-  // ── GET: list carousels ────────────────────────────────────────────────
   if (req.method === 'GET') {
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('carousels')
-      .select(`
-        id, name, aspect_ratio, template, caption, hashtags,
-        brand_note, export_url, is_template, tags, created_at, updated_at,
-        slides ( id, slide_order, headline, notes )
-      `)
+      .select(`id, name, aspect_ratio, template, caption, hashtags,
+               brand_note, export_url, is_template, tags, created_at, updated_at,
+               slides ( id, slide_order, headline, notes )`)
       .eq('user_id', user.id)
       .eq('is_template', false)
       .order('updated_at', { ascending: false })
@@ -40,27 +25,20 @@ export default async function handler(req, res) {
     return res.status(200).json({ carousels: data })
   }
 
-  // ── POST: create carousel ─────────────────────────────────────────────
   if (req.method === 'POST') {
     const { name, aspectRatio, template } = req.body || {}
+    if (!name?.trim()) return res.status(400).json({ error: 'name is required' })
 
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ error: 'name is required' })
-    }
-
-    const validRatios = ['1:1', '4:5', '9:16']
-    const ratio = validRatios.includes(aspectRatio) ? aspectRatio : '4:5'
-
+    const validRatios    = ['1:1', '4:5', '9:16']
     const validTemplates = ['listicle', 'myth', 'stats', 'steps', 'transform']
-    const tmpl = validTemplates.includes(template) ? template : null
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('carousels')
       .insert({
         user_id:      user.id,
         name:         name.trim(),
-        aspect_ratio: ratio,
-        template:     tmpl,
+        aspect_ratio: validRatios.includes(aspectRatio) ? aspectRatio : '4:5',
+        template:     validTemplates.includes(template) ? template : null,
       })
       .select()
       .single()

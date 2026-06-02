@@ -39,32 +39,18 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient } from '@supabase/supabase-js'
+import { getUserClient } from '../_supabase.js'
 
 export const config = { maxDuration: 300 }
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-)
-
 const MAX_SLIDES = 20
-
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-
-async function getUser(req) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user }, error } = await supabase.auth.getUser(token)
-  return error ? null : user
-}
 
 // ─── Supabase helpers ─────────────────────────────────────────────────────────
 
-async function getCarouselWithSlides(carouselId, userId) {
-  const { data, error } = await supabase
+async function getCarouselWithSlides(db, carouselId, userId) {
+  const { data, error } = await db
     .from('carousels')
     .select(`
       id, name, aspect_ratio, template, caption, hashtags,
@@ -87,8 +73,8 @@ function extractHeadline(html) {
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
 
-async function createSlide(carouselId, { html, notes = '' }) {
-  const { count } = await supabase
+async function createSlide(db, carouselId, { html, notes = '' }) {
+  const { count } = await db
     .from('slides')
     .select('id', { count: 'exact', head: true })
     .eq('carousel_id', carouselId)
@@ -97,7 +83,7 @@ async function createSlide(carouselId, { html, notes = '' }) {
     return { error: `Carousel already has ${MAX_SLIDES} slides (maximum). Use update_slide to refine existing slides.` }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('slides')
     .insert({
       carousel_id:  carouselId,
@@ -111,7 +97,7 @@ async function createSlide(carouselId, { html, notes = '' }) {
 
   if (error) return { error: error.message }
 
-  await supabase
+  await db
     .from('carousels')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', carouselId)
@@ -119,11 +105,11 @@ async function createSlide(carouselId, { html, notes = '' }) {
   return { slide: data }
 }
 
-async function updateSlide(carouselId, { slideId, html, notes }) {
+async function updateSlide(db, carouselId, { slideId, html, notes }) {
   if (!slideId) return { error: 'slideId is required' }
   if (!html)    return { error: 'html is required' }
 
-  const { data: current } = await supabase
+  const { data: current } = await db
     .from('slides')
     .select('html, previous_versions')
     .eq('id', slideId)
@@ -145,7 +131,7 @@ async function updateSlide(carouselId, { slideId, html, notes }) {
   }
   if (notes !== undefined) updates.notes = notes
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('slides')
     .update(updates)
     .eq('id', slideId)
@@ -155,7 +141,7 @@ async function updateSlide(carouselId, { slideId, html, notes }) {
 
   if (error) return { error: error.message }
 
-  await supabase
+  await db
     .from('carousels')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', carouselId)
@@ -163,10 +149,10 @@ async function updateSlide(carouselId, { slideId, html, notes }) {
   return { slide: data }
 }
 
-async function deleteSlide(carouselId, { slideId }) {
+async function deleteSlide(db, carouselId, { slideId }) {
   if (!slideId) return { error: 'slideId is required' }
 
-  const { data: slide } = await supabase
+  const { data: slide } = await db
     .from('slides')
     .select('slide_order')
     .eq('id', slideId)
@@ -175,7 +161,7 @@ async function deleteSlide(carouselId, { slideId }) {
 
   if (!slide) return { error: `Slide ${slideId} not found` }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('slides')
     .delete()
     .eq('id', slideId)
@@ -183,7 +169,7 @@ async function deleteSlide(carouselId, { slideId }) {
   if (error) return { error: error.message }
 
   // Re-order remaining slides
-  const { data: remaining } = await supabase
+  const { data: remaining } = await db
     .from('slides')
     .select('id, slide_order')
     .eq('carousel_id', carouselId)
@@ -193,12 +179,12 @@ async function deleteSlide(carouselId, { slideId }) {
   if (remaining?.length > 0) {
     await Promise.all(
       remaining.map(s =>
-        supabase.from('slides').update({ slide_order: s.slide_order - 1 }).eq('id', s.id)
+        db.from('slides').update({ slide_order: s.slide_order - 1 }).eq('id', s.id)
       )
     )
   }
 
-  await supabase
+  await db
     .from('carousels')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', carouselId)
@@ -206,10 +192,10 @@ async function deleteSlide(carouselId, { slideId }) {
   return { deleted: slideId }
 }
 
-async function saveCaption(carouselId, userId, { caption, hashtags }) {
+async function saveCaption(db, carouselId, userId, { caption, hashtags }) {
   if (!caption) return { error: 'caption is required' }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('carousels')
     .update({
       caption:    caption.trim(),
@@ -393,8 +379,9 @@ Call update_slide with the strongest variant, mention the other 2 in your respon
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const user = await getUser(req)
-  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+  const auth = await getUserClient(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { user, db } = auth
 
   const { carouselId, message, messages: priorHistory = [], brandDNA: clientBrandDNA } = req.body || {}
 
@@ -404,13 +391,13 @@ export default async function handler(req, res) {
   }
 
   // Fetch carousel with current slides so Claude knows the state
-  const carousel = await getCarouselWithSlides(carouselId, user.id)
+  const carousel = await getCarouselWithSlides(db, carouselId, user.id)
   if (!carousel) return res.status(404).json({ error: 'Carousel not found' })
 
   // Use brandDNA from client if provided, else fetch from Supabase
   let brandDNA = clientBrandDNA || null
   if (!brandDNA) {
-    const { data } = await supabase
+    const { data } = await db
       .from('brand_dna')
       .select('*')
       .eq('user_id', user.id)
@@ -446,19 +433,19 @@ export default async function handler(req, res) {
         let result
         switch (toolName) {
           case 'create_slide':
-            result = await createSlide(carouselId, toolInput)
+            result = await createSlide(db, carouselId, toolInput)
             if (result.slide) emit({ type: 'slide_created', slide: result.slide })
             break
           case 'update_slide':
-            result = await updateSlide(carouselId, toolInput)
+            result = await updateSlide(db, carouselId, toolInput)
             if (result.slide) emit({ type: 'slide_updated', slide: result.slide })
             break
           case 'delete_slide':
-            result = await deleteSlide(carouselId, toolInput)
+            result = await deleteSlide(db, carouselId, toolInput)
             if (result.deleted) emit({ type: 'slide_deleted', slideId: result.deleted })
             break
           case 'save_caption':
-            result = await saveCaption(carouselId, user.id, toolInput)
+            result = await saveCaption(db, carouselId, user.id, toolInput)
             if (result.captionSaved) emit({ type: 'caption_saved', data: result.data })
             break
           default:

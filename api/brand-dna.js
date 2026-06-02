@@ -13,13 +13,8 @@
  * If the timeout becomes a problem, move to a BullMQ job + SSE pattern.
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { getUserClient } from './_supabase.js'
 import { extractBrandDNA } from '../src/lib/brand-dna.js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-)
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,12 +22,9 @@ export default async function handler(req, res) {
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const authHeader = req.headers.authorization || ''
-  const token = authHeader.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Unauthorized' })
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return res.status(401).json({ error: 'Unauthorized' })
+  const auth = await getUserClient(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { user, db } = auth
 
   // ── Validate body ─────────────────────────────────────────────────────────
   const { handle, niche, goal, customerDesc, websiteUrl } = req.body || {}
@@ -60,7 +52,7 @@ export default async function handler(req, res) {
     })
 
     // ── Upsert to Supabase ────────────────────────────────────────────────
-    const { error: upsertError } = await supabase
+    const { error: upsertError } = await db
       .from('brand_dna')
       .upsert({
         user_id:           user.id,

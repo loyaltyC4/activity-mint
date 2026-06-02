@@ -18,26 +18,14 @@
  * Create it in Supabase Dashboard → Storage → New bucket → Name: carousel-exports → Public: ON
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { getUserClient } from '../_supabase.js'
 import archiver from 'archiver'
 import { Writable } from 'stream'
 
 export const config = { maxDuration: 120 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-)
-
 const SCRAPER_SERVICE_URL = process.env.SCRAPER_SERVICE_URL
 const SCRAPER_SECRET      = process.env.SCRAPER_SECRET
-
-async function getUser(req) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user }, error } = await supabase.auth.getUser(token)
-  return error ? null : user
-}
 
 async function callExportScraper(slides, aspectRatio, carouselId) {
   if (!SCRAPER_SERVICE_URL) throw new Error('SCRAPER_SERVICE_URL is not configured')
@@ -85,14 +73,15 @@ async function buildZip(pngItems) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const user = await getUser(req)
-  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+  const auth = await getUserClient(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { user, db } = auth
 
   const { carouselId } = req.body || {}
   if (!carouselId) return res.status(400).json({ error: 'carouselId is required' })
 
   // ── Fetch carousel + slides ───────────────────────────────────────────
-  const { data: carousel, error: carouselError } = await supabase
+  const { data: carousel, error: carouselError } = await db
     .from('carousels')
     .select(`
       id, name, aspect_ratio,
@@ -128,7 +117,7 @@ export default async function handler(req, res) {
     // ── Upload to Supabase Storage ────────────────────────────────────────
     const filename = `${user.id}/${carouselId}/carousel-${Date.now()}.zip`
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await db.storage
       .from('carousel-exports')
       .upload(filename, zipBuffer, {
         contentType: 'application/zip',
@@ -137,14 +126,14 @@ export default async function handler(req, res) {
 
     if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`)
 
-    const { data: publicData } = supabase.storage
+    const { data: publicData } = db.storage
       .from('carousel-exports')
       .getPublicUrl(filename)
 
     const exportUrl = publicData.publicUrl
 
     // ── Update carousel record ────────────────────────────────────────────
-    await supabase
+    await db
       .from('carousels')
       .update({ export_url: exportUrl, updated_at: new Date().toISOString() })
       .eq('id', carouselId)

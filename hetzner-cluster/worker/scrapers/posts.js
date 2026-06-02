@@ -47,15 +47,30 @@ function extractMentions(caption) {
  * the first entry is a 320px thumb. We pick the biggest sane variant and
  * the smallest one separately for thumbnail.
  */
-function pickImageUrl(n) {
+/**
+ * Return the single best-quality image candidate object (not just its URL).
+ * Sorts image_versions2.candidates by area descending, caps at 2160px to
+ * avoid pathological oversized entries. Returns null if no candidates.
+ *
+ * Used by both pickImageUrl() and normalizeNode()'s resolution-degradation
+ * check so we don't duplicate the sort logic.
+ */
+function pickBestCandidate(n) {
   const cands = n?.image_versions2?.candidates || [];
   if (cands.length === 0) return null;
-  const sorted = [...cands]
+  return [...cands]
     .filter((c) => c && c.url)
     .map((c) => ({ ...c, _px: (c.width || 0) * (c.height || 0) }))
     .filter((c) => c._px === 0 || (c.width <= 2160 && c.height <= 2160))
-    .sort((a, b) => b._px - a._px);
-  return sorted[0]?.url || cands[0]?.url || null;
+    .sort((a, b) => b._px - a._px)[0] || cands[0] || null;
+}
+
+function pickImageUrl(n) {
+  const best = pickBestCandidate(n);
+  if (best) return best.url;
+  // Fallback: original unfiltered array first element
+  const cands = n?.image_versions2?.candidates || [];
+  return cands[0]?.url || null;
 }
 function pickThumbnailUrl(n) {
   const cands = n?.image_versions2?.candidates || [];
@@ -104,6 +119,21 @@ function normalizeNode(n) {
     }
   }
 
+  // P3: Resolution-degradation detection (gallery-dl pattern).
+  // Compare the best available candidate width against the original upload
+  // width. A ratio < 0.8 means Instagram is silently serving downsampled
+  // media — the most common cause is stale session cookies.
+  //
+  // _resWarning is null on healthy items; set to a detail object on degraded
+  // ones so scrapePosts() can aggregate and log them. The field is included
+  // in the HTTP response so apify-proxy.js can emit a Supabase event.
+  const bestCand = pickBestCandidate(n);
+  const origW   = n.original_width  || 0;
+  const actualW = bestCand?.width   || 0;
+  const _resWarning = (origW > 0 && actualW > 0 && actualW < origW * 0.8)
+    ? { originalWidth: origW, actualWidth: actualW, ratio: +(actualW / origW).toFixed(2) }
+    : null;
+
   return {
     shortcode: code,
     url: code ? `${IG_BASE}/p/${code}/` : null,
@@ -116,16 +146,43 @@ function normalizeNode(n) {
     hashtags: extractHashtags(caption),
     mentions: extractMentions(caption),
     timestamp: ts ? new Date(ts * 1000).toISOString() : null,
-    mediaUrl: pickImageUrl(n) || pickVideoUrl(n) || n.display_url || null,
+    mediaUrl: bestCand?.url || pickVideoUrl(n) || n.display_url || null,
     thumbnailUrl: pickThumbnailUrl(n) || n.thumbnail_src || null,
     // Phase 6: HD-specific fields. Frontends that want full quality use these.
-    imageUrlHD: pickImageUrl(n),
+    imageUrlHD: bestCand?.url || null,
     videoUrlHD: pickVideoUrl(n),
     videoDashManifest: n.video_dash_manifest || null,
     isVideo,
     isCarousel,
     carouselItems,
+    // null on healthy items; set when cookies degrade the served resolution
+    _resWarning,
   };
+}
+
+/**
+ * P2: CSRF warm-up (yt-dlp pattern).
+ *
+ * A GET to /api/v1/web/get_ruling_for_content/ causes Instagram's server to
+ * set the `csrftoken` cookie on the domain. Without it, subsequent GraphQL
+ * POSTs silently return empty data — the response is valid JSON with no
+ * edges array, indistinguishable from a real "no posts" result. This explains
+ * intermittent empty-scrape failures that look like rate-limits but aren't.
+ *
+ * Runs inside page.evaluate() so it uses the existing logged-in session
+ * cookies. Best-effort: failure never blocks the scrape.
+ */
+async function csrfWarmUp(page, log) {
+  try {
+    await page.evaluate(async () => {
+      await fetch('https://www.instagram.com/api/v1/web/get_ruling_for_content/', {
+        credentials: 'include',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).catch(() => {});
+    });
+  } catch (err) {
+    if (log) log.warn(`csrfWarmUp threw: ${err.message}`);
+  }
 }
 
 /**
@@ -175,6 +232,10 @@ async function scrapePosts(page, payload, log) {
   try {
     const url = `${IG_BASE}/${encodeURIComponent(username)}/`;
     log.info(`scrape posts -> ${username} (limit=${limit})`);
+    // P2: ensure csrftoken cookie is present before the SPA fires GraphQL.
+    // Must run BEFORE page.goto so the token is set when the profile page
+    // loads and triggers its own GraphQL calls.
+    await csrfWarmUp(page, log);
     const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const status = resp ? resp.status() : 0;
     if (status === 404) throw new Error(`profile_not_found:${username}`);
@@ -198,6 +259,18 @@ async function scrapePosts(page, payload, log) {
     if (edges.length > 0) {
       const posts = edges.slice(0, limit).map((e) => normalizeNode(e.node)).filter(Boolean);
       log.info(`captured ${edges.length} edges; returning ${posts.length} posts for ${username}`);
+      // P3: emit a structured warning when any post shows resolution degradation.
+      // This fires when session cookies are stale and IG silently downgrades
+      // served resolution. The prefix RES_DEGRADED: lets log scrapers parse it.
+      const degraded = posts.filter((p) => p._resWarning);
+      if (degraded.length > 0) {
+        log.warn(`RES_DEGRADED:${JSON.stringify({
+          username,
+          degraded: degraded.length,
+          total:    posts.length,
+          samples:  degraded.slice(0, 2).map((p) => ({ code: p.shortcode, ...p._resWarning })),
+        })}`);
+      }
       return posts;
     }
 
@@ -236,6 +309,12 @@ async function scrapePosts(page, payload, log) {
       return out;
     }, limit).catch(() => []);
     log.info(`DOM scrape returned ${domPosts.length} posts for ${username}`);
+    // P3: check DOM-fallback posts too (they won't have original_width so
+    // _resWarning will be null, but future enrichment may add it)
+    const degraded = domPosts.filter((p) => p._resWarning);
+    if (degraded.length > 0) {
+      log.warn(`RES_DEGRADED:${JSON.stringify({ username, degraded: degraded.length, total: domPosts.length, source: 'dom-fallback' })}`);
+    }
     return domPosts;
   } finally {
     page.off('response', onResponse);

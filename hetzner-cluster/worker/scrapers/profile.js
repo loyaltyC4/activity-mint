@@ -205,6 +205,68 @@ async function fetchWebProfileInfo(page, username, log) {
   }
 }
 
+/**
+ * P1: Fetch the genuine HD profile picture (up to 1080×1080) via the mobile
+ * user-info endpoint. `profile_pic_url_hd` from web_profile_info is only
+ * 320px despite the name — this endpoint returns `hd_profile_pic_url_info`
+ * which is the real full-resolution copy.
+ *
+ * Technique: use an iOS User-Agent on i.instagram.com (instaloader pattern).
+ * The mobile endpoint is less restrictive than the web endpoint and returns
+ * a richer image_versions2 candidates array.
+ *
+ * Must be called AFTER web_profile_info so we have the numeric user ID (pk).
+ * Deliberate 2-4s delay: /api/v1/users/{id}/info/ is more aggressively
+ * rate-limited than web_profile_info; spacing reduces account flag risk.
+ */
+async function fetchHDProfilePic(page, userId, log) {
+  if (!userId) return null;
+  await page.waitForTimeout(2000 + Math.floor(Math.random() * 2000));
+  try {
+    const data = await page.evaluate(async (uid) => {
+      const r = await fetch(`https://i.instagram.com/api/v1/users/${uid}/info/`, {
+        credentials: 'include',
+        headers: {
+          'X-IG-App-ID':  '936619743392459',
+          'X-ASBD-ID':    '129477',
+          // iOS UA unlocks richer image candidates not returned by desktop UA
+          // (confirmed by instaloader source analysis — see repo-intelligence-report)
+          'User-Agent':   'Instagram 278.0.0.22.117 (iPhone14,2; iOS 16_2; en_US; en-US; scale=3.00; 1170x2532; 452534279) AppleWebKit/420+',
+          'Accept':       'application/json',
+        },
+      });
+      if (!r.ok) return { __err: r.status };
+      return r.json();
+    }, userId);
+
+    if (data?.__err) {
+      log.warn(`fetchHDProfilePic: HTTP ${data.__err} for user ${userId}`);
+      return null;
+    }
+
+    const u = data?.user;
+    // Priority chain (from instagrapi + instaloader source analysis):
+    //   hd_profile_pic_url_info.url       — single object {url,w,h} — 1080px (best)
+    //   hd_profile_pic_versions[-1].url   — array sorted small→large (fallback)
+    const hdUrl =
+      u?.hd_profile_pic_url_info?.url ??
+      (u?.hd_profile_pic_versions?.length
+        ? u.hd_profile_pic_versions[u.hd_profile_pic_versions.length - 1].url
+        : null) ??
+      null;
+
+    if (hdUrl) {
+      log.info(`fetchHDProfilePic OK: ${hdUrl.slice(0, 70)}…`);
+    } else {
+      log.warn(`fetchHDProfilePic: no HD URL in response for user ${userId}`);
+    }
+    return hdUrl;
+  } catch (err) {
+    log.warn(`fetchHDProfilePic threw: ${err.message}`);
+    return null;
+  }
+}
+
 async function scrapeProfile(page, payload, log) {
   const username = (payload?.username || '').trim().replace(/^@/, '');
   if (!username) {
@@ -219,6 +281,15 @@ async function scrapeProfile(page, payload, log) {
   const api = await fetchWebProfileInfo(page, username, log);
   if (api && (api.followers != null || api.posts != null)) {
     log.info(`web_profile_info OK (no nav): followers=${api.followers} following=${api.following} posts=${api.posts} verified=${api.isVerified}`);
+    // P1: upgrade from 320px (profile_pic_url_hd) to genuine 1080px.
+    // Best-effort — if the second call fails we keep the 320px version.
+    if (api.pk) {
+      const hdPic = await fetchHDProfilePic(page, api.pk, log);
+      if (hdPic) {
+        api.profilePicUrl   = hdPic;
+        api.profilePicUrlHD = hdPic;
+      }
+    }
     return [api];
   }
 

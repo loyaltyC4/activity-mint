@@ -25,11 +25,54 @@
 //   SCRAPER_SERVICE_URL  — Hetzner orchestrator URL (e.g. http://46.224.227.199:3001)
 //   SCRAPER_SECRET       — shared secret for orchestrator auth (X-Secret header)
 
-const APIFY_TOKEN = process.env.APIFY_TOKEN;
+const APIFY_TOKEN         = process.env.APIFY_TOKEN;
 const SCRAPER_SERVICE_URL = process.env.SCRAPER_SERVICE_URL;
-const SCRAPER_SECRET = process.env.SCRAPER_SECRET;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;  // Phase H: optional LLM
-const BASE = 'https://api.apify.com/v2';
+const SCRAPER_SECRET      = process.env.SCRAPER_SECRET;
+const ANTHROPIC_API_KEY   = process.env.ANTHROPIC_API_KEY;  // Phase H: optional LLM
+const BASE                = 'https://api.apify.com/v2';
+
+// ─── P3: Resolution-degradation Supabase logger ───────────────────────────
+// Writes to the worker_events table when the scraper detects that Instagram
+// is silently serving downsampled images — the tell-tale sign of stale
+// session cookies on a worker account.
+//
+// Uses the service-role key (bypasses RLS) so the insert always lands even
+// if the anon key policy doesn't grant INSERT on this table.
+// Set SUPABASE_SERVICE_KEY in Vercel → Settings → Environment Variables.
+// If the var is absent the function is a silent no-op — no errors thrown.
+//
+// Table DDL (run once in Supabase SQL editor):
+//   create table if not exists worker_events (
+//     id             bigserial primary key,
+//     created_at     timestamptz not null default now(),
+//     event_type     text not null,
+//     username       text,
+//     degraded_count int,
+//     total_count    int,
+//     sample_code    text,
+//     original_width int,
+//     actual_width   int,
+//     ratio          numeric(4,2),
+//     worker_source  text
+//   );
+const _SUPABASE_URL  = 'https://hccgwhhmpmucislxufyp.supabase.co';
+const _SUPABASE_SKEY = process.env.SUPABASE_SERVICE_KEY;
+
+async function logWorkerEvent(event) {
+  if (!_SUPABASE_SKEY) return;          // graceful no-op if key not set
+  try {
+    await fetch(`${_SUPABASE_URL}/rest/v1/worker_events`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${_SUPABASE_SKEY}`,
+        'apikey':        _SUPABASE_SKEY,
+        'Prefer':        'return=minimal',
+      },
+      body: JSON.stringify(event),
+    });
+  } catch { /* best-effort — never block the scrape response */ }
+}
 
 // Script Studio backend — performance calc + NLP. Vercel ESM relative import.
 import scriptStudio from './_lib/scriptStudio.js';
@@ -613,6 +656,27 @@ export default async function handler(req, res) {
       const { username, limit = 12 } = payload;
       if (!username) return res.status(400).json({ error: 'Missing username' });
       const r = await callScraperService('posts', { username: username.replace('@', ''), limit });
+
+      // P3: detect resolution-degradation flags set by posts.js scraper.
+      // Fire-and-forget Supabase write — never awaited so it can't delay
+      // or break the response. SUPABASE_SERVICE_KEY must be set in Vercel
+      // env vars for this to write; otherwise logWorkerEvent is a no-op.
+      const degraded = (r.items || []).filter((item) => item?._resWarning);
+      if (degraded.length > 0) {
+        logWorkerEvent({
+          event_type:     'res_degraded',
+          username:       username.replace('@', ''),
+          degraded_count: degraded.length,
+          total_count:    (r.items || []).length,
+          sample_code:    degraded[0]?.shortcode || null,
+          original_width: degraded[0]?._resWarning?.originalWidth || null,
+          actual_width:   degraded[0]?._resWarning?.actualWidth   || null,
+          ratio:          degraded[0]?._resWarning?.ratio         || null,
+          worker_source:  r.source,
+          created_at:     new Date().toISOString(),
+        }).catch(() => {});
+      }
+
       setEdgeCache(res, 'posts');
       return res.status(200).json(withSource(res, r.source, { ok: true, items: r.items }));
     }

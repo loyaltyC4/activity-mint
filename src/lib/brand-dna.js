@@ -1,3 +1,4 @@
+// ESM module — use import { extractBrandDNA } from ./brand-dna.js
 /**
  * brand-dna.js — Brand DNA extraction orchestrator
  *
@@ -16,9 +17,7 @@
  * and injected into the carousel system prompt.
  */
 
-'use strict'
-
-const Anthropic = require('@anthropic-ai/sdk')
+import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -278,4 +277,4 @@ async function extractBrandDNA(input) {
   }
 }
 
-module.exports = { extractBrandDNA }
+export { extractBrandDNA }

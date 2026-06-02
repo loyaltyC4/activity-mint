@@ -1,19 +1,33 @@
 {
   "functions": {
-    "api/apify-proxy.js":               { "maxDuration": 300 },
-    "api/proxy-image.js":               { "maxDuration": 15 },
-    "api/brand-dna.js":                 { "maxDuration": 120 },
-    "api/carousel/chat.js":             { "maxDuration": 300 },
-    "api/carousel/export.js":           { "maxDuration": 120 },
-    "api/carousels.js":                 { "maxDuration": 15 },
-    "api/carousel/[id].js":             { "maxDuration": 15 },
-    "api/carousel/[id]/slides.js":      { "maxDuration": 15 },
-    "api/carousel/[id]/slides/[slideId].js": { "maxDuration": 15 },
-    "api/carousel/[id]/caption.js":     { "maxDuration": 15 }
+    "api/apify-proxy.js":                          { "maxDuration": 300 },
+    "api/proxy-image.js":                          { "maxDuration": 15  },
+    "api/brand-dna.js":                            { "maxDuration": 120 },
+    "api/carousel/chat.js":                        { "maxDuration": 300 },
+    "api/carousel/export.js":                      { "maxDuration": 120 },
+    "api/carousels.js":                            { "maxDuration": 15  },
+    "api/carousel/[id].js":                        { "maxDuration": 15  },
+    "api/carousel/[id]/slides.js":                 { "maxDuration": 15  },
+    "api/carousel/[id]/slides/[slideId].js":       { "maxDuration": 15  },
+    "api/carousel/[id]/caption.js":                { "maxDuration": 15  }
   },
   "routes": [
     { "src": "^/$", "dest": "/landing.html" },
+
+    { "src": "^/api/carousel/([^/]+)/slides/([^/]+)$",
+      "dest": "/api/carousel/[id]/slides/[slideId]?id=$1&slideId=$2" },
+
+    { "src": "^/api/carousel/([^/]+)/slides$",
+      "dest": "/api/carousel/[id]/slides?id=$1" },
+
+    { "src": "^/api/carousel/([^/]+)/caption$",
+      "dest": "/api/carousel/[id]/caption?id=$1" },
+
+    { "src": "^/api/carousel/([^/]+)$",
+      "dest": "/api/carousel/[id]?id=$1" },
+
     { "src": "^/api/(.*)", "dest": "/api/$1" },
+
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]

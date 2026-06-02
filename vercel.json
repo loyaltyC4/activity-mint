@@ -1,7 +1,15 @@
 {
   "functions": {
-    "api/apify-proxy.js": { "maxDuration": 300 },
-    "api/proxy-image.js": { "maxDuration": 15 }
+    "api/apify-proxy.js":               { "maxDuration": 300 },
+    "api/proxy-image.js":               { "maxDuration": 15 },
+    "api/brand-dna.js":                 { "maxDuration": 120 },
+    "api/carousel/chat.js":             { "maxDuration": 300 },
+    "api/carousel/export.js":           { "maxDuration": 120 },
+    "api/carousels.js":                 { "maxDuration": 15 },
+    "api/carousel/[id].js":             { "maxDuration": 15 },
+    "api/carousel/[id]/slides.js":      { "maxDuration": 15 },
+    "api/carousel/[id]/slides/[slideId].js": { "maxDuration": 15 },
+    "api/carousel/[id]/caption.js":     { "maxDuration": 15 }
   },
   "routes": [
     { "src": "^/$", "dest": "/landing.html" },

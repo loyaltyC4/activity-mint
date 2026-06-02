@@ -66,6 +66,7 @@ const CACHE_TTLS = {
   comments: 1800,            // 30 min (was 5 min). Comment threads evolve slowly.
   audience_enrichment: 7200, // 2 hr  (was 15 min). Follower list barely changes in 2hr.
   top_commenters: 3600,      // 1 hr  (was 10 min). Commenter ranking is stable.
+  export_slides: 0,          // Never cache — every export is a unique screenshot job.
 };
 
 // ─── Logger ──────────────────────────────────────────────────────────────

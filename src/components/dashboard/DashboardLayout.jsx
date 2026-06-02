@@ -1,9 +1,11 @@
 /**
  * DashboardLayout — insight-flow shell with wider canvas + a11y skip link.
  *
- * Changes vs. previous version:
- *   - Wired Subscription and Mood panes into the router
- *   - Topbar now reflects the active tracked handle live (re-renders on switch)
+ * Changes from previous version:
+ *   - max-w-7xl (1280px) → max-w-[1440px] for breathing room on wide screens
+ *   - Skip-to-content link for keyboard users
+ *   - <main> landmark with id="main-content" + tabIndex={-1}
+ *   - Focus-visible utility classes on interactive elements
  */
 'use strict'
 import React, { Suspense, lazy } from 'react'
@@ -14,7 +16,6 @@ import { PANES } from './index'
 
 const PulsePane          = lazy(() => import('./panes/PulsePane'))
 const AudiencePane       = lazy(() => import('./panes/AudiencePane'))
-const MoodPane           = lazy(() => import('./panes/MoodPane'))
 const ContentPane        = lazy(() => import('./panes/ContentLabPane'))
 const ScriptStudioPane   = lazy(() => import('./panes/ScriptStudioPane'))
 const SentimentPane      = lazy(() => import('./panes/SentimentPane'))
@@ -26,8 +27,8 @@ const OutreachPane       = lazy(() => import('./panes/OutreachPane'))
 const ToolsPane          = lazy(() => import('./panes/ToolsPane'))
 const CompetitorsPane    = lazy(() => import('./panes/CompetitorsPane'))
 const RewardsPane        = lazy(() => import('./panes/RewardsPane'))
-const SubscriptionPane   = lazy(() => import('./panes/SubscriptionPane'))
 const SettingsPane       = lazy(() => import('./panes/SettingsPane'))
+const CarouselPane       = lazy(() => import('./panes/CarouselPane'))
 
 function PanePlaceholder({ paneId }) {
   const meta = PANES[paneId]
@@ -55,23 +56,22 @@ function PaneFallback() {
 
 function PaneRouter({ paneId, timeRange }) {
   switch (paneId) {
-    case 'pulse':        return <PulsePane          timeRange={timeRange} />
-    case 'audience':     return <AudiencePane       timeRange={timeRange} />
-    case 'mood':         return <MoodPane           timeRange={timeRange} />
-    case 'content':      return <ContentPane        timeRange={timeRange} />
-    case 'script':       return <ScriptStudioPane   timeRange={timeRange} />
-    case 'sentiment':    return <SentimentPane      timeRange={timeRange} />
-    case 'trends':       return <TrendsPane         timeRange={timeRange} />
-    case 'adlab':        return <AdLabPane          timeRange={timeRange} />
-    case 'planner':      return <NextPostPane       timeRange={timeRange} />
-    case 'templates':    return <TemplateStudioPane timeRange={timeRange} />
-    case 'outreach':     return <OutreachPane       timeRange={timeRange} />
-    case 'toolkit':      return <ToolsPane />
-    case 'competitors':  return <CompetitorsPane    timeRange={timeRange} />
-    case 'rewards':      return <RewardsPane />
-    case 'subscription': return <SubscriptionPane />
-    case 'settings':     return <SettingsPane />
-    default:             return <PanePlaceholder paneId={paneId} />
+    case 'pulse':       return <PulsePane       timeRange={timeRange} />
+    case 'audience':    return <AudiencePane    timeRange={timeRange} />
+    case 'content':     return <ContentPane     timeRange={timeRange} />
+    case 'script':      return <ScriptStudioPane timeRange={timeRange} />
+    case 'sentiment':   return <SentimentPane   timeRange={timeRange} />
+    case 'trends':      return <TrendsPane      timeRange={timeRange} />
+    case 'adlab':       return <AdLabPane       timeRange={timeRange} />
+    case 'planner':     return <NextPostPane    timeRange={timeRange} />
+    case 'templates':   return <TemplateStudioPane timeRange={timeRange} />
+    case 'outreach':    return <OutreachPane    timeRange={timeRange} />
+    case 'toolkit':     return <ToolsPane />
+    case 'competitors': return <CompetitorsPane timeRange={timeRange} />
+    case 'rewards':     return <RewardsPane />
+    case 'settings':    return <SettingsPane />
+    case 'carousel':    return <CarouselPane />
+    default:            return <PanePlaceholder paneId={paneId} />
   }
 }
 
@@ -106,7 +106,6 @@ export default function DashboardLayout({
           timeRange={timeRange}
           onTimeRangeChange={onTimeRangeChange}
           onSettingsClick={() => onPaneChange('settings')}
-          onUpgradeClick={() => onPaneChange('subscription')}
           user={user}
         />
 

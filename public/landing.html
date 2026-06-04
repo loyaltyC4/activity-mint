@@ -848,6 +848,325 @@ p{color:var(--gray)}
   .rp-view.on .persona-card .pc-tags span{opacity:1 !important;transform:none !important}
   .rp-view.on .gauge .needle{transform:rotate(64deg) !important}
 }
+
+/* ============ READ THE ROOM: layout fix (v3) ============ */
+/* views now layer inside a dedicated positioned stage, not over the header */
+.room-panel{display:flex;flex-direction:column}
+.rp-views{position:relative;flex:1;min-height:330px;margin-top:6px}
+@media(max-width:560px){.rp-views{min-height:360px}}
+.room-panel .rp-view{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center}
+.room-panel .rp-view.on{display:flex;animation:rpIn .5s cubic-bezier(.34,1.56,.64,1)}
+
+/* ============ HERO ENGINE (endless auto-scroll content) ============ */
+.engine-head{max-width:760px;margin:30px auto 22px;text-align:center;padding:0 6vw}
+.engine-head .kicker{justify-content:center;margin-bottom:12px}
+.engine-head h2{margin:0 auto 12px;max-width:18ch}
+.engine-head p{max-width:54ch;margin:0 auto;font-size:1.02rem}
+.engine-wrap{position:relative;z-index:2;margin-top:8px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 9%,#000 88%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 9%,#000 88%,transparent)}
+.engine{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;max-width:1480px;margin:0 auto;padding:0 6vw;height:760px;align-items:start}
+@media(min-width:1560px){.engine{padding:0 40px}}
+.ec-col{overflow:hidden;height:760px}
+.ec-track{display:flex;flex-direction:column;will-change:transform;animation:ecScroll var(--dur,64s) linear infinite}
+.ec-track>.ec{margin-bottom:16px}
+.ec-col:nth-child(even) .ec-track{animation-direction:reverse}
+.ec-col:hover .ec-track{animation-play-state:paused}
+@keyframes ecScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+/* tablet: 2 cols, mobile: 1 col */
+@media(max-width:1080px){
+  .engine{grid-template-columns:repeat(2,1fr);height:680px}
+  .ec-col{height:680px}
+  .ec-col:nth-child(n+3){display:none}
+}
+@media(max-width:640px){
+  .engine{grid-template-columns:1fr;height:620px}
+  .ec-col{height:620px}
+  .ec-col:nth-child(n+2){display:none}
+}
+/* the card */
+.ec{position:relative;border-radius:var(--r-md);background:var(--white);box-shadow:var(--shadow-md);overflow:hidden;border:1px solid var(--line);transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s}
+.ec-col:hover .ec:hover{transform:translateY(-5px) scale(1.012);box-shadow:var(--shadow-lg);z-index:4}
+.ec-media{position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.ec-fb{position:absolute;inset:0;z-index:0}
+.ec-media img,.ec-media video{width:100%;height:100%;object-fit:cover;position:relative;z-index:1;display:block}
+.ec-poster{position:absolute;inset:0;z-index:1}
+.ec-video video{position:relative;z-index:2}
+.ec-scrim{position:absolute;inset:0;z-index:3;background:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.06) 45%,rgba(0,0,0,.62));pointer-events:none}
+.ec-scrim.soft{background:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.32))}
+/* subtle template-name label */
+.tname{position:absolute;top:10px;left:10px;z-index:6;display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:.58rem;letter-spacing:.04em;color:#fff;background:rgba(22,22,19,.42);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:4px 9px;border-radius:999px}
+.tname i{font-size:.72rem;opacity:.85}
+/* restrained badges */
+.cbadge{position:absolute;top:10px;right:10px;z-index:6;display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-weight:700;font-size:.58rem;letter-spacing:.03em;padding:4px 9px;border-radius:999px}
+.cbadge.trend{background:var(--mint);color:#06231a}
+.cbadge.top{background:var(--butter);color:#3d2c00}
+.cbadge i{font-size:.74rem}
+/* hooks */
+.ec-hook{position:relative;z-index:5;color:#fff;font-family:var(--body);font-weight:600;font-size:.82rem;line-height:1.18;padding:12px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.ec-hook.burn{font-family:var(--display);font-weight:800;font-size:.96rem;letter-spacing:-.01em;text-align:center;width:100%;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+/* video sound glyph + ugc play */
+.ec-sound{position:absolute;bottom:11px;right:11px;z-index:6;width:26px;height:26px;border-radius:50%;background:rgba(22,22,19,.5);backdrop-filter:blur(6px);display:grid;place-items:center;color:#fff;font-size:.8rem}
+.ec-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:5;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;color:#161613;font-size:1.15rem;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+.ec-ugc .ec-hook.burn{position:absolute;left:8px;right:8px;bottom:12px;padding:0}
+/* foot chip row (restrained proof) */
+.ec-foot{display:flex;align-items:center;gap:8px;padding:9px 11px;background:#fff}
+.cchip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:.6rem;font-weight:700;color:var(--mint-deep);background:rgba(32,224,160,.12);padding:3px 9px;border-radius:999px}
+.cchip i{font-size:.72rem}
+/* carousel card */
+.ec-head{display:flex;align-items:center;gap:7px;padding:10px 12px;font-size:.74rem;color:var(--gray)}
+.ec-head i{color:var(--ink);font-size:1rem}
+.ec-head span:first-of-type{font-weight:600;color:var(--ink);font-family:var(--body)}
+.ec-head .ec-dots-mini{margin-left:auto;font-family:var(--mono);font-size:.62rem;color:var(--gray)}
+.cs-track{display:flex;gap:6px;padding:0 10px}
+.cs-slide{flex:1;position:relative;border-radius:13px;overflow:hidden;aspect-ratio:4/5;display:flex;align-items:flex-end}
+.cs-slide img{width:100%;height:100%;object-fit:cover;position:relative;z-index:1}
+.cs-cap{position:relative;z-index:4;color:#fff;font-family:var(--display);font-weight:700;font-size:.72rem;line-height:1.05;padding:9px;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.cs-dots{display:flex;gap:4px;justify-content:center;padding:9px 0 11px}
+.cs-dots i{width:5px;height:5px;border-radius:50%;background:var(--line-strong)}
+.cs-dots i.on{background:var(--ink);width:14px;border-radius:3px}
+/* before/after */
+.ba-split{display:grid;grid-template-columns:1fr 1fr;aspect-ratio:4/5;gap:2px}
+.ba-half{position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.ba-half img{width:100%;height:100%;object-fit:cover;position:relative;z-index:1}
+.ba-tag{position:relative;z-index:4;margin:0 0 10px 10px;font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.04em;color:#fff;background:rgba(22,22,19,.55);padding:3px 9px;border-radius:999px}
+.ba-tag.on{background:var(--mint);color:#06231a}
+.ba-div{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:6;width:34px;height:34px;border-radius:50%;background:#fff;display:grid;place-items:center;color:var(--ink);font-size:.95rem;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+/* product */
+.ec-prow{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff}
+.ec-pn{font-family:var(--body);font-weight:600;font-size:.8rem;color:var(--ink)}
+.ec-pp{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
+/* ad */
+.ec-off{position:absolute;top:38px;left:10px;z-index:6;font-family:var(--display);font-weight:800;font-size:.92rem;background:var(--butter);color:#3d2c00;padding:4px 11px;border-radius:999px;transform:rotate(-6deg);box-shadow:0 6px 16px rgba(0,0,0,.2)}
+.ec-adhead{position:absolute;left:11px;right:11px;bottom:48px;z-index:5;color:#fff;font-family:var(--display);font-weight:800;font-size:.95rem;line-height:1.06;text-shadow:0 2px 10px rgba(0,0,0,.55)}
+.ec-shop{position:absolute;left:11px;bottom:12px;z-index:5;display:inline-flex;align-items:center;gap:6px;font-family:var(--body);font-weight:700;font-size:.74rem;background:var(--ink);color:#fff;padding:7px 13px;border-radius:999px}
+.ec-shop i{font-size:.8rem}
+/* avatar card */
+.av-pill{position:absolute;left:10px;bottom:62px;z-index:5;display:inline-flex;align-items:center;gap:5px;font-family:var(--body);font-weight:600;font-size:.66rem;color:#fff;background:rgba(46,107,255,.85);padding:4px 9px;border-radius:999px}
+.av-pill i{font-size:.78rem}
+.av-lang{position:absolute;top:10px;right:10px;z-index:6;font-family:var(--mono);font-size:.6rem;font-weight:700;color:#fff;background:rgba(22,22,19,.5);padding:3px 8px;border-radius:6px}
+.ec-avatar .cbadge{top:10px;right:46px}
+.av-cap{position:absolute;left:9px;right:9px;bottom:9px;z-index:5;background:rgba(255,255,255,.95);border-radius:11px;padding:8px 9px}
+.av-wave{display:flex;align-items:flex-end;gap:2px;height:18px;margin-bottom:5px}
+.av-wave span{flex:1;border-radius:2px;background:linear-gradient(180deg,var(--cobalt),#1b3fa8);opacity:.55;animation:avWave 1.1s ease-in-out infinite alternate}
+.av-wave span:nth-child(odd){animation-delay:.25s;opacity:.8}
+.av-wave span:nth-child(3n){animation-delay:.5s}
+@keyframes avWave{from{transform:scaleY(.5)}to{transform:scaleY(1)}}
+.av-sub{display:block;font-family:var(--body);font-weight:600;font-size:.72rem;color:var(--ink);line-height:1.2}
+/* set media aspect ratios that default */
+.ec-video .ec-media{aspect-ratio:9/16}
+
+/* ============ CLEAN STATEMENT (big-type animated) ============ */
+.statement-sec{padding:120px 0}
+@media(max-width:760px){.statement-sec{padding:80px 0}}
+.statement{max-width:980px;margin:0 auto;text-align:center}
+.statement p{font-family:var(--display);font-weight:600;color:var(--ink);font-size:clamp(1.9rem,4.4vw,3.3rem);line-height:1.22;letter-spacing:-.02em}
+.statement .ln{display:block;opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.statement .ln.in{opacity:1;transform:none}
+.statement .ln:nth-child(2){transition-delay:.12s}
+.statement .ln:nth-child(3){transition-delay:.24s}
+.statement .ln:nth-child(4){transition-delay:.36s}
+.statement .grad-phrase{background:linear-gradient(96deg,var(--mint-deep),var(--cobalt) 40%,var(--pink) 72%,var(--tangerine));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+/* inline glyph chips */
+.st-ico{display:inline-grid;place-items:center;width:1.32em;height:1.32em;border-radius:.42em;vertical-align:-.28em;margin:0 .06em;color:#fff;font-size:.78em;transform:scale(0);transition:transform .55s cubic-bezier(.34,1.56,.64,1)}
+.statement .ln.in .st-ico{transform:scale(1)}
+.st-ico.idea{background:linear-gradient(135deg,var(--butter),var(--tangerine))}
+.st-ico.brand{background:linear-gradient(135deg,var(--mint),var(--cobalt))}
+.st-ico.team{background:linear-gradient(135deg,var(--pink),#d92e72)}
+/* cycling platform glyph */
+.st-plat{position:relative;display:inline-grid;place-items:center;width:1.32em;height:1.32em;border-radius:.42em;vertical-align:-.28em;margin:0 .06em;color:#fff;background:var(--ink);font-size:.82em;overflow:hidden}
+.st-plat i{position:absolute;transition:opacity .4s ease, transform .4s ease;opacity:0;transform:rotateX(90deg)}
+.st-plat i.on{opacity:1;transform:rotateX(0deg)}
+@media(prefers-reduced-motion:reduce){
+  .statement .ln{opacity:1 !important;transform:none !important}
+  .statement .ln .st-ico{transform:scale(1) !important}
+  .st-plat i{transition:none !important}
+}
+
+/* ============================================================
+   v4 ADDITIONS
+   ============================================================ */
+
+/* ---- READ THE ROOM (Option G: bright content-reading) ---- */
+.rr2{padding:90px 0}
+.rr2 .sec-head{margin-bottom:40px}
+.rr2-stage{position:relative;background:linear-gradient(165deg,#FFFFFF,#F1FBF6 70%,#FFF6EF);border:1px solid var(--line);border-radius:var(--r-xl);padding:34px 30px 30px;overflow:hidden}
+@media(max-width:760px){.rr2-stage{padding:24px 16px;border-radius:var(--r-lg)}}
+.rr2-blob{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;z-index:0}
+.rr2-blob.a{width:300px;height:300px;background:var(--mint);opacity:.18;top:-120px;right:-60px}
+.rr2-blob.b{width:240px;height:240px;background:var(--pink);opacity:.12;bottom:-110px;left:8%}
+.rr2-blob.c{width:240px;height:240px;background:var(--cobalt);opacity:.10;top:30%;left:-90px}
+.rr2-top{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+.rr2-live{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);background:#fff;border:1px solid var(--line);padding:7px 14px;border-radius:999px}
+.rr2-live .lvp{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 0 rgba(32,224,160,.6);animation:pulseDot 1.8s infinite}
+.rr2-row{position:relative;z-index:2;display:flex;gap:18px;overflow-x:auto;padding:14px 4px 22px;scrollbar-width:none}
+.rr2-row::-webkit-scrollbar{display:none}
+.rr2-thumb{position:relative;flex:0 0 auto;width:200px;border-radius:var(--r-md);overflow:hidden;background:#fff;box-shadow:var(--shadow-md);border:1px solid var(--line);opacity:0;transform:translateY(22px) scale(.96);transition:opacity .6s cubic-bezier(.22,1,.36,1),transform .6s cubic-bezier(.22,1,.36,1),box-shadow .3s}
+.rr2-thumb.in{opacity:1;transform:none}
+@media(max-width:560px){.rr2-thumb{width:168px}}
+.rr2-thumb .rr2-img{position:relative;aspect-ratio:4/5;overflow:hidden}
+.rr2-thumb .rr2-img img{width:100%;height:100%;object-fit:cover;display:block}
+.rr2-thumb .rr2-imgscrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.42));z-index:1}
+.rr2-thumb .rr2-type{position:absolute;top:9px;left:9px;z-index:3;font-family:var(--mono);font-size:.56rem;letter-spacing:.05em;color:#fff;background:rgba(22,22,19,.5);backdrop-filter:blur(5px);padding:3px 8px;border-radius:999px}
+.rr2-thumb .rr2-foot{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:#fff;font-family:var(--mono);font-size:.6rem;color:var(--gray)}
+.rr2-thumb .rr2-foot .mn{display:inline-flex;align-items:center;gap:4px;color:var(--mint-deep);font-weight:700}
+/* analysis scan line over the active thumb */
+.rr2-thumb .rr2-scan{position:absolute;left:0;right:0;top:0;height:46px;z-index:4;pointer-events:none;opacity:0;
+  background:linear-gradient(180deg,rgba(32,224,160,0),rgba(32,224,160,.16) 60%,rgba(32,224,160,.5) 92%,rgba(15,191,133,.92));
+  box-shadow:0 6px 16px rgba(32,224,160,.4)}
+.rr2-thumb .rr2-scan::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--mint);box-shadow:0 0 12px 2px rgba(32,224,160,.8)}
+.rr2-thumb.analyzing{box-shadow:0 0 0 2px var(--mint),var(--shadow-lg)}
+.rr2-thumb.analyzing .rr2-scan{opacity:1;animation:rr2Sweep 1.9s cubic-bezier(.4,0,.2,1) infinite}
+@keyframes rr2Sweep{0%{transform:translateY(-50px)}75%{transform:translateY(260px)}100%{transform:translateY(260px)}}
+/* colorful annotation tags popping off the thumbs */
+.rr2-tag{position:absolute;z-index:6;display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.02em;padding:5px 10px;border-radius:999px;white-space:nowrap;box-shadow:0 8px 20px rgba(22,22,19,.14);opacity:0;transform:scale(.7) translateY(6px);transition:opacity .5s cubic-bezier(.34,1.56,.64,1),transform .5s cubic-bezier(.34,1.56,.64,1)}
+.rr2-thumb.in .rr2-tag{opacity:1;transform:none}
+.rr2-thumb.in .rr2-tag.d2{transition-delay:.12s}
+.rr2-thumb.in .rr2-tag.d3{transition-delay:.24s}
+.rr2-tag i{font-size:.72rem}
+.rr2-tag.pos{background:rgba(32,224,160,.16);color:var(--mint-deep);border:1px solid rgba(32,224,160,.3)}
+.rr2-tag.term{background:rgba(255,106,61,.14);color:#c2451f;border:1px solid rgba(255,106,61,.28)}
+.rr2-tag.eng{background:rgba(46,107,255,.12);color:var(--cobalt);border:1px solid rgba(46,107,255,.24)}
+.rr2-tag.pink{background:rgba(255,61,138,.12);color:#c01f5c;border:1px solid rgba(255,61,138,.24)}
+.rr2-tag.tl{top:-10px;left:10px}
+.rr2-tag.tr{top:-10px;right:10px}
+.rr2-tag.bl{bottom:64px;left:-8px}
+.rr2-tag.br{bottom:90px;right:-10px}
+/* thin colorful connector lines */
+.rr2-line{position:absolute;z-index:5;height:2px;border-radius:2px;transform-origin:left center;opacity:0;transition:opacity .5s ease .2s}
+.rr2-thumb.in .rr2-line{opacity:.65}
+.rr2-line.mint{background:linear-gradient(90deg,var(--mint),transparent)}
+.rr2-line.tang{background:linear-gradient(90deg,var(--tangerine),transparent)}
+.rr2-line.cob{background:linear-gradient(90deg,var(--cobalt),transparent)}
+/* bright summary card */
+.rr2-sum{position:relative;z-index:3;flex:0 0 auto;width:230px;border-radius:var(--r-md);background:linear-gradient(155deg,var(--ink),#23231f);color:#fff;padding:20px 18px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;justify-content:center;opacity:0;transform:translateY(22px) scale(.96);transition:opacity .6s cubic-bezier(.22,1,.36,1),transform .6s cubic-bezier(.22,1,.36,1)}
+.rr2-sum.in{opacity:1;transform:none}
+.rr2-sum .rs-k{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.6);display:inline-flex;align-items:center;gap:7px;margin-bottom:8px}
+.rr2-sum .rs-k .d{width:7px;height:7px;border-radius:50%;background:var(--mint)}
+.rr2-sum .rs-big{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1;letter-spacing:-.02em}
+.rr2-sum .rs-big .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rr2-sum .rs-sub{font-size:.84rem;color:rgba(255,255,255,.7);margin-top:6px;font-weight:500}
+.rr2-sum .rs-meter{height:8px;border-radius:999px;background:rgba(255,255,255,.12);margin-top:14px;overflow:hidden}
+.rr2-sum .rs-meter i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--mint),var(--mint-deep));transition:width 1.2s cubic-bezier(.22,1,.36,1)}
+.rr2-sum.in .rs-meter i{width:92%}
+.rr2-sum .rs-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.rr2-sum .rs-chips span{font-family:var(--mono);font-size:.58rem;font-weight:700;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.08);color:#fff}
+.rr2-foot2{position:relative;z-index:2;margin-top:6px;display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:.76rem;color:var(--gray)}
+.rr2-foot2 i{color:var(--mint-deep)}
+
+/* ---- TRAINED ON (visual logo version) ---- */
+.trained{padding:80px 0}
+.trained-card{position:relative;background:linear-gradient(165deg,#FFFFFF,#F4FBF8);border:1px solid var(--line);border-radius:var(--r-xl);padding:54px 40px 46px;overflow:hidden;text-align:center}
+@media(max-width:760px){.trained-card{padding:40px 20px;border-radius:var(--r-lg)}}
+.trained-glow{position:absolute;width:360px;height:360px;border-radius:50%;background:var(--mint);filter:blur(120px);opacity:.14;top:-150px;left:50%;transform:translateX(-50%);pointer-events:none}
+.trained-card .kicker{position:relative;z-index:2}
+.trained-card h2{position:relative;z-index:2;max-width:20ch;margin:14px auto 30px}
+.logo-row{position:relative;z-index:3;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:30px 46px;margin-bottom:8px}
+.logo-row .lg{height:30px;opacity:.55;filter:none;transition:opacity .3s,transform .3s;flex:0 0 auto}
+.logo-row .lg:hover{opacity:1;transform:translateY(-3px)}
+@media(max-width:560px){.logo-row{gap:22px 30px}.logo-row .lg{height:24px}}
+/* flow lines container */
+.flow-wrap{position:relative;z-index:2;margin-top:6px;height:90px}
+.flow-wrap svg{width:100%;height:100%;display:block;overflow:visible}
+.flow-wrap path{fill:none;stroke-width:1.4;opacity:.5;stroke-dasharray:6 7;animation:flowDash 1.4s linear infinite}
+@keyframes flowDash{to{stroke-dashoffset:-26}}
+/* phone mockup with mint score */
+.trained-phone{position:relative;z-index:3;width:236px;margin:0 auto;border-radius:30px;background:var(--ink);padding:10px;box-shadow:var(--shadow-lg)}
+.trained-phone .tp-screen{border-radius:22px;overflow:hidden;background:#fff;position:relative}
+.trained-phone .tp-top{display:flex;align-items:center;justify-content:space-between;padding:13px 15px 8px;font-family:var(--mono);font-size:.62rem;color:var(--gray)}
+.trained-phone .tp-top b{font-family:var(--display);font-size:.84rem;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.trained-phone .tp-top b .lf{width:18px;height:18px;border-radius:6px;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));display:grid;place-items:center;color:#06231a;font-size:.6rem}
+.trained-phone .tp-ring{display:grid;place-items:center;padding:8px 0 6px}
+.tp-ring svg{width:128px;height:128px}
+.tp-ring .tp-num{position:relative;margin-top:-86px;text-align:center;font-family:var(--display);font-weight:800;font-size:2.5rem;color:var(--ink);line-height:1}
+.tp-ring .tp-num small{display:block;font-family:var(--mono);font-size:.56rem;font-weight:400;letter-spacing:.12em;color:var(--mint-deep);margin-top:2px}
+.tp-rows{padding:6px 14px 16px;display:flex;flex-direction:column;gap:9px}
+.tp-rowi{display:flex;align-items:center;gap:9px;font-size:.72rem;color:var(--ink);font-weight:500}
+.tp-rowi i{color:var(--mint-deep);font-size:1rem;flex-shrink:0}
+.tp-rowi .v{margin-left:auto;font-family:var(--mono);font-size:.66rem;color:var(--mint-deep);font-weight:700}
+/* floating insight chips */
+.insight{position:absolute;z-index:5;display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-md);border-radius:14px;padding:9px 13px;font-size:.76rem;font-weight:600;color:var(--ink);max-width:215px;text-align:left;opacity:0;transform:translateY(10px)}
+.insight.in{opacity:1;transform:none;transition:opacity .6s ease,transform .6s cubic-bezier(.22,1,.36,1)}
+.insight .ic{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:.92rem;flex-shrink:0}
+.insight b{font-family:var(--mono);font-weight:700;font-size:.7rem;display:block;margin-top:1px}
+.insight.i1{top:8%;left:2%}.insight.i1 .ic{background:linear-gradient(135deg,var(--mint),var(--mint-deep))}
+.insight.i2{top:24%;right:2%}.insight.i2 .ic{background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}
+.insight.i3{bottom:24%;left:1%}.insight.i3 .ic{background:linear-gradient(135deg,var(--tangerine),#e2502a)}
+.insight.i4{bottom:9%;right:2%}.insight.i4 .ic{background:linear-gradient(135deg,var(--pink),#d92e72)}
+@media(max-width:980px){.insight{position:static;max-width:none;margin:8px auto 0;opacity:1;transform:none}.insight-float{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:24px}}
+@media(min-width:981px){.insight-float{position:absolute;inset:0;pointer-events:none}.insight-float .insight{pointer-events:auto}}
+.trained-stage{position:relative}
+
+/* ---- PRIVACY ---- */
+.privacy{padding:96px 0}
+.privacy-inner{max-width:1000px;margin:0 auto;text-align:center}
+.privacy-ico{width:78px;height:78px;border-radius:22px;margin:0 auto 22px;display:grid;place-items:center;font-size:2.1rem;color:#fff;background:linear-gradient(140deg,var(--mint),var(--mint-deep));box-shadow:0 18px 40px rgba(32,224,160,.32)}
+.privacy h2{font-size:clamp(2.2rem,5vw,4rem);max-width:16ch;margin:0 auto 10px}
+.privacy h2 .g{background:linear-gradient(96deg,var(--mint-deep),var(--cobalt) 40%,var(--pink) 72%,var(--tangerine));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.privacy-pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.74rem;font-weight:700;letter-spacing:.04em;color:var(--mint-deep);background:rgba(32,224,160,.12);border:1px solid rgba(32,224,160,.28);padding:8px 16px;border-radius:999px;margin:6px 0 36px}
+.privacy-pill i{font-size:1rem}
+.privacy-cols{display:grid;grid-template-columns:1fr 1fr;gap:30px;max-width:760px;margin:0 auto;text-align:left}
+@media(max-width:680px){.privacy-cols{grid-template-columns:1fr;gap:22px}}
+.privacy-col{display:flex;gap:14px;align-items:flex-start}
+.privacy-col .pc-i{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:1.25rem;flex-shrink:0;background:var(--white);border:1px solid var(--line);color:var(--mint-deep);box-shadow:var(--shadow-sm)}
+.privacy-col h3{font-size:1.08rem;margin-bottom:6px}
+.privacy-col p{font-size:.95rem;line-height:1.55}
+
+/* ---- CAROUSELS & SALE BANNERS ---- */
+.cb{padding:84px 0}
+.cb-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:24px;align-items:stretch}
+@media(max-width:920px){.cb-grid{grid-template-columns:1fr;gap:20px}}
+/* IG carousel showcase */
+.cb-car{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-md);overflow:hidden;display:flex;flex-direction:column}
+.cb-car .cbh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.cb-car .cbh .av{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,var(--mint),var(--cobalt))}
+.cb-car .cbh .av img{width:100%;height:100%;object-fit:cover}
+.cb-car .cbh b{font-size:.9rem}
+.cb-car .cbh span{font-size:.72rem;color:var(--gray);font-family:var(--mono)}
+.cb-car .cbh .ig{margin-left:auto;font-size:1.3rem;color:var(--ink)}
+.cb-stage{position:relative;aspect-ratio:1;overflow:hidden;background:#000}
+.cb-slides{display:flex;height:100%;transition:transform .6s cubic-bezier(.76,0,.24,1)}
+.cb-slide{position:relative;flex:0 0 100%;height:100%;overflow:hidden;display:flex;align-items:flex-end}
+.cb-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cb-slide .cs-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.06) 40%,rgba(0,0,0,.62));z-index:1}
+.cb-slide .cs-no{position:absolute;top:12px;right:14px;z-index:3;font-family:var(--mono);font-size:.66rem;color:#fff;background:rgba(0,0,0,.4);padding:3px 9px;border-radius:999px;backdrop-filter:blur(4px)}
+.cb-slide .cs-tx{position:relative;z-index:2;color:#fff;padding:18px;font-family:var(--display);font-weight:800;font-size:1.5rem;line-height:1.06;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.cb-slide .cs-tag{position:absolute;top:12px;left:14px;z-index:3;font-family:var(--mono);font-size:.58rem;letter-spacing:.05em;color:#06231a;background:var(--mint);padding:4px 10px;border-radius:999px;font-weight:700}
+.cb-dots{display:flex;gap:6px;justify-content:center;padding:14px}
+.cb-dots button{width:7px;height:7px;border-radius:50%;background:var(--line-strong);border:none;padding:0;cursor:pointer;transition:all .3s}
+.cb-dots button.on{background:var(--ink);width:20px;border-radius:4px}
+.cb-car .cb-react{display:flex;align-items:center;gap:16px;padding:4px 16px 16px;font-size:.82rem;color:var(--gray)}
+.cb-car .cb-react span{display:inline-flex;align-items:center;gap:5px}
+.cb-car .cb-react i{font-size:1.15rem}
+.cb-car .cb-react .sv{margin-left:auto}
+/* sale banners stack */
+.cb-banners{display:flex;flex-direction:column;gap:20px}
+.banner{position:relative;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-md);min-height:150px;flex:1;display:flex;align-items:center;padding:24px 26px;color:#fff;isolation:isolate}
+.banner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.banner .bn-scrim{position:absolute;inset:0;z-index:1}
+.banner .bn-body{position:relative;z-index:2;max-width:62%}
+.banner .bn-k{font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;opacity:.92;margin-bottom:6px;display:block}
+.banner .bn-big{font-family:var(--display);font-weight:800;font-size:clamp(1.8rem,4vw,2.7rem);line-height:.98;letter-spacing:-.02em}
+.banner .bn-sub{font-size:.86rem;font-weight:500;opacity:.92;margin-top:7px}
+.banner .bn-cta{position:relative;z-index:2;margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:.84rem;background:#fff;color:var(--ink);padding:11px 18px;border-radius:999px;white-space:nowrap;box-shadow:0 8px 20px rgba(0,0,0,.18);transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.banner .bn-cta:hover{transform:translateY(-3px) scale(1.03)}
+.banner.b-pink .bn-scrim{background:linear-gradient(110deg,rgba(255,61,138,.92),rgba(255,61,138,.42) 60%,rgba(255,61,138,.15))}
+.banner.b-cobalt .bn-scrim{background:linear-gradient(110deg,rgba(46,107,255,.92),rgba(46,107,255,.4) 60%,rgba(46,107,255,.12))}
+.banner.b-ink .bn-scrim{background:linear-gradient(110deg,rgba(22,22,19,.9),rgba(22,22,19,.5) 60%,rgba(22,22,19,.2))}
+.banner .bn-flash{position:absolute;top:14px;right:16px;z-index:2;font-family:var(--display);font-weight:800;font-size:1rem;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:var(--butter);color:#3d2c00;transform:rotate(9deg);box-shadow:0 8px 18px rgba(0,0,0,.22)}
+@media(max-width:560px){.banner{flex-direction:column;align-items:flex-start;gap:14px}.banner .bn-body{max-width:100%}.banner .bn-cta{margin-left:0}}
+
+@media(prefers-reduced-motion:reduce){
+  .rr2-thumb,.rr2-sum,.rr2-thumb .rr2-tag,.rr2-thumb .rr2-line{opacity:1 !important;transform:none !important;transition:none !important}
+  .rr2-thumb.analyzing .rr2-scan{animation:none !important;opacity:0 !important}
+  .rr2-thumb.analyzing{box-shadow:var(--shadow-md) !important}
+  .rr2-sum .rs-meter i{width:92% !important;transition:none !important}
+  .flow-wrap path{animation:none !important}
+  .insight{opacity:1 !important;transform:none !important}
+  .cb-slides{transition:none !important}
+  .rr2-live .lvp{animation:none !important}
+}
+
 </style>
 <style>
 .ha-img-placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;background:#f4f4f5;border:1px dashed #d4d4d8;border-radius:8px;color:#71717a;font-size:12px;font-family:system-ui,sans-serif;min-height:80px;padding:16px;box-sizing:border-box;animation:ha-img-pulse 1.5s ease-in-out infinite}
@@ -931,84 +1250,354 @@ p{color:var(--gray)}
   </div>
 </header>
 
-<!-- ============ HERO CONTENT WALL (photographic, "hundreds while you sleep") ============ -->
-<div class="feed-wrap">
-  <div class="feed" id="feed">
-
-    <!-- 1: Instagram carousel (beauty) -->
-    <div class="card">
-      <div class="post-head"><i class="ph-fill ph-instagram-logo ig"></i><span class="nm">Instagram carousel</span><span class="dots">···</span></div>
-      <div class="slides">
-        <div class="slide imgwrap fb-1"><img src="https://images.unsplash.com/photo-1741937492969-b508c2c1b50a?q=80&w=1200&auto=format&fit=crop" alt="Skincare flatlay" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="shop">Shop</span><h4>Summer Glow Essentials</h4></div>
-        <div class="slide imgwrap fb-2"><img src="https://images.unsplash.com/photo-1710410815589-dd83514104d0?q=80&w=1200&auto=format&fit=crop" alt="Beauty product" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><h4>Hydrate &amp; Protect</h4></div>
-        <div class="slide imgwrap fb-3"><img src="https://images.unsplash.com/photo-1713768704571-6aeb0d0e5105?q=80&w=1200&auto=format&fit=crop" alt="Beauty close up" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><h4>Daily Ritual</h4></div>
-      </div>
-      <div class="dotrow"><i class="on"></i><i></i><i></i></div>
-      <span class="ms"><i class="ph-fill ph-seal-check"></i> Mint Score 94</span>
-    </div>
-
-    <!-- 2: Reel (fitness) -->
-    <div class="card">
-      <div class="reel imgwrap fb-4"><img src="https://plus.unsplash.com/premium_photo-1661265933107-85a5dbd815af?q=80&w=1200&auto=format&fit=crop" alt="Fitness training" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="tag">REEL</span><div class="play"><i class="ph-fill ph-play"></i></div><div class="cap">POV: leg day, but make it fun</div></div>
-    </div>
-
-    <!-- 3: AI avatar (creator portrait) -->
-    <div class="card">
-      <div class="avatarc imgwrap fb-2"><img src="https://plus.unsplash.com/premium_photo-1770494457518-97297d7c45d9?q=80&w=1200&auto=format&fit=crop" alt="Spokesperson portrait" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="tag">AI AVATAR</span><div class="bubble"><i class="ph-fill ph-chat-circle"></i></div><div class="acap">Meet our new oat blend.</div></div>
-      <span class="ms"><i class="ph-fill ph-seal-check"></i> Mint Score 89</span>
-    </div>
-
-    <!-- 4: product grid (footwear) -->
-    <div class="card">
-      <div class="post-head"><span class="ava"></span><span class="nm">Product grid</span><span class="dots">···</span></div>
-      <div class="pgrid">
-        <div class="ptile imgwrap fb-3"><img src="https://images.unsplash.com/photo-1512374382149-233c42b6a83b?q=80&w=1200&auto=format&fit=crop" alt="Sneaker" loading="lazy" referrerpolicy="no-referrer"></div>
-        <div class="ptile imgwrap fb-7"><img src="https://images.unsplash.com/photo-1603808033192-082d6919d3e1?q=80&w=1200&auto=format&fit=crop" alt="Sneaker pair" loading="lazy" referrerpolicy="no-referrer"></div>
-        <div class="ptile imgwrap fb-1"><img src="https://images.unsplash.com/photo-1460353581641-37baddab0fa2?q=80&w=1200&auto=format&fit=crop" alt="Sneaker side" loading="lazy" referrerpolicy="no-referrer"></div>
-        <div class="ptile imgwrap fb-4"><img src="https://images.unsplash.com/photo-1695073621086-aa692bc32a3d?q=80&w=1200&auto=format&fit=crop" alt="Sneaker detail" loading="lazy" referrerpolicy="no-referrer"></div>
-      </div>
-      <div class="pmeta"><span class="nm">Court Classic Pack</span><span class="pr">$120.00</span></div>
-    </div>
-
-    <!-- 5: plain photo post (tech) -->
-    <div class="card">
-      <div class="post-head"><span class="ava"></span><span class="nm">Feed post</span><span class="dots">···</span></div>
-      <div class="photo imgwrap fb-3"><img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1200&auto=format&fit=crop" alt="Headphones" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="lab2">Your best seller, restyled daily.</span></div>
-      <span class="ms"><i class="ph-fill ph-seal-check"></i> Mint Score 92</span>
-    </div>
-
-    <!-- 6: short (fashion) -->
-    <div class="card">
-      <div class="reel imgwrap fb-5"><img src="https://plus.unsplash.com/premium_photo-1721742733156-736e11c918bb?q=80&w=1200&auto=format&fit=crop" alt="Street style" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="tag">SHORT</span><div class="play"><i class="ph-fill ph-play"></i></div><div class="pbar"></div></div>
-    </div>
-
-    <!-- 7: carousel (travel + beauty) -->
-    <div class="card">
-      <div class="post-head"><i class="ph-fill ph-instagram-logo ig"></i><span class="nm">Instagram carousel</span><span class="dots">···</span></div>
-      <div class="slides">
-        <div class="slide imgwrap fb-6"><img src="https://images.unsplash.com/photo-1584132967334-10e028bd69f7?q=80&w=1200&auto=format&fit=crop" alt="Travel view" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="shop">Save</span><h4>3 Stops You Cannot Miss</h4></div>
-        <div class="slide imgwrap fb-2"><img src="https://images.unsplash.com/photo-1679394270597-e90694d70350?q=80&w=1200&auto=format&fit=crop" alt="Glow ritual" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><h4>Pack Your Glow Kit</h4></div>
-      </div>
-      <div class="dotrow"><i class="on"></i><i></i></div>
-      <span class="ms"><i class="ph-fill ph-seal-check"></i> Mint Score 90</span>
-    </div>
-
-    <!-- 8: avatar 2 (food context) -->
-    <div class="card">
-      <div class="avatarc imgwrap fb-3"><img src="https://plus.unsplash.com/premium_photo-1663858367108-9150fe5ce9bd?q=80&w=1200&auto=format&fit=crop" alt="Plated dish" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="tag">AI AVATAR</span><div class="bubble"><i class="ph-fill ph-chat-circle"></i></div><div class="acap">New menu. Limited run.</div></div>
-    </div>
-
-    <!-- 9: plain photo post (home) -->
-    <div class="card">
-      <div class="post-head"><span class="ava"></span><span class="nm">Feed post</span><span class="dots">···</span></div>
-      <div class="photo imgwrap fb-4"><img src="https://images.unsplash.com/photo-1636714528228-f469eefb3eef?q=80&w=1200&auto=format&fit=crop" alt="Styled interior" loading="lazy" referrerpolicy="no-referrer"><span class="scrim"></span><span class="lab2">Why 1,200 teams switched.</span></div>
-      <span class="ms"><i class="ph-fill ph-seal-check"></i> Mint Score 88</span>
-    </div>
-
-  </div>
-  <div class="feed-fade"></div>
+<!-- ============ HERO ENGINE: endless auto-scroll content team ============ -->
+<div class="engine-head reveal" style="margin:18px auto 16px">
+  <span class="kicker"><span class="dot"></span>Always generating</span>
 </div>
-<div class="continues">the rest of the studio lives below</div>
+<div class="engine-wrap" aria-label="Continuously generated on-brand content">
+  <div class="engine" id="engine">
+    <div class="ec-col" style="--dur:58s" data-col="0">
+      <div class="ec-track">
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-user-circle-gear"></i>UGC</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P0RV6_57VWWCQQ5DG2EFGD/aeb6eddb-cc49-4866-a75d-741d2e510342.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">real talk, my honest routine</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>1.2M views</span></div>
+</article>
+<article class="ec ec-product">
+  <span class="tname"><i class="ph-fill ph-shopping-bag"></i>Product</span><span class="cbadge top"><i class="ph-fill ph-medal"></i>Top seller</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-3"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7T05_VFZDYC5PWD81QN65/23ae65e8-82be-491b-a076-25c7f9dc7807.png" alt="Studio Set" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim soft"></span>
+  </div>
+  <div class="ec-prow"><span class="ec-pn">Studio Set</span><span class="ec-pp">$120</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-fast-forward"></i>Hyper Motion</span><span class="cbadge top"><i class="ph-fill ph-medal"></i>Top seller</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-5"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7S9J_371FWDGKRS9ABBAE/ae093e0d-528e-425d-b289-d62f39011f32.png" alt="Hyper Motion creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">watch this on repeat</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 94</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-user-circle-gear"></i>UGC</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P0RV6_57VWWCQQ5DG2EFGD/aeb6eddb-cc49-4866-a75d-741d2e510342.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">real talk, my honest routine</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>1.2M views</span></div>
+</article>
+<article class="ec ec-product">
+  <span class="tname"><i class="ph-fill ph-shopping-bag"></i>Product</span><span class="cbadge top"><i class="ph-fill ph-medal"></i>Top seller</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-3"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7T05_VFZDYC5PWD81QN65/23ae65e8-82be-491b-a076-25c7f9dc7807.png" alt="Studio Set" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim soft"></span>
+  </div>
+  <div class="ec-prow"><span class="ec-pn">Studio Set</span><span class="ec-pp">$120</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-fast-forward"></i>Hyper Motion</span><span class="cbadge top"><i class="ph-fill ph-medal"></i>Top seller</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-5"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7S9J_371FWDGKRS9ABBAE/ae093e0d-528e-425d-b289-d62f39011f32.png" alt="Hyper Motion creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">watch this on repeat</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 94</span></div>
+</article>
+      </div>
+    </div>
+    <div class="ec-col" style="--dur:72s" data-col="1">
+      <div class="ec-track">
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-user-circle-gear"></i>UGC</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-5"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0K93_CF3QXRN72GS3WBNX/8ede1f2c-3167-45bc-8398-79be4cd058cf.png" alt="UGC creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">POV: the only one that delivered</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>2.4M views</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-television-simple"></i>TV Spot</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P7X7N_E5T06J34TBTRHR93/1576a31f-a405-4d50-8ae2-dd8c4905da67.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">the spot that converts</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 92</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-list-checks"></i>Tutorial</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-7"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0KMB_E17WKFXXBSHVJ03Q/9ee3ec40-f823-485f-a2c5-a1ca273a8217.png" alt="Tutorial creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">3 steps, start to finish</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 90</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-user-circle-gear"></i>UGC</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-5"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0K93_CF3QXRN72GS3WBNX/8ede1f2c-3167-45bc-8398-79be4cd058cf.png" alt="UGC creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">POV: the only one that delivered</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>2.4M views</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-television-simple"></i>TV Spot</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P7X7N_E5T06J34TBTRHR93/1576a31f-a405-4d50-8ae2-dd8c4905da67.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">the spot that converts</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 92</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-list-checks"></i>Tutorial</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-7"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0KMB_E17WKFXXBSHVJ03Q/9ee3ec40-f823-485f-a2c5-a1ca273a8217.png" alt="Tutorial creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">3 steps, start to finish</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 90</span></div>
+</article>
+      </div>
+    </div>
+    <div class="ec-col" style="--dur:64s" data-col="2">
+      <div class="ec-track">
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-t-shirt"></i>UGC Virtual Try-On</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-6"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0N66_DEG9WN3Y7CAE7E1X/99b32dd6-c046-4dc7-a69c-216d2ea47b67.png" alt="UGC Virtual Try-On creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 91</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-list-checks"></i>Tutorial</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P0SAP_3523QVK2877E936W/0bc44aa5-e6f2-49f9-9db7-63d15556a130.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">here is what actually worked</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 88</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-star"></i>Product Review</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-1"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0MHA_EDDR5XKS9AF8SEE2/471ead62-0862-4536-b208-da9691fd71a0.png" alt="Product Review creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">honest review, no filter</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>840K views</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-t-shirt"></i>UGC Virtual Try-On</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-6"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0N66_DEG9WN3Y7CAE7E1X/99b32dd6-c046-4dc7-a69c-216d2ea47b67.png" alt="UGC Virtual Try-On creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 91</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-list-checks"></i>Tutorial</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P0SAP_3523QVK2877E936W/0bc44aa5-e6f2-49f9-9db7-63d15556a130.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">here is what actually worked</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 88</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-star"></i>Product Review</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-1"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0MHA_EDDR5XKS9AF8SEE2/471ead62-0862-4536-b208-da9691fd71a0.png" alt="Product Review creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">honest review, no filter</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>840K views</span></div>
+</article>
+      </div>
+    </div>
+    <div class="ec-col" style="--dur:80s" data-col="3">
+      <div class="ec-track">
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-package"></i>Unboxing</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P7WX1_ETQ1E2BJPACGKA0S/ab523e4f-31dd-47d6-8133-6d870c30ad21.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">unboxing the viral one</span>
+  </div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-shopping-bag"></i>Product</span><span class="cbadge top"><i class="ph-fill ph-medal"></i>Top seller</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-3"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7T9P_GWN2K4XEZ48RKPGG/dc4c2672-b98f-4bf7-ac29-b8b25da8e5a4.png" alt="Product creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">my old setup vs this</span>
+  </div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-fast-forward"></i>Hyper Motion</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P7XEW_YYYZWPHW0SPNN416/efd1ee3b-b47c-469d-adad-c7ef0589d3ae.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">the drop you all asked for</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 95</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-package"></i>Unboxing</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P7WX1_ETQ1E2BJPACGKA0S/ab523e4f-31dd-47d6-8133-6d870c30ad21.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">unboxing the viral one</span>
+  </div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-shopping-bag"></i>Product</span><span class="cbadge top"><i class="ph-fill ph-medal"></i>Top seller</span>
+  <div class="ec-media" style="aspect-ratio:9/16">
+    <span class="ec-fb fb-3"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7T9P_GWN2K4XEZ48RKPGG/dc4c2672-b98f-4bf7-ac29-b8b25da8e5a4.png" alt="Product creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">my old setup vs this</span>
+  </div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-fast-forward"></i>Hyper Motion</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P7XEW_YYYZWPHW0SPNN416/efd1ee3b-b47c-469d-adad-c7ef0589d3ae.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">the drop you all asked for</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 95</span></div>
+</article>
+      </div>
+    </div>
+    <div class="ec-col" style="--dur:68s" data-col="4">
+      <div class="ec-track">
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-t-shirt"></i>UGC Virtual Try-On</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P0S3Y_VS31W8JSVYM0PPZC/814c609e-7c54-4491-8d7b-d16146022590.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">see the fit before you buy</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 93</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-shuffle"></i>Wildcard</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-6"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7VJH_C54JWFX418KMYMQX/edfa4a0d-e9ac-4b1a-9d34-3b49b35a1f95.png" alt="Wildcard creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">I tried 30, only this one stayed</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>508K views</span></div>
+</article>
+<article class="ec ec-video">
+  <span class="tname"><i class="ph-fill ph-t-shirt"></i>UGC Virtual Try-On</span>
+  <div class="ec-media">
+    <span class="ec-fb fb-1"></span>
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png">
+      <source src="https://pub.hyperagent.com/api/published/pbf01KT9P0S3Y_VS31W8JSVYM0PPZC/814c609e-7c54-4491-8d7b-d16146022590.mp4" type="video/mp4">
+    </video>
+    <span class="ec-scrim"></span>
+    <span class="ec-sound"><i class="ph-fill ph-speaker-slash"></i></span>
+    <span class="ec-hook">see the fit before you buy</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-seal-check"></i>Mint Score 93</span></div>
+</article>
+<article class="ec ec-ugc">
+  <span class="tname"><i class="ph-fill ph-shuffle"></i>Wildcard</span>
+  <div class="ec-media" style="aspect-ratio:4/5">
+    <span class="ec-fb fb-6"></span>
+    <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7VJH_C54JWFX418KMYMQX/edfa4a0d-e9ac-4b1a-9d34-3b49b35a1f95.png" alt="Wildcard creative" loading="lazy" referrerpolicy="no-referrer">
+    <span class="ec-scrim"></span>
+    <span class="ec-play"><i class="ph-fill ph-play"></i></span>
+    <span class="ec-hook burn">I tried 30, only this one stayed</span>
+  </div>
+  <div class="ec-foot"><span class="cchip"><i class="ph-fill ph-eye"></i>508K views</span></div>
+</article>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ============ WHAT YOU CAN CREATE ============ -->
 <section class="sec" id="create">
@@ -1044,9 +1633,9 @@ p{color:var(--gray)}
           </div>
           <div class="panel-visual">
             <div class="mock-carousel">
-              <div class="mc-slide imgwrap fb-3"><img src="https://images.unsplash.com/photo-1502462041640-b3d7e50d0662?q=80&w=1200&auto=format&fit=crop" alt="Coffee" loading="lazy" referrerpolicy="no-referrer"><span class="mc-scrim"></span><span class="mc-n">01</span><h5>The 5 minute morning ritual.</h5></div>
-              <div class="mc-slide imgwrap fb-1"><img src="https://plus.unsplash.com/premium_photo-1669735916196-c6f41a6a256c?q=80&w=1200&auto=format&fit=crop" alt="Skincare" loading="lazy" referrerpolicy="no-referrer"><span class="mc-scrim"></span><span class="mc-n">02</span><h5>Grind. Pour. Breathe.</h5></div>
-              <div class="mc-slide imgwrap fb-4"><img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200&auto=format&fit=crop" alt="Style" loading="lazy" referrerpolicy="no-referrer"><span class="mc-scrim"></span><span class="mc-n">03</span><h5>Tag a friend who needs this.</h5></div>
+              <div class="mc-slide imgwrap fb-3"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P0R60_FJ3V531MAN2E9YKV/ef0a57ea-cc94-40c2-8116-ae55e20c29b7.png" alt="Tutorial slide" loading="lazy" referrerpolicy="no-referrer"><span class="mc-scrim"></span><span class="mc-n">01</span><h5>The 3 step glow up.</h5></div>
+              <div class="mc-slide imgwrap fb-1"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P0NZZ_HA293E75X9AJBHN1/8354aed8-099c-446b-8f1c-370b88a8c3e1.png" alt="Try-on slide" loading="lazy" referrerpolicy="no-referrer"><span class="mc-scrim"></span><span class="mc-n">02</span><h5>Try it on. Then decide.</h5></div>
+              <div class="mc-slide imgwrap fb-4"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P7TKQ_AZ87YJZ2PEBPVBM3/00b9c6ff-f509-4838-a3cd-eb2be3c26f82.png" alt="Product slide" loading="lazy" referrerpolicy="no-referrer"><span class="mc-scrim"></span><span class="mc-n">03</span><h5>Tap to shop the set.</h5></div>
             </div>
           </div>
         </div>
@@ -1064,10 +1653,10 @@ p{color:var(--gray)}
           </div>
           <div class="panel-visual">
             <div class="mock-video">
-              <div class="mv-frame imgwrap fb-4"><img src="https://plus.unsplash.com/premium_photo-1664910764486-bed06a30a71b?q=80&w=1200&auto=format&fit=crop" alt="Fitness reel" loading="lazy" referrerpolicy="no-referrer"><span class="mv-scrim"></span>
+              <div class="mv-frame imgwrap fb-4"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P0P96_Z2YBB46MH2W3K10M/d66fc872-d61f-42eb-ab91-9f80a6082b69.png" alt="Hyper Motion reel" loading="lazy" referrerpolicy="no-referrer"><span class="mv-scrim"></span>
                 <span class="mv-dur">0:14</span>
                 <span class="play"><i class="ph-fill ph-play"></i></span>
-                <span class="mv-cap">3 signs you need a new routine</span>
+                <span class="mv-cap">3 signs you need a new look</span>
               </div>
               <div class="mv-track"><span style="height:18px"></span><span style="height:30px"></span><span style="height:12px"></span><span style="height:26px"></span><span style="height:16px"></span><span style="height:34px"></span><span style="height:20px"></span><span style="height:14px"></span></div>
             </div>
@@ -1086,10 +1675,10 @@ p{color:var(--gray)}
             </ul>
           </div>
           <div class="panel-visual">
-            <div class="mock-avatar imgwrap fb-2"><img src="https://images.unsplash.com/photo-1515191107209-c28698631303?q=80&w=1200&auto=format&fit=crop" alt="Avatar presenter" loading="lazy" referrerpolicy="no-referrer"><span class="av-scrim"></span>
+            <div class="mock-avatar imgwrap fb-2"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P7RWF_Q0AE0TNB4BPHCN6Z/35983904-6934-4a63-a6b9-6fc430d6d891.png" alt="Avatar presenter" loading="lazy" referrerpolicy="no-referrer"><span class="av-scrim"></span>
               <span class="av-rec"><span class="blink"></span>REC</span>
               <span class="av-lang">EN</span>
-              <span class="av-sub">"Our new oat blend just dropped, and it is so smooth."</span>
+              <span class="av-sub">"Our new drop just landed, and it sells itself."</span>
             </div>
           </div>
         </div>
@@ -1107,10 +1696,10 @@ p{color:var(--gray)}
           </div>
           <div class="panel-visual">
             <div class="mock-promo">
-              <div class="pr-img imgwrap fb-3"><img src="https://images.unsplash.com/photo-1767065584563-c95f726ce857?q=80&w=1200&auto=format&fit=crop" alt="Coffee promo" loading="lazy" referrerpolicy="no-referrer"><span class="pr-scrim"></span><span class="pr-off">-20%</span></div>
+              <div class="pr-img imgwrap fb-3"><span class="pr-scrim"></span><span class="pr-off">-20%</span></div>
               <div class="pr-body">
-                <b>Weekend cold brew drop</b>
-                <span>Stock up before Monday. New lavender batch, only while it lasts.</span>
+                <b>Weekend new drop</b>
+                <span>Stock up before Monday. Fresh styles, only while they last.</span>
               </div>
               <div class="pr-cta">Shop the drop</div>
             </div>
@@ -1130,9 +1719,9 @@ p{color:var(--gray)}
           </div>
           <div class="panel-visual">
             <div class="mock-caption">
-              <div class="cap-h"><span class="av imgwrap"><img src="https://images.unsplash.com/photo-1557053910-d9eadeed1c58?q=80&w=1200&auto=format&fit=crop" alt="Brand avatar" loading="lazy" referrerpolicy="no-referrer"></span><div><b>your_brand</b><br><span>Sponsored</span></div></div>
-              <div class="cap-photo imgwrap fb-3"><img src="https://images.unsplash.com/photo-1661257711676-79a0fc533569?q=80&w=1200&auto=format&fit=crop" alt="Food post" loading="lazy" referrerpolicy="no-referrer"></div>
-              <div class="cap-body">Slow mornings, strong coffee. Our lavender cold brew is back and it is pure calm in a cup. <span class="hh">#yourbrand #coldbrew #slowmornings</span></div>
+              <div class="cap-h"><span class="av imgwrap"></span><div><b>your_brand</b><br><span>Sponsored</span></div></div>
+              <div class="cap-photo imgwrap fb-3"></div>
+              <div class="cap-body">New season, new fit. The drop everyone asked for is finally here and it is selling fast. <span class="hh">#yourbrand #newdrop #shopnow</span></div>
               <div class="cap-react"><span><i class="ph-fill ph-heart"></i>2,431</span><span><i class="ph-fill ph-chat-circle"></i>188</span><span><i class="ph-fill ph-paper-plane-tilt"></i>96</span></div>
             </div>
           </div>
@@ -1148,7 +1737,7 @@ p{color:var(--gray)}
     <div class="sec-head center reveal">
       <span class="kicker"><span class="dot"></span>Sample creative</span>
       <h2>You've probably seen our work. You just didn't notice.</h2>
-      <p class="lead">Carousels, ads, reels, and posts in every style, made by Mint Studio for businesses like yours.</p>
+      <p class="lead">Carousels, ads, reels, and posts in every style, made by Mint Studio for brands like yours.</p>
       <span class="work-note"><i class="ph-fill ph-sparkle"></i>AI-generated samples</span>
     </div>
   </div>
@@ -1156,69 +1745,111 @@ p{color:var(--gray)}
     <span class="spacer"></span>
     <div class="wk reveal">
       <span class="wk-tag">Carousel</span>
-      <div class="wk-art imgwrap fb-3"><img src="https://images.unsplash.com/photo-1511426420268-4cfdd3763b77?q=80&w=1200&auto=format&fit=crop" alt="Coffee carousel" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
+      <div class="wk-art imgwrap fb-3"><span class="wk-scrim"></span>
         <span class="dots-c"><span></span><span></span><span></span><span></span></span>
-        <h4>3 myths about your morning coffee.</h4>
+        <h4>3 myths about your routine.</h4>
         <span class="sub">Swipe to bust them all.</span>
       </div>
-      <div class="wk-foot"><span>Cafe &amp; roastery</span><span class="ms"><i class="ph-fill ph-leaf"></i>93</span></div>
+      <div class="wk-foot"><span>Tutorial</span><span class="ms"><i class="ph-fill ph-leaf"></i>93</span></div>
     </div>
     <div class="wk reveal">
       <span class="wk-tag">Reel</span>
-      <div class="wk-art imgwrap fb-4"><img src="https://images.unsplash.com/photo-1594381898411-846e7d193883?q=80&w=1200&auto=format&fit=crop" alt="Fitness reel" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
+      <div class="wk-art imgwrap fb-4"><span class="wk-scrim"></span>
         <span class="play-c"><i class="ph-fill ph-play"></i></span>
-        <h4>POV: leg day, but make it fun.</h4>
-        <span class="sub">0:18 of trending audio</span>
+        <h4>POV: the glow up is real.</h4>
+        <span class="sub">0:18 of trending audio.</span>
       </div>
-      <div class="wk-foot"><span>Fitness studio</span><span class="ms"><i class="ph-fill ph-leaf"></i>90</span></div>
+      <div class="wk-foot"><span>Hyper Motion</span><span class="ms"><i class="ph-fill ph-leaf"></i>90</span></div>
     </div>
     <div class="wk reveal">
       <span class="wk-tag">Avatar short</span>
-      <div class="wk-art imgwrap fb-2"><img src="https://plus.unsplash.com/premium_photo-1664875849504-9a85b393d572?q=80&w=1200&auto=format&fit=crop" alt="Avatar short" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
+      <div class="wk-art imgwrap fb-2"><span class="wk-scrim"></span>
         <span class="play-c"><i class="ph-fill ph-play"></i></span>
-        <h4>Meet the team behind the bowls.</h4>
-        <span class="sub">UGC style, EN plus ES</span>
+        <h4>Meet the face of the brand.</h4>
+        <span class="sub">UGC style, EN plus ES.</span>
       </div>
-      <div class="wk-foot"><span>Restaurant</span><span class="ms"><i class="ph-fill ph-leaf"></i>88</span></div>
+      <div class="wk-foot"><span>TV Spot</span><span class="ms"><i class="ph-fill ph-leaf"></i>88</span></div>
     </div>
     <div class="wk reveal">
       <span class="wk-tag">Promo ad</span>
-      <div class="wk-art imgwrap fb-5"><img src="https://images.unsplash.com/photo-1609081219090-a6d81d3085bf?q=80&w=1200&auto=format&fit=crop" alt="Product ad" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
+      <div class="wk-art imgwrap fb-5"><span class="wk-scrim"></span>
         <span class="badge-off">-30%</span>
-        <h4>Summer sale starts now.</h4>
+        <h4>New drop starts now.</h4>
         <span class="sub">Ends Sunday at midnight.</span>
       </div>
-      <div class="wk-foot"><span>Ecommerce</span><span class="ms"><i class="ph-fill ph-leaf"></i>95</span></div>
+      <div class="wk-foot"><span>Product</span><span class="ms"><i class="ph-fill ph-leaf"></i>95</span></div>
     </div>
     <div class="wk reveal">
       <span class="wk-tag">Post</span>
-      <div class="wk-art imgwrap fb-1"><img src="https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?q=80&w=1200&auto=format&fit=crop" alt="Plated dish post" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
-        <h4>Today's special, plated fresh.</h4>
-        <span class="sub">Real dishes, real reviews.</span>
+      <div class="wk-art imgwrap fb-1"><span class="wk-scrim"></span>
+        <h4>Today's look, styled fresh.</h4>
+        <span class="sub">Real fits, real reviews.</span>
       </div>
-      <div class="wk-foot"><span>Restaurant</span><span class="ms"><i class="ph-fill ph-leaf"></i>92</span></div>
+      <div class="wk-foot"><span>UGC</span><span class="ms"><i class="ph-fill ph-leaf"></i>92</span></div>
     </div>
     <div class="wk reveal">
       <span class="wk-tag">Carousel</span>
-      <div class="wk-art imgwrap fb-6"><img src="https://images.unsplash.com/photo-1756572798375-136f79748204?q=80&w=1200&auto=format&fit=crop" alt="Travel carousel" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
+      <div class="wk-art imgwrap fb-6"><span class="wk-scrim"></span>
         <span class="dots-c"><span></span><span></span><span></span><span></span><span></span></span>
-        <h4>5 stops to plan before you book.</h4>
-        <span class="sub">A traveler's quick guide.</span>
+        <h4>5 ways to wear the new fit.</h4>
+        <span class="sub">A quick styling guide.</span>
       </div>
-      <div class="wk-foot"><span>Travel brand</span><span class="ms"><i class="ph-fill ph-leaf"></i>91</span></div>
+      <div class="wk-foot"><span>UGC Virtual Try-On</span><span class="ms"><i class="ph-fill ph-leaf"></i>91</span></div>
     </div>
     <div class="wk reveal">
       <span class="wk-tag">Reel</span>
-      <div class="wk-art imgwrap fb-4"><img src="https://images.unsplash.com/photo-1532332248682-206cc786359f?q=80&w=1200&auto=format&fit=crop" alt="Fashion reel" loading="lazy" referrerpolicy="no-referrer"><span class="wk-scrim"></span>
+      <div class="wk-art imgwrap fb-4"><span class="wk-scrim"></span>
         <span class="play-c"><i class="ph-fill ph-play"></i></span>
         <h4>Style one piece, three ways.</h4>
-        <span class="sub">0:22 of punchy edit</span>
+        <span class="sub">0:22 of punchy edit.</span>
       </div>
-      <div class="wk-foot"><span>Fashion label</span><span class="ms"><i class="ph-fill ph-leaf"></i>89</span></div>
+      <div class="wk-foot"><span>Product Review</span><span class="ms"><i class="ph-fill ph-leaf"></i>89</span></div>
     </div>
     <span class="spacer"></span>
   </div>
   <div class="wrap"><p class="work-hint"><i class="ph-fill ph-hand-pointing"></i> Drag to explore. Hover to pause the drift.</p></div>
+</section>
+
+<!-- ============ CAROUSELS & SALE BANNERS ============ -->
+<section class="cb" id="carousels">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <span class="kicker"><span class="dot"></span>Posts and promos</span>
+      <h2>Carousels and sale banners, done for you.</h2>
+      <p class="lead">Swipeable multi-slide carousels and bold sale banners, built in your brand colors and ready to publish.</p>
+    </div>
+    <div class="cb-grid">
+      <!-- IG carousel -->
+      <div class="cb-car reveal" id="cbCar">
+        <div class="cbh">
+          <span class="av"></span>
+          <div><b>your_brand</b><br><span>Sponsored</span></div>
+          <i class="ph-fill ph-instagram-logo ig"></i>
+        </div>
+        <div class="cb-stage">
+          <div class="cb-slides" id="cbSlides">
+            <div class="cb-slide"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P0PJD_K6QDWY6PWDJDAW4N/8ec39beb-5b00-47d0-b8e5-bcec72c0c0b2.png" alt="Carousel slide 1" loading="lazy" referrerpolicy="no-referrer"><span class="cs-scrim"></span><span class="cs-tag">Carousel</span><span class="cs-no">1 / 4</span><span class="cs-tx">5 ways to wear the new fit</span></div>
+            <div class="cb-slide"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P7QJC_7HNQFPKNQ61XP0KF/6d9d9b3b-3c4f-4585-ad0c-7cbb615dd60a.png" alt="Carousel slide 2" loading="lazy" referrerpolicy="no-referrer"><span class="cs-scrim"></span><span class="cs-tag">Try it on</span><span class="cs-no">2 / 4</span><span class="cs-tx">See the fit before you buy</span></div>
+            <div class="cb-slide"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P7V1K_RVXGMEMBZ30K96JR/23c77a46-f276-4858-b507-5f5344d62f23.png" alt="Carousel slide 3" loading="lazy" referrerpolicy="no-referrer"><span class="cs-scrim"></span><span class="cs-tag">The set</span><span class="cs-no">3 / 4</span><span class="cs-tx">Built to mix and match</span></div>
+            <div class="cb-slide"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P0MXJ_T3W6409ZFW1HEA3H/cf80f197-56ed-4190-8f7e-b51791fa1937.png" alt="Carousel slide 4" loading="lazy" referrerpolicy="no-referrer"><span class="cs-scrim"></span><span class="cs-tag">Tap to shop</span><span class="cs-no">4 / 4</span><span class="cs-tx">Swipe up, it sells out fast</span></div>
+          </div>
+        </div>
+        <div class="cb-dots" id="cbDots">
+          <button class="on" data-s="0" aria-label="Slide 1"></button>
+          <button data-s="1" aria-label="Slide 2"></button>
+          <button data-s="2" aria-label="Slide 3"></button>
+          <button data-s="3" aria-label="Slide 4"></button>
+        </div>
+        <div class="cb-react"><span><i class="ph-fill ph-heart"></i>3,128</span><span><i class="ph-fill ph-chat-circle"></i>204</span><span><i class="ph-fill ph-paper-plane-tilt"></i>132</span><span class="sv"><i class="ph-fill ph-bookmark-simple"></i></span></div>
+      </div>
+      <!-- sale banners -->
+      <div class="cb-banners">
+        <div class="banner b-pink reveal" style="background:linear-gradient(120deg,#FF3D8A,#FF6FA8)"><span class="bn-scrim"></span><span class="bn-flash">NEW</span><div class="bn-body"><span class="bn-k">Just landed</span><div class="bn-big">NEW DROP</div><div class="bn-sub">The season edit everyone asked for.</div></div><span class="bn-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span></div>
+        <div class="banner b-cobalt reveal" style="background:linear-gradient(120deg,#2E6BFF,#4D84FF)"><span class="bn-scrim"></span><div class="bn-body"><span class="bn-k">This weekend only</span><div class="bn-big">50% OFF</div><div class="bn-sub">Best-sellers, half price till Sunday.</div></div><span class="bn-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span></div>
+        <div class="banner b-ink reveal" style="background:linear-gradient(120deg,#161613,#2c2c27)"><span class="bn-scrim"></span><div class="bn-body"><span class="bn-k">No minimum</span><div class="bn-big">FREE SHIPPING</div><div class="bn-sub">On every order, everywhere, all week.</div></div><span class="bn-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span></div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- ============ NICHES ============ -->
@@ -1229,7 +1860,7 @@ p{color:var(--gray)}
       <div class="pills">
         <span class="pill"><i class="ph-fill ph-shopping-bag"></i>Ecommerce</span>
         <span class="pill"><i class="ph-fill ph-barbell"></i>Fitness</span>
-        <span class="pill"><i class="ph-fill ph-fork-knife"></i>Restaurants</span>
+        <span class="pill"><i class="ph-fill ph-t-shirt"></i>Apparel</span>
         <span class="pill"><i class="ph-fill ph-sparkle"></i>Beauty</span>
         <span class="pill"><i class="ph-fill ph-cloud"></i>SaaS</span>
         <span class="pill"><i class="ph-fill ph-house-line"></i>Real estate</span>
@@ -1256,16 +1887,54 @@ p{color:var(--gray)}
 </section>
 
 <!-- ============ TRUST BAND (trained on millions) ============ -->
-<section class="trust">
+<section class="trained">
   <div class="wrap">
-    <div class="trust-card reveal">
-      <span class="t-glow" aria-hidden="true"></span>
+    <div class="trained-card reveal">
+      <span class="trained-glow" aria-hidden="true"></span>
       <span class="kicker"><span class="dot"></span>Trained on millions</span>
-      <h2>It studied <em>millions of real marketing assets</em>, so your first draft already knows what wins.</h2>
-      <div class="trust-chips">
-        <span class="trust-chip"><i class="ph-fill ph-database"></i>Millions of assets analyzed</span>
-        <span class="trust-chip"><i class="ph-fill ph-broadcast"></i>Every major platform</span>
-        <span class="trust-chip"><i class="ph-fill ph-arrows-clockwise"></i>Updated continuously</span>
+      <h2>Trained on millions of winning marketing assets.</h2>
+      <div class="trained-stage">
+        <div class="logo-row">
+        <img class="lg" src="https://cdn.simpleicons.org/nike/161613" alt="Nike" loading="lazy" referrerpolicy="no-referrer">
+        <img class="lg" src="https://cdn.simpleicons.org/adidas/161613" alt="Adidas" loading="lazy" referrerpolicy="no-referrer">
+        <img class="lg" src="https://cdn.simpleicons.org/zara/161613" alt="Zara" loading="lazy" referrerpolicy="no-referrer">
+        <img class="lg" src="https://cdn.simpleicons.org/puma/161613" alt="Puma" loading="lazy" referrerpolicy="no-referrer">
+        <img class="lg" src="https://cdn.simpleicons.org/underarmour/161613" alt="Underarmour" loading="lazy" referrerpolicy="no-referrer">
+        <img class="lg" src="https://cdn.simpleicons.org/shopify/161613" alt="Shopify" loading="lazy" referrerpolicy="no-referrer">
+        </div>
+        <div class="flow-wrap" aria-hidden="true">
+          <svg viewBox="0 0 600 90" preserveAspectRatio="none">
+            <path d="M60 4 C 120 50, 240 70, 300 86" stroke="#20E0A0"/>
+            <path d="M180 4 C 220 50, 270 70, 300 86" stroke="#2E6BFF"/>
+            <path d="M300 4 L 300 86" stroke="#FF6A3D"/>
+            <path d="M420 4 C 380 50, 330 70, 300 86" stroke="#FF3D8A"/>
+            <path d="M540 4 C 480 50, 360 70, 300 86" stroke="#FFC53D"/>
+          </svg>
+        </div>
+        <div class="insight-float">
+          <div class="insight i1"><span class="ic"><i class="ph-fill ph-fish-simple"></i></span><span>Best-performing hooks saved<b>+38% CTR</b></span></div>
+          <div class="insight i2"><span class="ic"><i class="ph-fill ph-users-three"></i></span><span>Social proof tested<b>+27% clicks</b></span></div>
+          <div class="insight i3"><span class="ic"><i class="ph-fill ph-tag"></i></span><span>Value-first copy detected</span></div>
+          <div class="insight i4"><span class="ic"><i class="ph-fill ph-cursor-click"></i></span><span>CTA contrast optimized<b>+19%</b></span></div>
+        </div>
+        <div class="trained-phone reveal">
+          <div class="tp-screen">
+            <div class="tp-top"><b><span class="lf"><i class="ph-fill ph-leaf"></i></span>Mint Score</b><span>your-brand.com</span></div>
+            <div class="tp-ring">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#eceae6" stroke-width="11"/>
+                <circle cx="60" cy="60" r="50" fill="none" stroke="url(#mg)" stroke-width="11" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="34" transform="rotate(-90 60 60)"/>
+                <defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20E0A0"/><stop offset="0.5" stop-color="#2E6BFF"/><stop offset="1" stop-color="#FF3D8A"/></linearGradient></defs>
+              </svg>
+              <div class="tp-num">92<small>MINT SCORE</small></div>
+            </div>
+            <div class="tp-rows">
+              <div class="tp-rowi"><i class="ph-fill ph-fish-simple"></i>Hook strength<span class="v">High</span></div>
+              <div class="tp-rowi"><i class="ph-fill ph-users-three"></i>Social proof<span class="v">+27%</span></div>
+              <div class="tp-rowi"><i class="ph-fill ph-cursor-click"></i>CTA contrast<span class="v">+19%</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1297,14 +1966,14 @@ p{color:var(--gray)}
               <span class="navmini"><span>Shop</span><span>Story</span><span>Journal</span></span>
             </div>
             <div class="site-hero imgwrap">
-              <img src="https://images.unsplash.com/photo-1636714455535-7cb8e8b34790?q=80&w=1200&auto=format&fit=crop" alt="Brand hero" loading="lazy" referrerpolicy="no-referrer">
+              <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0PZP_86S1N4QNN6ZDAF9F/93a77f01-bd30-44e0-90f2-ecc8280e0bf3.png" alt="Brand hero" loading="lazy" referrerpolicy="no-referrer">
               <span class="sh-scrim"></span>
               <h4>Warm spaces,<br>made simple.</h4>
               <span class="sh-cta">Shop the look</span>
             </div>
             <div class="site-prods" style="grid-template-columns:repeat(2,1fr)">
-              <div class="sp imgwrap fb-7"><img src="https://images.unsplash.com/photo-1643122966676-29e8597257f7?q=80&w=1200&auto=format&fit=crop" alt="Product one" loading="lazy" referrerpolicy="no-referrer"></div>
-              <div class="sp imgwrap fb-3"><img src="https://images.unsplash.com/photo-1612293905607-b003de9e54fb?q=80&w=1200&auto=format&fit=crop" alt="Product two" loading="lazy" referrerpolicy="no-referrer"></div>
+              <div class="sp imgwrap fb-7"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P7V9C_X40446A5HN7E2W86/44f0122a-1fae-4533-83b6-1d3c09604169.png" alt="Product one" loading="lazy" referrerpolicy="no-referrer"></div>
+              <div class="sp imgwrap fb-3"></div>
             </div>
             <div class="site-foot"><span>About</span><span>Sustainability</span><span>Stockists</span><span>Contact</span></div>
           </div>
@@ -1345,8 +2014,8 @@ p{color:var(--gray)}
           <div class="dna-row" data-step="3">
             <span class="dr-lbl"><i class="ph-fill ph-shopping-bag"></i>Products</span>
             <span class="dr-val">
-              <span class="prodchip"><span class="pc-thumb imgwrap"><img src="https://images.unsplash.com/photo-1596993100471-c3905dafa78e?q=80&w=1200&auto=format&fit=crop" alt="" loading="lazy" referrerpolicy="no-referrer"></span>Linen throws</span>
-              <span class="prodchip"><span class="pc-thumb imgwrap"><img src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=1200&auto=format&fit=crop" alt="" loading="lazy" referrerpolicy="no-referrer"></span>Travel candles</span>
+              <span class="prodchip"><span class="pc-thumb imgwrap"></span>Signature tee</span>
+              <span class="prodchip"><span class="pc-thumb imgwrap"></span>Everyday carry</span>
             </span>
           </div>
           <div class="dna-row" data-step="4">
@@ -1369,188 +2038,105 @@ p{color:var(--gray)}
   </div>
 </section>
 
+<!-- ============ CLEAN STATEMENT (big-type animated) ============ -->
+<section class="statement-sec" id="statement">
+  <div class="wrap">
+    <div class="statement" id="statement-copy">
+      <p>
+        <span class="ln">At Mint Studio we're changing how small teams make <span class="st-ico idea" aria-hidden="true"><i class="ph-fill ph-lightbulb"></i></span> idea content.</span>
+        <span class="ln">Trained on millions of winning posts, we capture <span class="st-ico brand" aria-hidden="true"><i class="ph-fill ph-brain"></i></span> your brand's essence and ship <span class="grad-phrase">agency-grade content</span> across every <span class="st-plat" id="statPlat" aria-label="social platform"><i class="ph-fill ph-instagram-logo on" data-p="0"></i><i class="ph-fill ph-tiktok-logo" data-p="1"></i><i class="ph-fill ph-facebook-logo" data-p="2"></i><i class="ph-fill ph-linkedin-logo" data-p="3"></i></span> platform.</span>
+        <span class="ln">So you can do the work of a <span class="grad-phrase">full team</span> <span class="st-ico team" aria-hidden="true"><i class="ph-fill ph-users-three"></i></span> without hiring one.</span>
+      </p>
+    </div>
+  </div>
+</section>
+
 <!-- ============ READ THE ROOM (interactive audience console) ============ -->
-<section class="room-sec" id="intel">
+<section class="rr2" id="intel">
   <div class="wrap">
     <div class="sec-head center reveal">
       <span class="kicker"><span class="dot"></span>Audience intelligence</span>
       <h2>Stop guessing. Read the room.</h2>
-      <p class="lead">Every asset is built from real signals about your market, not generic AI guesses. Tap a signal to watch it read live.</p>
+      <p class="lead">Mint Studio reads real signals off the content your market already loves, then writes toward what is actually winning.</p>
     </div>
 
-    <div class="room reveal" id="roomConsole">
-      <span class="room-glow" aria-hidden="true"></span>
-      <span class="room-glow g2" aria-hidden="true"></span>
-
-      <!-- left rail -->
-      <div class="room-rail" role="tablist" aria-label="Audience signals" id="roomRail">
-        <div class="rr-top"><span class="scan-pip"></span>Live signals</div>
-        <button class="signal active" role="tab" data-view="rv-works">
-          <span class="si"><i class="ph-fill ph-chart-line-up"></i></span>
-          <span class="sg"><b>What works</b><span>Top formats and hooks</span></span>
-          <i class="ph-bold ph-caret-right schev"></i>
-          <span class="sbar"></span>
-        </button>
-        <button class="signal" role="tab" data-view="rv-senti">
-          <span class="si"><i class="ph-fill ph-smiley"></i></span>
-          <span class="sg"><b>Sentiment</b><span>How people feel</span></span>
-          <i class="ph-bold ph-caret-right schev"></i>
-          <span class="sbar"></span>
-        </button>
-        <button class="signal" role="tab" data-view="rv-ads">
-          <span class="si"><i class="ph-fill ph-target"></i></span>
-          <span class="sg"><b>Winning ads</b><span>Creative that lasts</span></span>
-          <i class="ph-bold ph-caret-right schev"></i>
-          <span class="sbar"></span>
-        </button>
-        <button class="signal" role="tab" data-view="rv-terms">
-          <span class="si"><i class="ph-fill ph-text-aa"></i></span>
-          <span class="sg"><b>Winning terms</b><span>Words that convert</span></span>
-          <i class="ph-bold ph-caret-right schev"></i>
-          <span class="sbar"></span>
-        </button>
-        <button class="signal" role="tab" data-view="rv-comp">
-          <span class="si"><i class="ph-fill ph-binoculars"></i></span>
-          <span class="sg"><b>Competitors</b><span>Gaps to exploit</span></span>
-          <i class="ph-bold ph-caret-right schev"></i>
-          <span class="sbar"></span>
-        </button>
-        <button class="signal" role="tab" data-view="rv-persona">
-          <span class="si"><i class="ph-fill ph-users-three"></i></span>
-          <span class="sg"><b>Personas</b><span>Who you talk to</span></span>
-          <i class="ph-bold ph-caret-right schev"></i>
-          <span class="sbar"></span>
-        </button>
+    <div class="rr2-stage reveal" id="rr2Stage">
+      <span class="rr2-blob a" aria-hidden="true"></span>
+      <span class="rr2-blob b" aria-hidden="true"></span>
+      <span class="rr2-blob c" aria-hidden="true"></span>
+      <div class="rr2-top">
+        <span class="kicker"><span class="dot"></span>Reading your niche, live</span>
+        <span class="rr2-live"><span class="lvp"></span>Analyzing content</span>
       </div>
-
-      <!-- right display panel -->
-      <div class="room-panel" id="roomPanel">
-        <span class="rp-scanline" aria-hidden="true"></span>
-        <div class="rp-head">
-          <span class="rp-tag" id="rpTag"><i class="ph-fill ph-chart-line-up"></i>What works</span>
-          <span class="rp-live"><span class="lv"></span>Reading live</span>
-        </div>
-
-        <!-- WHAT WORKS -->
-        <div class="rp-view on" id="rv-works">
-          <div class="rp-title">Carousels are pulling ahead.</div>
-          <div class="rp-cap">Engagement by format across your niche, last 30 days.</div>
-          <div class="rp-stage">
-            <div class="vw-wrap" style="width:100%">
-              <div class="vw-bars" data-viz="works">
-                <div class="vb" data-h="46"><div class="bar" style="--rm-h:46%"><span class="bv">46</span></div><span class="bl">Static</span></div>
-                <div class="vb" data-h="62"><div class="bar" style="--rm-h:62%"><span class="bv">62</span></div><span class="bl">Reels</span></div>
-                <div class="vb top" data-h="100"><div class="bar" style="--rm-h:100%"><span class="bv">94</span></div><span class="bl">Carousels</span></div>
-                <div class="vb" data-h="58"><div class="bar" style="--rm-h:58%"><span class="bv">58</span></div><span class="bl">Stories</span></div>
-                <div class="vb" data-h="71"><div class="bar" style="--rm-h:71%"><span class="bv">71</span></div><span class="bl">Avatar</span></div>
-              </div>
-              <div class="vw-flag"><i class="ph-fill ph-trend-up"></i>Carousels win this niche. Mint writes toward them.</div>
-            </div>
+      <div class="rr2-row" id="rr2Row">
+        <div class="rr2-thumb" data-i="0">
+                    <span class="rr2-line mint" style="top:18%;left:78%;width:42px;transform:rotate(18deg)"></span>
+          <div class="rr2-img">
+            <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0Q9A_YA2VDCQMK3BXT1MX/36f3bfea-ff28-4fba-aaf5-53970d3c0272.png" alt="UGC creative" loading="lazy" referrerpolicy="no-referrer">
+            <span class="rr2-imgscrim"></span>
+            <span class="rr2-type">UGC</span>
+            <span class="rr2-scan" aria-hidden="true"></span>
           </div>
+          <span class="rr2-tag pos tl"><i class="ph-fill ph-smiley"></i>"obsessed"</span>
+          <span class="rr2-tag eng tr d2"><i class="ph-fill ph-heart"></i>+38% saves</span>
+                    <div class="rr2-foot"><span>UGC</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 94</span></div>
         </div>
-
-        <!-- SENTIMENT -->
-        <div class="rp-view" id="rv-senti">
-          <div class="rp-title">The room feels good about you.</div>
-          <div class="rp-cap">Net sentiment from recent mentions and comments.</div>
-          <div class="rp-stage">
-            <div style="width:100%;text-align:center">
-              <div class="gauge" data-viz="senti">
-                <svg viewBox="0 0 230 130">
-                  <path d="M15 115 A100 100 0 0 1 215 115" fill="none" stroke="#eceae6" stroke-width="14" stroke-linecap="round"/>
-                  <path d="M15 115 A100 100 0 0 1 215 115" fill="none" stroke="url(#sg)" stroke-width="14" stroke-linecap="round"/>
-                  <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff5a5a"/><stop offset="0.5" stop-color="#FFC53D"/><stop offset="1" stop-color="#0FBF85"/></linearGradient></defs>
-                  <g class="needle"><line x1="115" y1="115" x2="115" y2="34" stroke="#161613" stroke-width="4" stroke-linecap="round"/><circle cx="115" cy="115" r="8" fill="#161613"/></g>
-                </svg>
-                <div class="g-val">92%<small>POSITIVE</small></div>
-              </div>
-              <div class="senti-chips" data-viz="senti-chips">
-                <span class="sc pos">"obsessed with these" <i class="ph-fill ph-smiley"></i></span>
-                <span class="sc pos">"so worth it"</span>
-                <span class="sc amb">"wish it shipped faster"</span>
-                <span class="sc pos">"my whole feed now"</span>
-              </div>
-            </div>
+        <div class="rr2-thumb" data-i="1">
+                    <span class="rr2-line tang" style="top:70%;left:80%;width:38px;transform:rotate(-12deg)"></span>
+          <div class="rr2-img">
+            <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0QQD_WT792S9ZT8TNZETT/53c871c2-bd8f-474a-9df4-d51709000724.png" alt="UGC Virtual Try-On creative" loading="lazy" referrerpolicy="no-referrer">
+            <span class="rr2-imgscrim"></span>
+            <span class="rr2-type">UGC Virtual Try-On</span>
+            <span class="rr2-scan" aria-hidden="true"></span>
           </div>
+          <span class="rr2-tag term tl"><i class="ph-fill ph-text-aa"></i>"new fit"</span>
+          <span class="rr2-tag pos br d3"><i class="ph-fill ph-thumbs-up"></i>92% positive</span>
+                    <div class="rr2-foot"><span>UGC</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 91</span></div>
         </div>
-
-        <!-- WINNING ADS -->
-        <div class="rp-view" id="rv-ads">
-          <div class="rp-title">The keepers stay profitable.</div>
-          <div class="rp-cap">Ad longevity, the strongest signal of what is working.</div>
-          <div class="rp-stage">
-            <div class="adcards" data-viz="ads">
-              <div class="adcard win">
-                <span class="ac-flag"><i class="ph-fill ph-seal-check"></i> Profitable</span>
-                <div class="ac-top"><b>UGC testimonial</b><span class="ac-days">running 34 days</span></div>
-                <div class="ac-track"><span class="ac-fill" data-w="100" style="width:100%"></span></div>
-              </div>
-              <div class="adcard">
-                <div class="ac-top"><b>Founder story reel</b><span class="ac-days">running 18 days</span></div>
-                <div class="ac-track"><span class="ac-fill" data-w="62" style="width:62%"></span></div>
-              </div>
-              <div class="adcard">
-                <div class="ac-top"><b>Static discount</b><span class="ac-days">running 6 days</span></div>
-                <div class="ac-track"><span class="ac-fill" data-w="30" style="width:30%"></span></div>
-              </div>
-            </div>
+        <div class="rr2-thumb" data-i="2">
+                    <span class="rr2-line cob" style="top:30%;left:-30px;width:34px;transform:rotate(8deg)"></span>
+          <div class="rr2-img">
+            <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7W6F_M5N6D7TCR6G5ZSWM/eba7b31d-aa80-42b2-85c5-cc2426915ef5.png" alt="Hyper Motion creative" loading="lazy" referrerpolicy="no-referrer">
+            <span class="rr2-imgscrim"></span>
+            <span class="rr2-type">Hyper Motion</span>
+            <span class="rr2-scan" aria-hidden="true"></span>
           </div>
+          <span class="rr2-tag eng tr"><i class="ph-fill ph-eye"></i>2.4M views</span>
+          <span class="rr2-tag pos bl d2"><i class="ph-fill ph-smiley"></i>"need this"</span>
+                    <div class="rr2-foot"><span>Hyper</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 96</span></div>
         </div>
-
-        <!-- WINNING TERMS -->
-        <div class="rp-view" id="rv-terms">
-          <div class="rp-title">These words earn the tap.</div>
-          <div class="rp-cap">Phrases your audience responds to, scaled by pull.</div>
-          <div class="rp-stage">
-            <div class="terms" data-viz="terms">
-              <span class="tm lg">small batch</span>
-              <span class="tm md">made to last</span>
-              <span class="tm">ritual</span>
-              <span class="tm lg2">limited drop</span>
-              <span class="tm md">warm minimal</span>
-              <span class="tm">handcrafted</span>
-              <span class="tm md">cozy</span>
-              <span class="tm">slow living</span>
-              <span class="tm">calm</span>
-            </div>
+        <div class="rr2-thumb" data-i="3">
+                    <div class="rr2-img">
+            <img src="https://pub.hyperagent.com/api/published/pbf01KT9P0RHR_WZAGDES0AY3BDYFR/3b05c2df-314e-497d-954b-cdfe65209f10.png" alt="Product Review creative" loading="lazy" referrerpolicy="no-referrer">
+            <span class="rr2-imgscrim"></span>
+            <span class="rr2-type">Product Review</span>
+            <span class="rr2-scan" aria-hidden="true"></span>
           </div>
+          <span class="rr2-tag term tl"><i class="ph-fill ph-fire"></i>"worth it"</span>
+          <span class="rr2-tag eng br d3"><i class="ph-fill ph-cursor-click"></i>+27% clicks</span>
+                    <div class="rr2-foot"><span>Product</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 90</span></div>
         </div>
-
-        <!-- COMPETITORS -->
-        <div class="rp-view" id="rv-comp">
-          <div class="rp-title">Where rivals leave a gap.</div>
-          <div class="rp-cap">Share of voice this month, with openings flagged.</div>
-          <div class="rp-stage">
-            <div class="compet" data-viz="comp">
-              <div class="ct"><span class="cdot" style="background:var(--pink)"></span><span class="cnm">Hearth &amp; Hue</span><span class="cgap"><span class="pg"></span>video gap</span><span class="ctrend up">+12%</span></div>
-              <div class="ct"><span class="cdot" style="background:var(--cobalt)"></span><span class="cnm">Nook Studio</span><span class="cgap"><span class="pg"></span>weak hooks</span><span class="ctrend up">+5%</span></div>
-              <div class="ct"><span class="cdot" style="background:var(--butter)"></span><span class="cnm">Big box home</span><span class="cgap">no UGC</span><span class="ctrend down">-4%</span></div>
-            </div>
+        <div class="rr2-thumb" data-i="4">
+                    <div class="rr2-img">
+            <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7WHG_G65XA6YZ2QXWFSPW/381d2df9-3424-4460-8ea9-23aa6d96105f.png" alt="UGC Virtual Try-On creative" loading="lazy" referrerpolicy="no-referrer">
+            <span class="rr2-imgscrim"></span>
+            <span class="rr2-type">UGC Virtual Try-On</span>
+            <span class="rr2-scan" aria-hidden="true"></span>
           </div>
+          <span class="rr2-tag pos tr"><i class="ph-fill ph-smiley"></i>"love this"</span>
+          <span class="rr2-tag term bl d2"><i class="ph-fill ph-text-aa"></i>"limited"</span>
+                    <div class="rr2-foot"><span>UGC</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 93</span></div>
         </div>
-
-        <!-- PERSONAS -->
-        <div class="rp-view" id="rv-persona">
-          <div class="rp-title">Meet who you are talking to.</div>
-          <div class="rp-cap">Built from real audience signals, piece by piece.</div>
-          <div class="rp-stage">
-            <div class="persona-card" data-viz="persona">
-              <span class="pc-av imgwrap"><img src="https://plus.unsplash.com/premium_photo-1710695570399-7d6e3725ba23?q=80&w=1200&auto=format&fit=crop" alt="Persona portrait" loading="lazy" referrerpolicy="no-referrer"></span>
-              <div class="pc-body">
-                <div class="pc-name">Maya, 31</div>
-                <div class="pc-sub">Design-led homebody · saves more than she buys</div>
-                <div class="pc-line">Top interests</div>
-                <div class="pc-tags"><span>Slow living</span><span>Ceramics</span><span>Sustainable home</span></div>
-                <div class="pc-line">Pain points</div>
-                <div class="pc-tags"><span class="pain">Decision fatigue</span><span class="pain">Fears clutter</span></div>
-              </div>
-            </div>
-          </div>
+        <div class="rr2-sum" id="rr2Sum">
+          <span class="rs-k"><span class="d"></span>Room read</span>
+          <div class="rs-big"><span class="g">92%</span></div>
+          <div class="rs-sub">positive sentiment across your niche</div>
+          <div class="rs-meter"><i></i></div>
+          <div class="rs-chips"><span>winning terms</span><span>top hooks</span><span>best formats</span></div>
         </div>
       </div>
+      <div class="rr2-foot2"><i class="ph-fill ph-seal-check"></i>Every signal feeds your Mint Score.</div>
     </div>
-
-    <div class="room-foot"><i class="ph-fill ph-seal-check"></i>Every signal feeds your Mint Score.</div>
   </div>
 </section>
 
@@ -1613,12 +2199,12 @@ p{color:var(--gray)}
         <div class="reveal">
           <div class="lang-post">
             <div class="lp-head">
-              <span class="lp-av imgwrap"><img src="https://images.unsplash.com/photo-1505740106531-4243f3831c78?q=80&w=1200&auto=format&fit=crop" alt="Brand avatar" loading="lazy" referrerpolicy="no-referrer"></span>
+              <span class="lp-av imgwrap"><img src="https://pub.hyperagent.com/api/published/pbf01KT9P7R2C_8S83THJDEGART2NN/455d9143-4e6b-46cb-9e44-6c5046102c62.png" alt="Brand avatar" loading="lazy" referrerpolicy="no-referrer"></span>
               <div><b>your_brand</b><span id="lpHandle">Original</span></div>
               <i class="ph ph-dots-three more"></i>
             </div>
             <div class="lp-img imgwrap fb-3">
-              <img src="https://images.unsplash.com/photo-1538053631041-4287119be127?q=80&w=1200&auto=format&fit=crop" alt="Coffee" loading="lazy" referrerpolicy="no-referrer">
+              <img src="https://pub.hyperagent.com/api/published/pbf01KT9P7VVM_GSJWYRHF93Z9TSEE/015fed2e-eb46-4a11-987b-a53d58d029b9.png" alt="Localized post" loading="lazy" referrerpolicy="no-referrer">
               <span class="lp-scrim"></span>
               <span class="lp-flag-badge" id="lpBadge"><span id="lpBadgeFlag">EN</span> English</span>
             </div>
@@ -1630,7 +2216,7 @@ p{color:var(--gray)}
             </div>
             <div class="lp-body">
               <div class="lp-likes">2,431 likes</div>
-              <div class="lp-text" id="lpText" dir="ltr"><b>your_brand</b> Slow mornings, strong coffee. Our lavender cold brew is back and it is pure calm in a cup. <span class="tags">#yourbrand #coldbrew #slowmornings</span></div>
+              <div class="lp-text" id="lpText" dir="ltr"><b>your_brand</b> New season, new fit. The drop everyone asked for is finally here and it is selling fast. <span class="tags">#yourbrand #newdrop #shopnow</span></div>
             </div>
           </div>
         </div>
@@ -1722,6 +2308,27 @@ p{color:var(--gray)}
           <li><i class="ph-fill ph-check-circle"></i>Approval workflows</li>
           <li><i class="ph-fill ph-check-circle"></i>Priority support and onboarding</li>
         </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRIVACY ============ -->
+<section class="privacy" id="privacy">
+  <div class="wrap">
+    <div class="privacy-inner reveal">
+      <div class="privacy-ico"><i class="ph-fill ph-shield-check"></i></div>
+      <h2>Your brand. Your data. <span class="g">Locked down.</span></h2>
+      <span class="privacy-pill"><i class="ph-fill ph-lock-key"></i>100% private</span>
+      <div class="privacy-cols">
+        <div class="privacy-col">
+          <span class="pc-i"><i class="ph-fill ph-lock-key"></i></span>
+          <div><h3>Encrypted, end to end</h3><p>Everything you upload and generate is fully encrypted in transit and at rest. Zero data sharing with third parties, ever.</p></div>
+        </div>
+        <div class="privacy-col">
+          <span class="pc-i"><i class="ph-fill ph-prohibit"></i></span>
+          <div><h3>We never train on your data</h3><p>Your brand stays yours. We do not train our models on your content, and you keep total control from your first post to your hundredth campaign.</p></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1868,6 +2475,7 @@ p{color:var(--gray)}
   }
 
   /* ---------- SCROLL REVEALS ---------- */
+  try {
   if(hasGSAP && !REDUCED){
     document.querySelectorAll(".reveal").forEach(function(el){
       gsap.to(el, {
@@ -1878,8 +2486,10 @@ p{color:var(--gray)}
   } else {
     document.querySelectorAll(".reveal").forEach(function(el){ el.style.opacity=1; el.style.transform="none"; });
   }
+  } catch(e){ document.querySelectorAll(".reveal").forEach(function(el){ el.style.opacity=1; el.style.transform="none"; }); }
 
   /* ---------- COUNT-UP helpers ---------- */
+  try {
   function animateCount(el, target, opts){
     opts = opts || {};
     var decimals = opts.decimals || 0;
@@ -1939,7 +2549,10 @@ p{color:var(--gray)}
     } else { runLang(); }
   }
 
+  } catch(e){ /* count-up / stats / lang-count optional */ }
+
   /* ---------- CREATE TABS (animated swap) ---------- */
+  try {
   var cTabs = document.querySelectorAll("#createTabs .tab");
   var cPanels = document.querySelectorAll(".tab-panels .panel");
   cTabs.forEach(function(tab){
@@ -1959,36 +2572,38 @@ p{color:var(--gray)}
       });
     });
   });
+  } catch(e){ /* create tabs optional */ }
 
   /* ---------- LANGUAGE SWITCHER ---------- */
+  try {
   var LANGS = {
     en:{flag:"EN",name:"English",handle:"Original",dir:"ltr",
-        text:'<b>your_brand</b> Slow mornings, strong coffee. Our lavender cold brew is back and it is pure calm in a cup.',
-        tags:"#yourbrand #coldbrew #slowmornings"},
+        text:'<b>your_brand</b> New season, new fit. The drop everyone asked for is finally here and it is selling fast.',
+        tags:"#yourbrand #newdrop #shopnow"},
     es:{flag:"ES",name:"Spanish",handle:"Espanol",dir:"ltr",
-        text:'<b>your_brand</b> Mananas tranquilas, cafe intenso. Nuestro cold brew de lavanda ha vuelto y es pura calma en una taza.',
-        tags:"#yourbrand #coldbrew #mananaslentas"},
+        text:'<b>your_brand</b> Nueva temporada, nuevo look. La coleccion que todos pedian ya esta aqui y se agota rapido.',
+        tags:"#yourbrand #nuevacoleccion #compraya"},
     fr:{flag:"FR",name:"French",handle:"Francais",dir:"ltr",
-        text:'<b>your_brand</b> Matins doux, cafe corse. Notre cold brew a la lavande revient et c est le calme dans une tasse.',
-        tags:"#yourbrand #coldbrew #matinslents"},
+        text:'<b>your_brand</b> Nouvelle saison, nouveau look. La collection que vous attendiez est enfin la et part tres vite.',
+        tags:"#yourbrand #nouvellecollection #shopnow"},
     de:{flag:"DE",name:"German",handle:"Deutsch",dir:"ltr",
-        text:'<b>your_brand</b> Ruhige Morgen, starker Kaffee. Unser Lavendel Cold Brew ist zuruck und purer Ruhe in einer Tasse.',
-        tags:"#yourbrand #coldbrew #langsamemorgen"},
+        text:'<b>your_brand</b> Neue Saison, neuer Look. Die lang ersehnte Kollektion ist endlich da und schnell vergriffen.',
+        tags:"#yourbrand #neuekollektion #jetztshoppen"},
     ja:{flag:"JA",name:"Japanese",handle:"Nihongo",dir:"ltr",
-        text:'<b>your_brand</b> ゆったりした朝に、濃いコーヒー。ラベンダーのコールドブリューが戻ってきました。一杯の安らぎをどうぞ。',
-        tags:"#yourbrand #coldbrew #ゆったり朝"},
+        text:'<b>your_brand</b> 新シーズン、新しい一着。みんなが待っていたコレクションがついに登場、売り切れ必至です。',
+        tags:"#yourbrand #新作 #今すぐチェック"},
     ar:{flag:"AR",name:"Arabic",handle:"Arabiyya",dir:"rtl",
-        text:'<b>your_brand</b> صباحات هادئة وقهوة قوية. عاد مشروب اللافندر البارد وهو الهدوء بعينه في الكوب.',
-        tags:"#yourbrand #coldbrew #صباح_هادئ"},
+        text:'<b>your_brand</b> موسم جديد وإطلالة جديدة. وصلت المجموعة التي طلبها الجميع وهي تنفد بسرعة.',
+        tags:"#yourbrand #تشكيلة_جديدة #تسوق_الان"},
     pt:{flag:"PT",name:"Portuguese",handle:"Portugues",dir:"ltr",
-        text:'<b>your_brand</b> Manhas calmas, cafe encorpado. Nosso cold brew de lavanda voltou e e pura calma numa xicara.',
-        tags:"#yourbrand #coldbrew #manhaslentas"},
+        text:'<b>your_brand</b> Nova estacao, novo look. A colecao que todos pediram chegou e esta a esgotar depressa.',
+        tags:"#yourbrand #novacolecao #compreja"},
     hi:{flag:"HI",name:"Hindi",handle:"Hindi",dir:"ltr",
-        text:'<b>your_brand</b> शांत सुबह, गाढ़ी कॉफी। हमारा लैवेंडर कोल्ड ब्रू वापस आ गया है और यह एक कप में शुद्ध सुकून है।',
-        tags:"#yourbrand #coldbrew #shaantsubah"},
+        text:'<b>your_brand</b> नया सीज़न, नया लुक। जिसका सबको इंतज़ार था वो कलेक्शन आ गया है और तेज़ी से बिक रहा है।',
+        tags:"#yourbrand #nayicollection #abhikharide"},
     it:{flag:"IT",name:"Italian",handle:"Italiano",dir:"ltr",
-        text:'<b>your_brand</b> Mattine lente, caffe deciso. Il nostro cold brew alla lavanda e tornato ed e pura calma in una tazza.',
-        tags:"#yourbrand #coldbrew #mattinelente"}
+        text:'<b>your_brand</b> Nuova stagione, nuovo look. La collezione che tutti aspettavano e finalmente qui e va a ruba.',
+        tags:"#yourbrand #nuovacollezione #acquistaora"}
   };
   var LANG_ORDER = ["en","es","fr","de","ja","ar","pt","hi","it"];
   var lpText = document.getElementById("lpText");
@@ -2037,6 +2652,7 @@ p{color:var(--gray)}
       onEnter: startAuto, onEnterBack: startAuto, onLeave: stopAuto, onLeaveBack: stopAuto
     });
   }
+  } catch(e){ /* language switcher optional */ }
 
   /* ---------- CONFETTI (in-container, GSAP) ---------- */
   var CONF_COLORS = ["#20E0A0","#FF6A3D","#FF3D8A","#2E6BFF","#FFC53D","#0FBF85"];
@@ -2206,12 +2822,10 @@ p{color:var(--gray)}
         heroConfetti(r.left + r.width/2, r.top + r.height/2);
       }
       if(hasGSAP) ScrollTrigger.refresh();
-      // Redirect to the app with the handle pre-filled
+      // Redirect to the app with handle pre-filled
       var handle = dnaInput ? dnaInput.value.trim().replace(/^@/,"").replace(/https?:\/\//,"") : "";
-      var dest = handle
-        ? "/app?action=signup&handle=" + encodeURIComponent(handle)
-        : "/app?action=signup";
-      setTimeout(function(){ window.location.href = dest; }, 1200);
+      var dest = handle ? "/app?action=signup&handle=" + encodeURIComponent(handle) : "/app?action=signup";
+      setTimeout(function(){ window.location.href = dest; }, 1400);
       // resume typewriter if input still empty
       if(dnaInput && dnaInput.value.trim()==="" && !REDUCED){
         twChar=0; twDeleting=false; dnaForm.classList.remove("typing-hidden"); startTypewriter();
@@ -2237,8 +2851,14 @@ p{color:var(--gray)}
     urlForm2.addEventListener("submit", function(e){
       e.preventDefault();
       if(!REDUCED && fcConf) burstConfetti(fcConf, 80, 50);
+      var inp2 = urlForm2.querySelector("input");
+      var val2 = inp2 ? inp2.value.trim().replace(/^@/,"").replace(/https?:\/\//,"") : "";
+      var dest2 = val2 ? "/app?action=signup&handle=" + encodeURIComponent(val2) : "/app?action=signup";
       setTimeout(function(){
-        var feed = document.getElementById("feed");
+        window.location.href = dest2;
+      }, 1600);
+      setTimeout(function(){
+        var feed = document.getElementById("engine") || document.querySelector(".engine-wrap");
         if(feed){
           var y = feed.getBoundingClientRect().top + window.pageYOffset - 120;
           window.scrollTo({top:y, behavior: REDUCED ? "auto" : "smooth"});
@@ -2249,6 +2869,7 @@ p{color:var(--gray)}
   }
 
   /* ---------- WORK RAIL: drag + auto-drift (single marquee moment) ---------- */
+  try {
   var rail = document.getElementById("workRail");
   if(rail){
     var isDown = false, startX = 0, startScroll = 0, moved = false;
@@ -2287,6 +2908,7 @@ p{color:var(--gray)}
       }
     }
   }
+  } catch(e){ /* work rail optional */ }
 
   /* ---------- card hover tilt ---------- */
   if(!REDUCED && hasGSAP){
@@ -2304,7 +2926,7 @@ p{color:var(--gray)}
   }
 
   /* ---------- BRAND DNA: scan + populate ---------- */
-  (function(){
+  try { (function(){
     var browser = document.getElementById("dnaBrowser");
     var out = document.getElementById("dnaOut");
     var rowsWrap = document.getElementById("dnaRows");
@@ -2363,10 +2985,10 @@ p{color:var(--gray)}
         runScan();
       });
     }
-  })();
+  })(); } catch(e){ /* brand dna optional */ }
 
   /* ---------- READ THE ROOM: interactive console + auto-cycle ---------- */
-  (function(){
+  try { (function(){
     var consoleEl = document.getElementById("roomConsole");
     var rail = document.getElementById("roomRail");
     var panel = document.getElementById("roomPanel");
@@ -2477,7 +3099,174 @@ p{color:var(--gray)}
         io2.observe(consoleEl);
       } else { begin(); }
     }
-  })();
+  })(); } catch(e){ /* read-the-room optional */ }
+
+  /* ====================================================================
+     v3 ADDITIONS: hero engine, clean statement, hardened room console
+     Each block is wrapped so a failure in one cannot break the others.
+     ==================================================================== */
+
+  /* ---------- HERO ENGINE: endless CSS auto-scroll (no scroll listener) ---------- */
+  try {
+    var engine = document.getElementById("engine");
+    if (engine) {
+      if (REDUCED) {
+        // freeze the loops; show a static dense grid
+        engine.querySelectorAll(".ec-track").forEach(function(t){
+          t.style.animation = "none";
+        });
+      }
+      // Be resilient if a browser blocks autoplay: try to (re)play the 4 real videos.
+      engine.querySelectorAll("video").forEach(function(v){
+        v.muted = true;
+        var tryPlay = function(){ var p = v.play && v.play(); if (p && p.catch) p.catch(function(){}); };
+        if (v.readyState >= 2) tryPlay();
+        v.addEventListener("loadeddata", tryPlay, { once:true });
+      });
+    }
+  } catch(e){ /* engine optional */ }
+
+  /* ---------- CLEAN STATEMENT: reveal lines + cycle platform glyph ---------- */
+  try {
+    var stmt = document.getElementById("statement-copy");
+    if (stmt) {
+      var lines = Array.prototype.slice.call(stmt.querySelectorAll(".ln"));
+      function showStmt(){ lines.forEach(function(l){ l.classList.add("in"); }); }
+      if (REDUCED) {
+        showStmt();
+      } else if (hasGSAP) {
+        ScrollTrigger.create({ trigger: stmt, start:"top 78%", once:true, onEnter: showStmt });
+      } else if ("IntersectionObserver" in window) {
+        var sio = new IntersectionObserver(function(en){
+          en.forEach(function(e){ if (e.isIntersecting){ showStmt(); sio.disconnect(); } });
+        }, { threshold:0.3 });
+        sio.observe(stmt);
+      } else { showStmt(); }
+
+      // platform glyph cycle (TikTok / Instagram / Facebook / LinkedIn)
+      var plat = document.getElementById("statPlat");
+      if (plat) {
+        var glyphs = Array.prototype.slice.call(plat.querySelectorAll("i"));
+        if (REDUCED) {
+          // static: show Instagram only
+          glyphs.forEach(function(g){ g.classList.toggle("on", g.getAttribute("data-p")==="0"); });
+        } else if (glyphs.length) {
+          var pi = 0;
+          setInterval(function(){
+            glyphs[pi].classList.remove("on");
+            pi = (pi + 1) % glyphs.length;
+            glyphs[pi].classList.add("on");
+          }, 1600);
+        }
+      }
+    }
+  } catch(e){ /* statement optional */ }
+
+  /* ---------- READ THE ROOM v4 (Option G): reveal on scroll + cycling scan ---------- */
+  try {
+    var rr2Stage = document.getElementById("rr2Stage");
+    var rr2Row = document.getElementById("rr2Row");
+    if (rr2Stage && rr2Row) {
+      var rr2Items = Array.prototype.slice.call(rr2Row.children); // thumbs + summary
+      var rr2Thumbs = Array.prototype.slice.call(rr2Row.querySelectorAll(".rr2-thumb"));
+      function rr2RevealAll(){ rr2Items.forEach(function(el){ el.classList.add("in"); }); }
+      var rr2Cycle = null, rr2i = 0;
+      function rr2Scan(){
+        if (REDUCED) return;
+        rr2Thumbs.forEach(function(t){ t.classList.remove("analyzing"); });
+        if (rr2Thumbs.length){
+          rr2Thumbs[rr2i % rr2Thumbs.length].classList.add("analyzing");
+          rr2i = (rr2i + 1) % rr2Thumbs.length;
+        }
+      }
+      function rr2Start(){
+        if (REDUCED || rr2Cycle) return;
+        rr2Scan();
+        rr2Cycle = setInterval(rr2Scan, 2300);
+      }
+      function rr2Stop(){ if (rr2Cycle){ clearInterval(rr2Cycle); rr2Cycle = null; } rr2Thumbs.forEach(function(t){ t.classList.remove("analyzing"); }); }
+      if (REDUCED) {
+        rr2RevealAll();
+      } else if ("IntersectionObserver" in window) {
+        // stagger-reveal cards as the row enters
+        var rrItemIO = new IntersectionObserver(function(en){
+          en.forEach(function(e){
+            if (e.isIntersecting){
+              var el = e.target;
+              var delay = rr2Items.indexOf(el) * 110;
+              setTimeout(function(){ el.classList.add("in"); }, delay);
+              rrItemIO.unobserve(el);
+            }
+          });
+        }, { threshold:0.2 });
+        rr2Items.forEach(function(el){ rrItemIO.observe(el); });
+        // start/stop the scan cycle when section is on screen
+        var rrScanIO = new IntersectionObserver(function(en){
+          en.forEach(function(e){ if (e.isIntersecting) rr2Start(); else rr2Stop(); });
+        }, { threshold:0.25 });
+        rrScanIO.observe(rr2Stage);
+      } else {
+        rr2RevealAll(); rr2Start();
+      }
+    }
+  } catch(e){ /* read-the-room v4 optional */ }
+
+  /* ---------- CAROUSEL & SALE BANNERS: auto-advancing IG carousel ---------- */
+  try {
+    var cbSlides = document.getElementById("cbSlides");
+    var cbDots = document.getElementById("cbDots");
+    var cbCar = document.getElementById("cbCar");
+    if (cbSlides && cbDots) {
+      var cbBtns = Array.prototype.slice.call(cbDots.querySelectorAll("button"));
+      var cbN = cbSlides.children.length;
+      var cbIdx = 0, cbTimer = null;
+      function cbGo(i){
+        cbIdx = (i + cbN) % cbN;
+        cbSlides.style.transform = "translateX(" + (-cbIdx * 100) + "%)";
+        cbBtns.forEach(function(b,bi){ b.classList.toggle("on", bi===cbIdx); });
+      }
+      cbBtns.forEach(function(b){
+        b.addEventListener("click", function(){
+          cbGo(parseInt(b.getAttribute("data-s"),10) || 0);
+          cbStop(); // pin on manual interaction
+        });
+      });
+      function cbStop(){ if (cbTimer){ clearInterval(cbTimer); cbTimer = null; } }
+      function cbStart(){ if (REDUCED || cbTimer) return; cbTimer = setInterval(function(){ cbGo(cbIdx+1); }, 3000); }
+      if (!REDUCED) {
+        if ("IntersectionObserver" in window) {
+          var cbIO = new IntersectionObserver(function(en){
+            en.forEach(function(e){ if (e.isIntersecting) cbStart(); else cbStop(); });
+          }, { threshold:0.3 });
+          cbIO.observe(cbCar || cbSlides);
+        } else { cbStart(); }
+      }
+    }
+  } catch(e){ /* carousel optional */ }
+
+  /* ---------- TRAINED ON: reveal floating insight chips on scroll ---------- */
+  try {
+    var insights = Array.prototype.slice.call(document.querySelectorAll(".insight"));
+    if (insights.length) {
+      if (REDUCED) {
+        insights.forEach(function(el){ el.classList.add("in"); });
+      } else if ("IntersectionObserver" in window) {
+        var insIO = new IntersectionObserver(function(en){
+          en.forEach(function(e){
+            if (e.isIntersecting){
+              var el = e.target;
+              var d = insights.indexOf(el) * 130;
+              setTimeout(function(){ el.classList.add("in"); }, d);
+              insIO.unobserve(el);
+            }
+          });
+        }, { threshold:0.4 });
+        insights.forEach(function(el){ insIO.observe(el); });
+      } else {
+        insights.forEach(function(el){ el.classList.add("in"); });
+      }
+    }
+  } catch(e){ /* trained-on insights optional */ }
 
 })();
 </script>

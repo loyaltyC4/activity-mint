@@ -1994,17 +1994,112 @@ p{color:var(--gray)}
 </section>
 
 <!-- ============ YOUR BRAND DNA (interactive scan) ============ -->
-<section class="dna-sec" id="brand-dna">
-  <div class="wrap">
-    <div class="sec-head center reveal">
+<style>
+/* ── tokens needed by DNA section ── */
+.dna-sec-wrap{
+  --base:#F7F7F5;--paper-2:#FBFBFA;--white:#FFFFFF;--ink:#161613;--gray:#5C5C57;
+  --mint:#20E0A0;--mint-deep:#0FBF85;--tangerine:#FF6A3D;--pink:#FF3D8A;
+  --cobalt:#2E6BFF;--butter:#FFC53D;
+  --line:rgba(22,22,19,.08);--line-strong:rgba(22,22,19,.14);
+  --shadow-sm:0 2px 8px rgba(22,22,19,.06);--shadow-md:0 14px 34px rgba(22,22,19,.10);
+  --r-sm:14px;--r-md:22px;--r-lg:32px;
+  font-family:"Geist",system-ui,sans-serif;
+}
+.dna-sec-wrap .sec-head{max-width:700px;margin-bottom:54px}
+.dna-sec-wrap .sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+.dna-sec-wrap .kicker{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gray);display:inline-flex;align-items:center;gap:8px}
+.dna-sec-wrap .kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--mint)}
+.dna-sec-wrap h2{font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:700;line-height:1.02;letter-spacing:-.02em;font-size:clamp(2rem,4.6vw,3.6rem);margin:14px 0 16px}
+.dna-sec-wrap .lead{font-size:clamp(1.05rem,1.5vw,1.28rem);color:var(--gray);line-height:1.55;max-width:56ch}
+.dna-sec-wrap p{color:var(--gray)}
+
+/* grid */
+.dna-sec-wrap .dna-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:34px;align-items:stretch}
+@media(max-width:920px){.dna-sec-wrap .dna-grid{grid-template-columns:1fr;gap:24px}}
+
+/* mock browser */
+.dna-sec-wrap .browser{background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-md);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.dna-sec-wrap .browser-bar{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.dna-sec-wrap .browser-bar .dots{display:flex;gap:6px}
+.dna-sec-wrap .browser-bar .dots span{width:11px;height:11px;border-radius:50%}
+.dna-sec-wrap .browser-bar .dots span:nth-child(1){background:#ff5f57}
+.dna-sec-wrap .browser-bar .dots span:nth-child(2){background:var(--butter)}
+.dna-sec-wrap .browser-bar .dots span:nth-child(3){background:var(--mint-deep)}
+.dna-sec-wrap .browser-bar .url{flex:1;display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-family:"Space Mono",monospace;font-size:.78rem;color:var(--gray);min-width:0}
+.dna-sec-wrap .browser-bar .url i{color:var(--mint-deep);font-size:.9rem;flex-shrink:0}
+.dna-sec-wrap .browser-bar .url b{color:var(--ink);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dna-sec-wrap .browser-body{position:relative;overflow:hidden;flex:1}
+.dna-sec-wrap .site{padding:0;background:var(--white)}
+.dna-sec-wrap .site-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 18px}
+.dna-sec-wrap .site-hd .logo{font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:800;font-size:1.15rem;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.dna-sec-wrap .site-hd .logo .chip{width:26px;height:26px;border-radius:8px;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));display:grid;place-items:center;color:#06231a;font-size:.85rem}
+.dna-sec-wrap .site-hd .navmini{display:flex;gap:14px;font-size:.74rem;color:var(--gray);font-weight:600}
+.dna-sec-wrap .site-hero{position:relative;height:150px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;color:#fff;background:linear-gradient(160deg,var(--mint),var(--cobalt))}
+.dna-sec-wrap .site-hero .sh-scrim{position:absolute;inset:0;z-index:2;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.55))}
+.dna-sec-wrap .site-hero h4{position:relative;z-index:3;font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:800;font-size:1.35rem;line-height:1.05;text-shadow:0 1px 10px rgba(0,0,0,.4)}
+.dna-sec-wrap .site-hero .sh-cta{position:relative;z-index:3;align-self:flex-start;margin-top:8px;background:var(--mint);color:var(--ink);font-weight:700;font-size:.72rem;padding:6px 13px;border-radius:999px}
+.dna-sec-wrap .site-prods{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px 18px 20px}
+.dna-sec-wrap .site-prods .sp{border-radius:14px;overflow:hidden;aspect-ratio:1;position:relative;box-shadow:var(--shadow-sm)}
+.dna-sec-wrap .site-prods .sp img{width:100%;height:100%;object-fit:cover;display:block}
+.dna-sec-wrap .site-foot{padding:0 18px 18px;display:flex;gap:7px;flex-wrap:wrap}
+.dna-sec-wrap .site-foot span{font-family:"Space Mono",monospace;font-size:.62rem;color:var(--gray);background:var(--base);border:1px solid var(--line);padding:4px 9px;border-radius:999px}
+.dna-sec-wrap .scan-grid{position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .4s;background-image:linear-gradient(rgba(32,224,160,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(32,224,160,.07) 1px,transparent 1px);background-size:26px 26px}
+.dna-sec-wrap .scan-sweep{position:absolute;left:0;right:0;top:0;height:64px;z-index:6;pointer-events:none;background:linear-gradient(180deg,rgba(32,224,160,0) 0%,rgba(32,224,160,.14) 60%,rgba(32,224,160,.42) 92%,rgba(15,191,133,.9) 100%);box-shadow:0 6px 18px rgba(32,224,160,.45);opacity:0}
+.dna-sec-wrap .scan-sweep::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--mint);box-shadow:0 0 14px 2px rgba(32,224,160,.8)}
+.dna-sec-wrap .dna-scan-on .scan-sweep{opacity:1;animation:dnaSweep2 3.4s cubic-bezier(.4,0,.2,1) infinite}
+.dna-sec-wrap .dna-scan-on .scan-grid{opacity:1}
+@keyframes dnaSweep2{0%{transform:translateY(-70px)}70%{transform:translateY(360px)}100%{transform:translateY(360px)}}
+/* DNA output panel */
+.dna-sec-wrap .dna-out{background:var(--white);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-md);padding:26px 26px 24px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.dna-sec-wrap .dna-out .helix{position:absolute;top:-30px;right:-26px;width:160px;height:160px;opacity:.10;pointer-events:none;color:var(--mint-deep)}
+.dna-sec-wrap .dna-out .helix i{font-size:160px;line-height:1}
+.dna-sec-wrap .dna-out .do-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;position:relative;z-index:2}
+.dna-sec-wrap .dna-out .do-fp{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:1.3rem;color:#fff;background:linear-gradient(135deg,var(--mint),var(--mint-deep));flex-shrink:0;box-shadow:0 8px 20px rgba(32,224,160,.4)}
+.dna-sec-wrap .dna-out .do-head .dt b{font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:800;font-size:1.12rem;display:block;letter-spacing:-.01em}
+.dna-sec-wrap .dna-out .do-head .dt span{font-family:"Space Mono",monospace;font-size:.68rem;color:var(--mint-deep);letter-spacing:.04em}
+.dna-sec-wrap .dna-rows2{display:flex;flex-direction:column;gap:0;margin-top:10px;position:relative;z-index:2}
+.dna-sec-wrap .dna-row2{display:flex;flex-direction:column;gap:9px;padding:15px 0;border-bottom:1px solid var(--line);opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s cubic-bezier(.22,1,.36,1)}
+.dna-sec-wrap .dna-row2:last-child{border-bottom:none}
+.dna-sec-wrap .dna-row2.show{opacity:1;transform:none}
+.dna-sec-wrap .dna-row2 .dr-lbl{display:flex;align-items:center;gap:8px;font-family:"Space Mono",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
+.dna-sec-wrap .dna-row2 .dr-lbl i{color:var(--mint-deep);font-size:1rem}
+.dna-sec-wrap .dna-row2 .dr-val{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.dna-sec-wrap .sw2{width:30px;height:30px;border-radius:9px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);transform:scale(0);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+.dna-sec-wrap .dna-row2.show .sw2{transform:scale(1)}
+.dna-sec-wrap .dna-row2.show .sw2:nth-child(2){transition-delay:.06s}
+.dna-sec-wrap .dna-row2.show .sw2:nth-child(3){transition-delay:.12s}
+.dna-sec-wrap .dna-row2.show .sw2:nth-child(4){transition-delay:.18s}
+.dna-sec-wrap .dna-row2.show .sw2:nth-child(5){transition-delay:.24s}
+.dna-sec-wrap .sw2-hex{font-family:"Space Mono",monospace;font-size:.66rem;color:var(--gray);margin-left:2px}
+.dna-sec-wrap .vc2{font-family:"Geist",system-ui;font-weight:600;font-size:.82rem;padding:6px 13px;border-radius:999px;background:rgba(32,224,160,.12);color:var(--mint-deep);border:1px solid rgba(32,224,160,.25)}
+.dna-sec-wrap .vc2.alt{background:rgba(255,106,61,.12);color:#c2451f;border-color:rgba(255,106,61,.25)}
+.dna-sec-wrap .vc2.alt2{background:rgba(46,107,255,.1);color:var(--cobalt);border-color:rgba(46,107,255,.22)}
+.dna-sec-wrap .wordmark2{font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:800;font-size:1.5rem;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:center;gap:9px}
+.dna-sec-wrap .wordmark2 .wm-chip2{width:28px;height:28px;border-radius:8px;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));display:grid;place-items:center;color:#06231a;font-size:.9rem}
+.dna-sec-wrap .wordmark2 .wm-type2{font-family:"Space Mono",monospace;font-size:.62rem;color:var(--gray);font-weight:400;margin-left:4px;letter-spacing:.02em}
+.dna-sec-wrap .prodchip2{display:inline-flex;align-items:center;gap:8px;background:var(--base);border:1px solid var(--line);border-radius:999px;padding:5px 12px 5px 5px;font-size:.8rem;font-weight:600;color:var(--ink)}
+.dna-sec-wrap .prodchip2 .pc-thumb2{width:26px;height:26px;border-radius:50%;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,var(--mint),var(--mint-deep))}
+.dna-sec-wrap .prodchip2 .pc-thumb2 img{width:100%;height:100%;object-fit:cover;display:block}
+.dna-sec-wrap .dna-foot2{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;position:relative;z-index:2;flex-wrap:wrap}
+.dna-sec-wrap .dna-foot2 .progress2{font-family:"Space Mono",monospace;font-size:.72rem;color:var(--gray);display:inline-flex;align-items:center;gap:8px}
+.dna-sec-wrap .dna-foot2 .progress2 .pdot2{width:8px;height:8px;border-radius:50%;background:var(--mint);animation:pulseDot2 1.8s infinite}
+@keyframes pulseDot2{0%{box-shadow:0 0 0 0 rgba(32,224,160,.55)}70%{box-shadow:0 0 0 9px rgba(32,224,160,0)}100%{box-shadow:0 0 0 0 rgba(32,224,160,0)}}
+.dna-sec-wrap .rescan2{display:inline-flex;align-items:center;gap:8px;font-family:"Geist",system-ui;font-weight:700;font-size:.85rem;color:var(--ink);background:var(--white);border:1.5px solid var(--line-strong);border-radius:999px;padding:9px 17px;cursor:pointer;transition:transform .2s cubic-bezier(.34,1.56,.64,1),border-color .2s,box-shadow .2s}
+.dna-sec-wrap .rescan2:hover{transform:translateY(-2px);border-color:var(--mint);box-shadow:var(--shadow-sm)}
+.dna-sec-wrap .rescan2 i{color:var(--mint-deep)}
+</style>
+
+<section class="dna-sec-wrap" style="padding:90px 0;background:var(--background,#fff);border-top:1px solid var(--border,#e5e7eb)" id="brand-dna">
+  <div style="width:100%;max-width:1240px;margin:0 auto;padding:0 6vw">
+    <div class="sec-head center" style="opacity:1;transform:none">
       <span class="kicker"><span class="dot"></span>Brand DNA</span>
       <h2>Your Brand DNA, read in seconds.</h2>
-      <p class="lead">Drop a link. Mint Studio reads your colors, voice, products, and audience, then builds everything to match.</p>
+      <p class="lead" style="margin-left:auto;margin-right:auto">Drop a link. Activity Mint reads your colors, voice, products, and audience, then tracks everything to match your competitive landscape.</p>
     </div>
 
     <div class="dna-grid">
       <!-- LEFT: mock browser scanning your site -->
-      <div class="browser reveal" id="dnaBrowser" aria-hidden="true">
+      <div class="browser" id="dnaBrowser2" aria-hidden="true">
         <div class="browser-bar">
           <span class="dots"><span></span><span></span><span></span></span>
           <span class="url"><i class="ph-fill ph-lock-simple"></i><b>your-brand.com</b></span>
@@ -2019,14 +2114,14 @@ p{color:var(--gray)}
               <span class="navmini"><span>Shop</span><span>Story</span><span>Journal</span></span>
             </div>
             <div class="site-hero imgwrap">
-              <img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P0PZP_86S1N4QNN6ZDAF9F/93a77f01-bd30-44e0-90f2-ecc8280e0bf3.png" alt="Brand hero" loading="lazy" referrerpolicy="no-referrer">
+              <img src="https://pub.hyperagent.com/api/published/pbf01KT9KJ6EH_2MJVX0DBW3MDYP8W/36e65d2d-48d8-49b8-9117-ba266d68799b.png" alt="Brand hero" loading="lazy" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1">
               <span class="sh-scrim"></span>
               <h4>Warm spaces,<br>made simple.</h4>
               <span class="sh-cta">Shop the look</span>
             </div>
-            <div class="site-prods" style="grid-template-columns:repeat(2,1fr)">
-              <div class="sp imgwrap fb-7"><img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P7V9C_X40446A5HN7E2W86/44f0122a-1fae-4533-83b6-1d3c09604169.png" alt="Product one" loading="lazy" referrerpolicy="no-referrer"></div>
-              <div class="sp imgwrap fb-3"></div>
+            <div class="site-prods">
+              <div class="sp"><img src="https://pub.hyperagent.com/api/published/pbf01KT9KG1QC_6KSWSM1611FGR039/1e5bc441-49f9-4002-a5ef-75ad2a3da123.png" alt="Product one" loading="lazy" referrerpolicy="no-referrer"></div>
+              <div class="sp"><img src="https://pub.hyperagent.com/api/published/pbf01KT9KJ722_J62N0A1MRBHH7Y97/aa2384bd-0259-4145-8b8a-c99b34e98693.png" alt="Product two" loading="lazy" referrerpolicy="no-referrer"></div>
             </div>
             <div class="site-foot"><span>About</span><span>Sustainability</span><span>Stockists</span><span>Contact</span></div>
           </div>
@@ -2034,62 +2129,115 @@ p{color:var(--gray)}
       </div>
 
       <!-- RIGHT: extracted Brand DNA -->
-      <div class="dna-out reveal" id="dnaOut">
+      <div class="dna-out" id="dnaOut2">
         <span class="helix" aria-hidden="true"><i class="ph-fill ph-fingerprint"></i></span>
         <div class="do-head">
           <span class="do-fp"><i class="ph-fill ph-dna"></i></span>
-          <span class="t"><b>Extracted Brand DNA</b><span id="dnaStatus">Scanning your-brand.com</span></span>
+          <span class="dt"><b>Extracted Brand DNA</b><span id="dnaStatus2">Scanning your-brand.com</span></span>
         </div>
-        <div class="dna-rows" id="dnaRows">
-          <div class="dna-row" data-step="0">
+        <div class="dna-rows2" id="dnaRows2">
+          <div class="dna-row2" data-step="0">
             <span class="dr-lbl"><i class="ph-fill ph-palette"></i>Brand colors</span>
             <span class="dr-val">
-              <span class="sw" style="background:#0FBF85"></span>
-              <span class="sw" style="background:#161613"></span>
-              <span class="sw" style="background:#FFC53D"></span>
-              <span class="sw" style="background:#FF6A3D"></span>
-              <span class="sw" style="background:#F7F7F5"></span>
-              <span class="sw-hex">#0FBF85 · #161613 · #FFC53D</span>
+              <span class="sw2" style="background:#0FBF85"></span>
+              <span class="sw2" style="background:#161613"></span>
+              <span class="sw2" style="background:#FFC53D"></span>
+              <span class="sw2" style="background:#FF6A3D"></span>
+              <span class="sw2" style="background:#F7F7F5"></span>
+              <span class="sw2-hex">#0FBF85 · #161613 · #FFC53D</span>
             </span>
           </div>
-          <div class="dna-row" data-step="1">
+          <div class="dna-row2" data-step="1">
             <span class="dr-lbl"><i class="ph-fill ph-waveform"></i>Voice and tone</span>
             <span class="dr-val">
-              <span class="vc">Warm</span><span class="vc alt">Confident</span><span class="vc alt2">Playful</span>
+              <span class="vc2">Warm</span><span class="vc2 alt">Confident</span><span class="vc2 alt2">Playful</span>
             </span>
           </div>
-          <div class="dna-row" data-step="2">
+          <div class="dna-row2" data-step="2">
             <span class="dr-lbl"><i class="ph-fill ph-text-aa"></i>Logo and type</span>
             <span class="dr-val">
-              <span class="wordmark"><span class="wm-chip"><i class="ph-fill ph-leaf"></i></span>Lumen&amp;Co<span class="wm-type">Bricolage Grotesque</span></span>
+              <span class="wordmark2"><span class="wm-chip2"><i class="ph-fill ph-leaf"></i></span>Lumen&amp;Co<span class="wm-type2">Bricolage Grotesque</span></span>
             </span>
           </div>
-          <div class="dna-row" data-step="3">
+          <div class="dna-row2" data-step="3">
             <span class="dr-lbl"><i class="ph-fill ph-shopping-bag"></i>Products</span>
             <span class="dr-val">
-              <span class="prodchip"><span class="pc-thumb imgwrap"></span>Signature tee</span>
-              <span class="prodchip"><span class="pc-thumb imgwrap"></span>Everyday carry</span>
+              <span class="prodchip2"><span class="pc-thumb2"><img src="https://pub.hyperagent.com/api/published/pbf01KT9KG1CC_55TFJC7D4HGJYYJR/a88a5f2f-44f7-4aa0-ada9-bdb2301214c9.png" alt="" loading="lazy" referrerpolicy="no-referrer"></span>Signature tee</span>
+              <span class="prodchip2"><span class="pc-thumb2"><img src="https://pub.hyperagent.com/api/published/pbf01KT9KG28B_BQG5D34PBXMX418J/eb1d99c1-97f8-4309-96ea-d7c681da5886.png" alt="" loading="lazy" referrerpolicy="no-referrer"></span>Everyday carry</span>
             </span>
           </div>
-          <div class="dna-row" data-step="4">
+          <div class="dna-row2" data-step="4">
             <span class="dr-lbl"><i class="ph-fill ph-user"></i>Audience</span>
-            <span class="dr-val"><span class="vc alt2" style="font-weight:600">Design-led homebodies, 28 to 42, who buy for calm and craft.</span></span>
+            <span class="dr-val"><span class="vc2 alt2" style="font-weight:600">Design-led homebodies, 28 to 42, who buy for calm and craft.</span></span>
           </div>
-          <div class="dna-row" data-step="5">
+          <div class="dna-row2" data-step="5">
             <span class="dr-lbl"><i class="ph-fill ph-chat-centered-text"></i>Key messages</span>
             <span class="dr-val">
-              <span class="vc">Warm spaces, made simple</span><span class="vc alt">Small batch, built to last</span>
+              <span class="vc2">Warm spaces, made simple</span><span class="vc2 alt">Small batch, built to last</span>
             </span>
           </div>
         </div>
-        <div class="dna-foot">
-          <span class="progress"><span class="pdot"></span><span id="dnaProgress">Reading brand signals</span></span>
-          <button class="rescan" id="dnaRescan" type="button"><i class="ph-bold ph-arrows-clockwise"></i>Re-scan</button>
+        <div class="dna-foot2">
+          <span class="progress2"><span class="pdot2"></span><span id="dnaProgress2">Reading brand signals</span></span>
+          <button class="rescan2" id="dnaRescan2" type="button"><i class="ph-bold ph-arrows-clockwise"></i>Re-scan</button>
         </div>
       </div>
     </div>
   </div>
 </section>
+
+<script>
+(function(){
+  var browser = document.getElementById("dnaBrowser2");
+  var out     = document.getElementById("dnaOut2");
+  var rowsWrap= document.getElementById("dnaRows2");
+  var statusEl= document.getElementById("dnaStatus2");
+  var progEl  = document.getElementById("dnaProgress2");
+  var rescan  = document.getElementById("dnaRescan2");
+  if(!browser || !out || !rowsWrap) return;
+  var rows = Array.prototype.slice.call(rowsWrap.querySelectorAll(".dna-row2"));
+  var STEP_LABELS = ["Reading colors","Listening for voice","Reading logo and type","Cataloguing products","Profiling audience","Pulling key messages"];
+  var timers = [];
+  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+  function showAll(){
+    rows.forEach(function(r){ r.classList.add("show"); });
+    if(statusEl) statusEl.textContent = "Brand DNA ready";
+    if(progEl)   progEl.textContent   = "6 of 6 signals read";
+  }
+  function runScan(){
+    clearTimers();
+    rows.forEach(function(r){ r.classList.remove("show"); });
+    browser.classList.add("dna-scan-on");
+    if(statusEl) statusEl.textContent = "Scanning your-brand.com";
+    if(progEl)   progEl.textContent   = "Reading brand signals";
+    var base=520, gap=540;
+    rows.forEach(function(r,i){
+      timers.push(setTimeout(function(){
+        r.classList.add("show");
+        if(progEl)   progEl.textContent   = STEP_LABELS[i]||"Reading brand signals";
+        if(statusEl&&i===0) statusEl.textContent = "Reading your-brand.com";
+      }, base+i*gap));
+    });
+    timers.push(setTimeout(function(){
+      browser.classList.remove("dna-scan-on");
+      if(statusEl) statusEl.textContent = "Brand DNA ready";
+      if(progEl)   progEl.textContent   = "6 of 6 signals read";
+    }, base+rows.length*gap+300));
+  }
+  if(REDUCED){ showAll(); }
+  else if("IntersectionObserver" in window){
+    var started=false;
+    var io=new IntersectionObserver(function(en){
+      en.forEach(function(e){
+        if(e.isIntersecting&&!started){ started=true; runScan(); io.unobserve(e.target); }
+      });
+    },{threshold:0.35});
+    io.observe(out);
+  } else { runScan(); }
+  if(rescan) rescan.addEventListener("click",function(){ REDUCED?showAll():runScan(); });
+})();
+</script>
 
 <!-- ============ READ THE ROOM (interactive audience console) ============ -->
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">

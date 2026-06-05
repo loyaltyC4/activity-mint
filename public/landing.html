@@ -2092,94 +2092,356 @@ p{color:var(--gray)}
 </section>
 
 <!-- ============ READ THE ROOM (interactive audience console) ============ -->
-<section class="rr2" id="intel">
-  <div class="wrap">
-    <div class="sec-head center reveal">
-      <span class="kicker"><span class="dot"></span>Audience intelligence</span>
-      <h2>Stop guessing. Read the room.</h2>
-      <p class="lead">Mint Studio reads real signals off the content your market already loves, then writes toward what is actually winning.</p>
-    </div>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <div class="rr2-stage reveal" id="rr2Stage">
-      <span class="rr2-blob a" aria-hidden="true"></span>
-      <span class="rr2-blob b" aria-hidden="true"></span>
-      <span class="rr2-blob c" aria-hidden="true"></span>
-      <div class="rr2-top">
-        <span class="kicker"><span class="dot"></span>Reading your niche, live</span>
-        <span class="rr2-live"><span class="lvp"></span>Analyzing content</span>
+<style>
+  .rtr-section{
+    background:#F2EDE5;
+    padding:88px 5vw 100px;
+    font-family:'Geist',system-ui,sans-serif;
+    color:#161613;
+    position:relative;
+    overflow:hidden;
+  }
+  .rtr-wrap{max-width:1240px;margin:0 auto;position:relative}
+  .rtr-head{margin-bottom:62px}
+  .rtr-head h2{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:800;
+    font-size:clamp(2.8rem,6.3vw,5.2rem);
+    line-height:.96;letter-spacing:-.04em;color:#161613;
+    margin:0;
+  }
+  .rtr-head p{
+    margin:16px 0 0;
+    font-family:'Space Mono',monospace;
+    font-size:.84rem;letter-spacing:.02em;color:#5C5C57;
+  }
+  .rtr-stage{position:relative;padding:80px 0 100px;}
+  .rtr-lines{
+    position:absolute;inset:0;width:100%;height:100%;
+    pointer-events:none;z-index:1;overflow:visible;
+  }
+  .rtr-row{
+    position:relative;z-index:2;
+    display:grid;
+    grid-template-columns:1.05fr 1.05fr 1.1fr 1.05fr 1.05fr 1.3fr;
+    gap:14px;
+    align-items:start;
+  }
+  .rtr-card{
+    background:#fff;border-radius:14px;overflow:hidden;
+    box-shadow:0 6px 18px -6px rgba(0,0,0,.10), 0 1px 0 rgba(0,0,0,.04);
+    border:2.5px solid transparent;
+    position:relative;
+  }
+  .rtr-card.b-mint   {border-color:#20E0A0;box-shadow:0 8px 22px -8px rgba(32,224,160,.30),0 1px 0 rgba(0,0,0,.04)}
+  .rtr-card.b-tan    {border-color:#FF6A3D;box-shadow:0 8px 22px -8px rgba(255,106,61,.28),0 1px 0 rgba(0,0,0,.04)}
+  .rtr-card.b-cobalt {border-color:#2E6BFF;box-shadow:0 8px 22px -8px rgba(46,107,255,.28),0 1px 0 rgba(0,0,0,.04)}
+  .rtr-card.b-pink   {border-color:#FF3D8A}
+  .rtr-card.b-teal   {border-color:#0BBFA8;box-shadow:0 8px 22px -8px rgba(11,191,168,.28),0 1px 0 rgba(0,0,0,.04)}
+  .rtr-head-row{display:flex;align-items:center;gap:7px;padding:9px 11px 6px;font-size:.64rem;color:#5C5C57;}
+  .rtr-ava{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#FF6A3D,#FFC53D);flex-shrink:0}
+  .rtr-username{font-weight:600;color:#161613;font-size:.7rem}
+  .rtr-dots{margin-left:auto;letter-spacing:1.2px;color:#9CA3AF;font-size:.9rem}
+  .rtr-img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:#E5E5E0}
+  .rtr-actions{display:flex;align-items:center;gap:9px;padding:7px 11px 4px;font-size:.95rem;color:#161613}
+  .rtr-actions i{font-size:1rem}
+  .rtr-actions .save{margin-left:auto}
+  .rtr-card-caption{padding:0 11px 10px;font-size:.58rem;line-height:1.4;color:#161613;}
+  .rtr-card-caption b{font-weight:600}
+  .rtr-likes{padding:0 11px 4px;font-size:.6rem;font-weight:700;color:#161613}
+  .rtr-vid{position:relative;width:100%;aspect-ratio:1/1;background:#231b1b;overflow:hidden}
+  .rtr-vid img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
+  .rtr-vid .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+  .rtr-vid .play span{
+    width:42px;height:42px;border-radius:50%;
+    background:rgba(255,255,255,.92);color:#161613;
+    display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+    box-shadow:0 6px 16px rgba(0,0,0,.35);
+  }
+  .rtr-vid .vbar{
+    position:absolute;left:8px;right:8px;bottom:8px;
+    height:14px;display:flex;align-items:center;gap:6px;
+    font-family:'Space Mono',monospace;font-size:.52rem;color:rgba(255,255,255,.9);
+  }
+  .rtr-vid .vbar::before{content:'';height:2px;border-radius:2px;flex:1;
+    background:linear-gradient(to right,#fff 40%,rgba(255,255,255,.4) 40%);}
+  .rtr-vid .vol{font-size:.8rem;color:#fff;opacity:.85}
+  .rtr-tweet-card{background:#fff}
+  .rtr-tweet-card .rtr-head-row{gap:6px}
+  .rtr-tweet-card .rtr-username{font-size:.62rem}
+  .rtr-tweet-card .verified{color:#1DA1F2;font-size:.78rem;margin-left:-3px}
+  .rtr-tweet-body{padding:0 11px 8px;font-size:.58rem;line-height:1.42;color:#161613;}
+  .rtr-tweet-body .more{color:#1DA1F2;text-decoration:none}
+  .rtr-chart{
+    margin:0 11px 8px;height:54px;border-radius:7px;
+    background:linear-gradient(135deg,#FFD5C9 0%,#FFB7BB 40%,#FF9EB5 100%);
+    position:relative;overflow:hidden;
+  }
+  .rtr-chart svg{position:absolute;inset:0;width:100%;height:100%}
+  .rtr-tweet-card .rtr-actions{border-top:1px solid #F1EDE6;padding:7px 11px 9px}
+  .rtr-end{position:relative;aspect-ratio:1/1;background:#A5C29B;overflow:hidden}
+  .rtr-end img{width:100%;height:100%;object-fit:cover;display:block;mix-blend-mode:multiply;opacity:.95;}
+  .rtr-end::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(160deg,rgba(165,194,155,.0) 50%,rgba(127,166,123,.35) 100%);
+  }
+  .rtr-end .quote{
+    position:absolute;left:9px;right:9px;bottom:9px;
+    background:rgba(248,243,235,.96);border-radius:7px;
+    padding:8px 10px;font-size:.55rem;line-height:1.4;color:#161613;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+  }
+  .rtr-end .quote .u{font-size:.46rem;color:#5C5C57;margin-top:5px;font-family:'Space Mono',monospace;letter-spacing:.05em;text-transform:uppercase}
+  .rtr-brand-card .brand-img{
+    position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;
+    background:linear-gradient(135deg,#1B3A8A 0%,#1B3A8A 52%,#FFB347 52%,#FFB347 70%,#FF6A3D 100%);
+  }
+  .rtr-brand-card .brand-img .h{
+    position:absolute;left:10px;top:8px;color:#fff;
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:800;font-size:clamp(.78rem,1.05vw,1rem);line-height:1.05;letter-spacing:-.02em;
+  }
+  .rtr-brand-card .brand-img .h small{display:block;font-size:.46rem;font-family:'Geist',sans-serif;font-weight:500;letter-spacing:.04em;color:rgba(255,255,255,.85);margin-top:6px;text-transform:uppercase}
+  .rtr-brand-card .brand-img .photo{
+    position:absolute;right:6px;bottom:22%;width:48%;aspect-ratio:1/1.2;
+    border-radius:6px;overflow:hidden;
+    background:linear-gradient(160deg,#FFB347,#FF6A3D);
+  }
+  .rtr-brand-card .brand-img .photo::after{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(135deg,transparent 30%,rgba(255,255,255,.15) 100%);
+  }
+  .rtr-brand-card .brand-img .ribbon{
+    position:absolute;left:0;right:0;bottom:0;height:8px;
+    background:linear-gradient(90deg,#FF3D8A,#FFC53D,#20E0A0,#2E6BFF);
+  }
+  .rtr-score{
+    position:relative;align-self:stretch;
+    border-radius:18px;padding:3px;
+    background:linear-gradient(120deg,#20E0A0 0%,#2E6BFF 35%,#FF3D8A 65%,#FF6A3D 100%);
+    box-shadow:0 24px 48px -22px rgba(32,224,160,.55),0 10px 24px -12px rgba(255,106,61,.30);
+  }
+  .rtr-score::before{
+    content:'';position:absolute;inset:-8px;border-radius:24px;
+    background:radial-gradient(60% 50% at 50% 50%,rgba(32,224,160,.20),transparent 70%);
+    z-index:-1;pointer-events:none;
+  }
+  .rtr-score-inner{
+    background:#fff;border-radius:16px;padding:22px 24px;height:100%;
+    display:flex;flex-direction:column;justify-content:space-between;
+    position:relative;min-height:100%;
+  }
+  .rtr-score-num{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-size:clamp(3.4rem,5.6vw,4.8rem);
+    font-weight:800;line-height:.92;letter-spacing:-.045em;
+    background:linear-gradient(110deg,#20E0A0 0%,#2E6BFF 35%,#FF3D8A 65%,#FF6A3D 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+    margin-bottom:18px;
+  }
+  .rtr-score-lbl{
+    font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:800;font-size:.92rem;line-height:1.08;letter-spacing:-.015em;
+    color:#161613;margin-bottom:6px;
+  }
+  .rtr-score-sub{font-size:.7rem;color:#5C5C57;line-height:1.45;}
+  .rtr-score-eye{align-self:flex-end;font-size:1.4rem;color:#161613;opacity:.85;margin-top:14px;}
+  .rtr-tag{
+    position:absolute;
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:'Space Mono',monospace;
+    font-size:.62rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    padding:7px 12px;border-radius:999px;color:#fff;white-space:nowrap;
+    box-shadow:0 6px 14px rgba(0,0,0,.16);
+    z-index:6;line-height:1.1;
+  }
+  .rtr-tag.tg-mint  {background:#20E0A0;color:#0B2920;box-shadow:0 8px 22px rgba(32,224,160,.55),0 0 0 4px rgba(32,224,160,.18)}
+  .rtr-tag.tg-pink  {background:#FF3D8A}
+  .rtr-tag.tg-cobalt{background:#2E6BFF}
+  .rtr-tag.tg-tan   {background:#FF6A3D}
+  .rtr-tag.tg-butter{background:#FFC53D;color:#161613}
+  .rtr-tag.tg-teal  {background:#0BBFA8}
+  .rtr-tag.tg-red   {background:#E8392A}
+  .rtr-tag .pl{
+    width:18px;height:18px;border-radius:50%;
+    background:#0BBFA8;color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.92rem;font-weight:800;line-height:1;flex-shrink:0;
+  }
+  .rtr-tag.two-line{white-space:normal;text-align:center;line-height:1.05}
+  .rtr-cta-row{display:flex;justify-content:center;margin-top:14px;position:relative;z-index:3}
+  .rtr-cta{
+    display:inline-flex;align-items:center;gap:10px;
+    background:#161613;color:#fff;
+    border:none;border-radius:999px;
+    padding:13px 26px;
+    font-family:'Space Mono',monospace;font-size:.78rem;letter-spacing:.08em;
+    cursor:pointer;text-decoration:none;text-transform:uppercase;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1),background .2s;
+  }
+  .rtr-cta:hover{transform:translateY(-2px);background:#0B0B0B}
+  .rtr-cta i{font-size:.95rem}
+  @media(max-width:1100px){
+    .rtr-row{grid-template-columns:repeat(3,1fr);}
+    .rtr-score{grid-column:1 / -1}
+    .rtr-tag{display:none}
+    .rtr-lines{display:none}
+  }
+  @media(max-width:680px){
+    .rtr-section{padding:56px 5vw 72px}
+    .rtr-row{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:440px){.rtr-row{grid-template-columns:1fr}}
+</style>
+
+<section class="rtr-section">
+  <div class="rtr-wrap">
+    <div class="rtr-head">
+      <h2>Stop guessing.<br>Read the room.</h2>
+      <p>AI-driven content analysis for winning strategies.</p>
+    </div>
+    <div class="rtr-stage">
+      <svg class="rtr-lines" viewBox="0 0 1200 480" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M 75 235 L 75 90 Q 75 70 95 70 L 1045 70 Q 1065 70 1065 90 L 1065 235" fill="none" stroke="#20E0A0" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 295 200 L 295 110 Q 295 95 310 95 L 1015 95 Q 1030 95 1030 110 L 1030 235" fill="none" stroke="#FF6A3D" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 472 195 L 472 130 Q 472 115 487 115 L 998 115 Q 1013 115 1013 130 L 1013 245" fill="none" stroke="#FFC53D" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 678 200 L 678 130 Q 678 115 693 115 L 985 115 Q 1000 115 1000 130 L 1000 250" fill="none" stroke="#0BBFA8" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 870 200 L 870 145 Q 870 130 885 130 L 980 130 Q 995 130 995 145 L 995 270" fill="none" stroke="#2E6BFF" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M 175 410 L 175 425 Q 175 440 190 440 L 1075 440 Q 1090 440 1090 425 L 1090 360" fill="none" stroke="#FF3D8A" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 820 320 L 820 408 Q 820 422 835 422 L 1058 422 Q 1072 422 1072 408 L 1072 330" fill="none" stroke="#2E6BFF" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <div class="rtr-row">
+        <!-- CARD 1: happy customer (mint) -->
+        <div class="rtr-card b-mint">
+          <div class="rtr-head-row">
+            <div class="rtr-ava" style="background:linear-gradient(135deg,#FFB28A,#FF6A3D)"></div>
+            <span class="rtr-username">happy.customer</span>
+            <span class="rtr-dots">···</span>
+          </div>
+          <img class="rtr-img" loading="lazy" src="https://pub.hyperagent.com/api/published/pbf01KTCW0AMY_848PJTBK2FFB6QAD/4d3b3de3-807b-4a70-94c5-e8963457582e.png" alt="UGC creator post" onerror="this.style.background='linear-gradient(135deg,#e8f5e9,#c8e6c9)'">
+          <div class="rtr-actions">
+            <i class="ph-fill ph-heart" style="color:#E8392A"></i>
+            <i class="ph ph-chat-circle"></i>
+            <i class="ph ph-paper-plane-tilt"></i>
+            <i class="ph ph-bookmark save"></i>
+          </div>
+          <div class="rtr-likes">2,847 likes</div>
+          <div class="rtr-card-caption"><b>happy.customer</b> Two weeks in and my skin has never looked better. Genuinely obsessed.</div>
+          <div class="rtr-tag tg-mint two-line" style="left:-60px;top:88px"><span class="pl">+</span>POSITIVE<br>SENTIMENT</div>
+          <div class="rtr-tag tg-pink" style="left:24px;bottom:-20px">HIGH ENGAGEMENT</div>
+        </div>
+        <!-- CARD 2: video reel -->
+        <div class="rtr-card b-tan">
+          <div class="rtr-head-row">
+            <div class="rtr-ava" style="background:linear-gradient(135deg,#FF3D8A,#FF6A3D)"></div>
+            <span class="rtr-username">@brandbuilder</span>
+            <span class="rtr-dots">···</span>
+          </div>
+          <div class="rtr-vid">
+            <img loading="lazy" src="https://pub.hyperagent.com/api/published/pbf01KT9KKZ7Z_EN12DFVM0BZZ05Y0/fdd632d7-ce95-44d8-a96e-d67bc67ff661.mp4" onerror="this.style.display='none'" style="display:block;width:100%;height:100%;object-fit:cover;background:#2a1f1c" alt="">
+            <div class="play"><span><i class="ph-fill ph-play"></i></span></div>
+            <div class="vbar"><span>0:00 / 0:45</span><i class="ph-fill ph-speaker-x vol"></i></div>
+          </div>
+          <div class="rtr-actions">
+            <i class="ph-fill ph-heart" style="color:#E8392A"></i>
+            <i class="ph ph-chat-circle"></i>
+            <i class="ph ph-paper-plane-tilt"></i>
+            <i class="ph ph-bookmark save"></i>
+          </div>
+          <div class="rtr-likes">13,957 likes</div>
+          <div class="rtr-card-caption"><b>@brandbuilder</b> Content beats trends. Every. Single. Time. 🔥</div>
+          <div class="rtr-tag tg-red" style="left:14px;top:-16px">INNOVATIVE</div>
+          <div class="rtr-tag tg-tan" style="left:10px;top:46px">WINNING TERM</div>
+          <div class="rtr-tag tg-cobalt two-line" style="left:8px;bottom:-24px">VIRAL<br>POTENTIAL</div>
+        </div>
+        <!-- CARD 3: tweet -->
+        <div class="rtr-card rtr-tweet-card">
+          <div class="rtr-head-row">
+            <div class="rtr-ava" style="background:#1F3F8C;width:18px;height:18px"></div>
+            <span class="rtr-username">@brandofficial</span>
+            <i class="ph-fill ph-seal-check" style="color:#1DA1F2;font-size:.78rem;margin-left:-3px"></i>
+            <span class="rtr-dots">···</span>
+          </div>
+          <div class="rtr-tweet-body">
+            This launch beat every benchmark we set. Three days in and we're already seeing record engagement from our most loyal cohorts.
+            <a href="#" class="more">see more</a>
+          </div>
+          <div class="rtr-chart">
+            <svg viewBox="0 0 200 50" preserveAspectRatio="none">
+              <path d="M 0 38 L 25 32 L 50 36 L 75 22 L 100 26 L 125 14 L 150 18 L 175 8 L 200 12" fill="none" stroke="#FF3D8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 0 38 L 25 32 L 50 36 L 75 22 L 100 26 L 125 14 L 150 18 L 175 8 L 200 12 L 200 50 L 0 50 Z" fill="rgba(255,61,138,.18)"/>
+            </svg>
+          </div>
+          <div class="rtr-actions" style="border-top:1px solid #F1EDE6;padding:7px 11px 9px">
+            <i class="ph ph-chat-circle"></i>
+            <i class="ph ph-arrows-clockwise"></i>
+            <i class="ph-fill ph-heart" style="color:#E8392A"></i>
+            <i class="ph ph-chart-bar save"></i>
+          </div>
+          <div class="rtr-tag tg-butter two-line" style="left:-4px;top:-20px">TRENDING<br>TOPIC</div>
+          <div class="rtr-tag tg-pink two-line" style="left:30px;bottom:-22px">INFLUENCER<br>MENTION</div>
+        </div>
+        <!-- CARD 4: endorsement -->
+        <div class="rtr-card b-teal">
+          <div class="rtr-end">
+            <img loading="lazy" src="https://pub.hyperagent.com/api/published/pbf01KTCW0F72_NAQ8C7KGNN0CWNNB/fcf1f094-8ce7-4cb0-9abd-b736419b41d9.png" alt="" onerror="this.style.background='linear-gradient(135deg,#a5c29b,#7fa67b)'">
+            <div class="quote">
+              This brand just gets it. Honest products that actually deliver, and a team that listens.
+              <div class="u">User Testimonial</div>
+            </div>
+          </div>
+          <div class="rtr-actions">
+            <i class="ph-fill ph-heart" style="color:#E8392A"></i>
+            <i class="ph ph-chat-circle"></i>
+            <i class="ph ph-paper-plane-tilt"></i>
+            <i class="ph ph-bookmark save"></i>
+          </div>
+          <div class="rtr-tag tg-teal two-line" style="left:-18px;top:-22px">STRONG<br>ENDORSEMENT</div>
+          <div class="rtr-tag tg-tan two-line" style="right:-10px;top:62px">KEYWORD<br>RICH</div>
+        </div>
+        <!-- CARD 5: brand announcement -->
+        <div class="rtr-card b-cobalt rtr-brand-card">
+          <div class="rtr-head-row">
+            <div class="rtr-ava" style="background:#1F3F8C"></div>
+            <span class="rtr-username">brand_hq</span>
+            <span class="rtr-dots">···</span>
+          </div>
+          <div class="brand-img">
+            <div class="h">Brand<br>announce-<br>ment, us.<small>Bringing transparency to the table.</small></div>
+            <div class="photo"></div>
+            <div class="ribbon"></div>
+          </div>
+          <div class="rtr-actions">
+            <i class="ph-fill ph-heart" style="color:#E8392A"></i>
+            <i class="ph ph-chat-circle"></i>
+            <i class="ph ph-paper-plane-tilt"></i>
+            <i class="ph ph-bookmark save"></i>
+          </div>
+          <div class="rtr-tag tg-cobalt two-line" style="left:18px;top:54px">COMMUNITY<br>GROWTH</div>
+          <div class="rtr-tag tg-butter" style="left:-14px;bottom:-18px">MARKET LEADER</div>
+        </div>
+        <!-- 92% SCORE CARD -->
+        <div class="rtr-score">
+          <div class="rtr-score-inner">
+            <div>
+              <div class="rtr-score-num">92%</div>
+              <div class="rtr-score-lbl">Positive<br>Sentiment<br>Score</div>
+              <div class="rtr-score-sub">Based on 500+<br>analyzed posts.</div>
+            </div>
+            <div class="rtr-score-eye"><i class="ph ph-eye"></i></div>
+          </div>
+        </div>
       </div>
-      <div class="rr2-row" id="rr2Row">
-        <div class="rr2-thumb" data-i="0">
-                    <span class="rr2-line mint" style="top:18%;left:78%;width:42px;transform:rotate(18deg)"></span>
-          <div class="rr2-img">
-            <img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P0Q9A_YA2VDCQMK3BXT1MX/36f3bfea-ff28-4fba-aaf5-53970d3c0272.png" alt="UGC creative" loading="lazy" referrerpolicy="no-referrer">
-            <span class="rr2-imgscrim"></span>
-            <span class="rr2-type">UGC</span>
-            <span class="rr2-scan" aria-hidden="true"></span>
-          </div>
-          <span class="rr2-tag pos tl"><i class="ph-fill ph-smiley"></i>"obsessed"</span>
-          <span class="rr2-tag eng tr d2"><i class="ph-fill ph-heart"></i>+38% saves</span>
-                    <div class="rr2-foot"><span>UGC</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 94</span></div>
-        </div>
-        <div class="rr2-thumb" data-i="1">
-                    <span class="rr2-line tang" style="top:70%;left:80%;width:38px;transform:rotate(-12deg)"></span>
-          <div class="rr2-img">
-            <img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P0QQD_WT792S9ZT8TNZETT/53c871c2-bd8f-474a-9df4-d51709000724.png" alt="UGC Virtual Try-On creative" loading="lazy" referrerpolicy="no-referrer">
-            <span class="rr2-imgscrim"></span>
-            <span class="rr2-type">UGC Virtual Try-On</span>
-            <span class="rr2-scan" aria-hidden="true"></span>
-          </div>
-          <span class="rr2-tag term tl"><i class="ph-fill ph-text-aa"></i>"new fit"</span>
-          <span class="rr2-tag pos br d3"><i class="ph-fill ph-thumbs-up"></i>92% positive</span>
-                    <div class="rr2-foot"><span>UGC</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 91</span></div>
-        </div>
-        <div class="rr2-thumb" data-i="2">
-                    <span class="rr2-line cob" style="top:30%;left:-30px;width:34px;transform:rotate(8deg)"></span>
-          <div class="rr2-img">
-            <img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P7W6F_M5N6D7TCR6G5ZSWM/eba7b31d-aa80-42b2-85c5-cc2426915ef5.png" alt="Hyper Motion creative" loading="lazy" referrerpolicy="no-referrer">
-            <span class="rr2-imgscrim"></span>
-            <span class="rr2-type">Hyper Motion</span>
-            <span class="rr2-scan" aria-hidden="true"></span>
-          </div>
-          <span class="rr2-tag eng tr"><i class="ph-fill ph-eye"></i>2.4M views</span>
-          <span class="rr2-tag pos bl d2"><i class="ph-fill ph-smiley"></i>"need this"</span>
-                    <div class="rr2-foot"><span>Hyper</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 96</span></div>
-        </div>
-        <div class="rr2-thumb" data-i="3">
-                    <div class="rr2-img">
-            <img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P0RHR_WZAGDES0AY3BDYFR/3b05c2df-314e-497d-954b-cdfe65209f10.png" alt="Product Review creative" loading="lazy" referrerpolicy="no-referrer">
-            <span class="rr2-imgscrim"></span>
-            <span class="rr2-type">Product Review</span>
-            <span class="rr2-scan" aria-hidden="true"></span>
-          </div>
-          <span class="rr2-tag term tl"><i class="ph-fill ph-fire"></i>"worth it"</span>
-          <span class="rr2-tag eng br d3"><i class="ph-fill ph-cursor-click"></i>+27% clicks</span>
-                    <div class="rr2-foot"><span>Product</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 90</span></div>
-        </div>
-        <div class="rr2-thumb" data-i="4">
-                    <div class="rr2-img">
-            <img decoding="async" src="https://pub.hyperagent.com/api/published/pbf01KT9P7WHG_G65XA6YZ2QXWFSPW/381d2df9-3424-4460-8ea9-23aa6d96105f.png" alt="UGC Virtual Try-On creative" loading="lazy" referrerpolicy="no-referrer">
-            <span class="rr2-imgscrim"></span>
-            <span class="rr2-type">UGC Virtual Try-On</span>
-            <span class="rr2-scan" aria-hidden="true"></span>
-          </div>
-          <span class="rr2-tag pos tr"><i class="ph-fill ph-smiley"></i>"love this"</span>
-          <span class="rr2-tag term bl d2"><i class="ph-fill ph-text-aa"></i>"limited"</span>
-                    <div class="rr2-foot"><span>UGC</span><span class="mn"><i class="ph-fill ph-leaf"></i>Mint 93</span></div>
-        </div>
-        <div class="rr2-sum" id="rr2Sum">
-          <span class="rs-k"><span class="d"></span>Room read</span>
-          <div class="rs-big"><span class="g">92%</span></div>
-          <div class="rs-sub">positive sentiment across your niche</div>
-          <div class="rs-meter"><i></i></div>
-          <div class="rs-chips"><span>winning terms</span><span>top hooks</span><span>best formats</span></div>
-        </div>
-      </div>
-      <div class="rr2-foot2"><i class="ph-fill ph-seal-check"></i>Every signal feeds your Mint Score.</div>
+    </div>
+    <div class="rtr-cta-row">
+      <a href="/app" class="rtr-cta">Read your own room <i class="ph-bold ph-arrow-right"></i></a>
     </div>
   </div>
 </section>
-
 <!-- ============ LANGUAGES ============ -->
 <section class="sec" id="languages">
   <div class="wrap">

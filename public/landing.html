@@ -1170,6 +1170,52 @@ p{color:var(--gray)}
   .rr2-live .lvp{animation:none !important}
 }
 
+
+/* ===== homepage refinements v2 ===== */
+html{scroll-behavior:smooth}
+.kicker{display:none!important}
+.ec-play{display:none!important}
+:root{--secpad:clamp(72px,9vh,116px)}
+.sec,.niches{padding-top:var(--secpad)!important;padding-bottom:var(--secpad)!important}
+.dna-sec-wrap{padding:var(--secpad) 0!important;background:transparent!important;border-top:0!important}
+.ms2 .sec,.ms2 .intel{padding-top:var(--secpad)!important;padding-bottom:var(--secpad)!important}
+.nav-links a.active{color:var(--mint-deep)!important}
+.nav-links a.active::after{width:100%!important}
+/* Brand DNA: rows become richer extracted-signal cards */
+.dna-sec-wrap .dna-row2{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px;border-bottom:1px solid var(--line)!important;box-shadow:var(--shadow-sm)}
+.dna-sec-wrap .dna-row2:last-child{margin-bottom:0}
+.dna-sec-wrap .dna-row2:hover{border-color:rgba(32,224,160,.4)}
+.dna-sec-wrap .site-hd .logo .vela-mark{display:inline-grid;place-items:center;width:24px;height:24px}
+.dna-sec-wrap .wordmark2 .vela-mark2{display:inline-grid;place-items:center;width:28px;height:28px}
+/* Read-the-room richer card visuals */
+.ms2 .ins-ad2{position:relative;border-radius:12px;padding:12px;min-height:94px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;overflow:hidden;background:linear-gradient(150deg,#FF6A3D,#FF3D8A);color:#fff}
+.ms2 .ins-ad2 .ad2-burst{position:absolute;top:8px;right:8px;background:#fff;color:#161613;font-family:var(--display);font-weight:800;font-size:.66rem;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;transform:rotate(8deg);box-shadow:0 4px 10px rgba(0,0,0,.22)}
+.ms2 .ins-ad2 .ad2-eyebrow{font-family:var(--mono);font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;opacity:.92}
+.ms2 .ins-ad2 .ad2-h{font-family:var(--display);font-weight:800;font-size:1.12rem;line-height:.96}
+.ms2 .ins-ad2 .ad2-cta{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;background:#161613;color:#fff;font-size:.54rem;font-weight:700;padding:4px 9px;border-radius:999px;margin-top:2px}
+.ms2 .ins-anat{display:flex;flex-direction:column;gap:7px;padding:2px 0}
+.ms2 .ins-anat .an-row{display:flex;align-items:center;gap:8px}
+.ms2 .ins-anat .an-bar{height:7px;border-radius:999px;background:var(--c);width:0;flex-shrink:0;transition:width 1s cubic-bezier(.34,1.56,.64,1)}
+.ms2 .live .ins-anat .an-bar{width:var(--w)}
+.ms2 .ins-anat .an-l{font-size:.58rem;color:var(--ink);white-space:nowrap}
+.ms2 .ins-area{height:56px;border-radius:10px;overflow:hidden;background:linear-gradient(180deg,#fff,#eef3ff)}
+.ms2 .ins-area svg{width:100%;height:100%;display:block}
+.ms2 .ins-area .ia-line{stroke-dasharray:280;stroke-dashoffset:280;transition:stroke-dashoffset 1.5s ease}
+.ms2 .live .ins-area .ia-line{stroke-dashoffset:0}
+.ms2 .ins-area .ia-fill{opacity:0;transition:opacity .8s ease .4s}.ms2 .live .ins-area .ia-fill{opacity:1}
+.ms2 .ins-area .ia-dot{opacity:0;transition:opacity .3s ease 1.4s}.ms2 .live .ins-area .ia-dot{opacity:1}
+.ms2 .ins-growth{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.ms2 .ins-growth .ig-num{font-family:var(--display);font-weight:800;font-size:1.5rem;color:var(--mint-deep);line-height:.9;display:flex;flex-direction:column}
+.ms2 .ins-growth .ig-num small{font-family:var(--mono);font-size:.44rem;font-weight:400;text-transform:uppercase;letter-spacing:.05em;color:var(--gray);margin-top:3px}
+.ms2 .ins-growth .ig-bars{display:flex;align-items:flex-end;gap:3px;height:44px}
+.ms2 .ins-growth .ig-bars i{width:7px;height:0;border-radius:2px 2px 0 0;background:linear-gradient(180deg,var(--pink),var(--tangerine));transition:height .9s cubic-bezier(.34,1.56,.64,1)}
+.ms2 .live .ins-growth .ig-bars i{height:var(--h)}
+.ms2 .ins-meter{display:flex;flex-direction:column;gap:7px;padding:4px 0}
+.ms2 .ins-meter .im-track{position:relative;height:9px;border-radius:999px;background:linear-gradient(90deg,#ff5a5a,var(--butter),var(--mint-deep))}
+.ms2 .ins-meter .im-knob{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--mint-deep);box-shadow:0 2px 6px rgba(0,0,0,.2);transition:left 1.2s cubic-bezier(.34,1.56,.64,1)}
+.ms2 .live .ins-meter .im-knob{left:92%}
+.ms2 .ins-meter .im-row{display:flex;justify-content:space-between;font-size:.52rem;color:var(--gray)}.ms2 .ins-meter .im-row b{color:var(--mint-deep);font-weight:700}
+
 </style>
 <style>
 .ha-img-placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;background:#f4f4f5;border:1px dashed #d4d4d8;border-radius:8px;color:#71717a;font-size:12px;font-family:system-ui,sans-serif;min-height:80px;padding:16px;box-sizing:border-box;animation:ha-img-pulse 1.5s ease-in-out infinite}
@@ -1265,7 +1311,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-user-circle-gear"></i>UGC</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P0RV6_57VWWCQQ5DG2EFGD/aeb6eddb-cc49-4866-a75d-741d2e510342.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1298,7 +1344,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-user-circle-gear"></i>UGC</span><span class="cbadge trend"><i class="ph-fill ph-trend-up"></i>Trending</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P0RV6_57VWWCQQ5DG2EFGD/aeb6eddb-cc49-4866-a75d-741d2e510342.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1346,7 +1392,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-television-simple"></i>TV Spot</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P7X7N_E5T06J34TBTRHR93/1576a31f-a405-4d50-8ae2-dd8c4905da67.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1381,7 +1427,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-television-simple"></i>TV Spot</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P7X7N_E5T06J34TBTRHR93/1576a31f-a405-4d50-8ae2-dd8c4905da67.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1418,7 +1464,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-list-checks"></i>Tutorial</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P0SAP_3523QVK2877E936W/0bc44aa5-e6f2-49f9-9db7-63d15556a130.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1451,7 +1497,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-list-checks"></i>Tutorial</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P0SAP_3523QVK2877E936W/0bc44aa5-e6f2-49f9-9db7-63d15556a130.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1479,7 +1525,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-package"></i>Unboxing</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P7WX1_ETQ1E2BJPACGKA0S/ab523e4f-31dd-47d6-8133-6d870c30ad21.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1501,7 +1547,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-fast-forward"></i>Hyper Motion</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P7XEW_YYYZWPHW0SPNN416/efd1ee3b-b47c-469d-adad-c7ef0589d3ae.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1514,7 +1560,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-package"></i>Unboxing</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P7WX1_ETQ1E2BJPACGKA0S/ab523e4f-31dd-47d6-8133-6d870c30ad21.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1536,7 +1582,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-fast-forward"></i>Hyper Motion</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P7XEW_YYYZWPHW0SPNN416/efd1ee3b-b47c-469d-adad-c7ef0589d3ae.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1553,7 +1599,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-t-shirt"></i>UGC Virtual Try-On</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P0S3Y_VS31W8JSVYM0PPZC/814c609e-7c54-4491-8d7b-d16146022590.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1577,7 +1623,7 @@ p{color:var(--gray)}
   <span class="tname"><i class="ph-fill ph-t-shirt"></i>UGC Virtual Try-On</span>
   <div class="ec-media">
     <span class="ec-fb fb-1"></span>
-    <video muted autoplay loop playsinline preload="none" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png">
+    <video muted autoplay loop playsinline preload="metadata" poster="https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png">
       <source data-src="https://pub.hyperagent.com/api/published/pbf01KT9P0S3Y_VS31W8JSVYM0PPZC/814c609e-7c54-4491-8d7b-d16146022590.mp4" type="video/mp4">
     </video>
     <span class="ec-scrim"></span>
@@ -1756,7 +1802,7 @@ p{color:var(--gray)}
           <div class="scan-sweep"></div>
           <div class="site">
             <div class="site-hd">
-              <span class="logo"><span class="chip" style="background:linear-gradient(135deg,#1B2540,#374d6e);font-family:'Bricolage Grotesque',sans-serif;font-size:.55rem;font-weight:900;color:#fff;letter-spacing:.04em">V</span>VELA</span>
+              <span class="logo"><span class="vela-mark"><svg viewBox="0 0 28 28" width="22" height="22" aria-hidden="true"><path d="M14 4 L23 24 H5 Z" fill="none" stroke="#1B2540" stroke-width="2.4" stroke-linejoin="round"/><path d="M14 4 V24" stroke="#1B2540" stroke-width="2.4" stroke-linecap="round"/></svg></span><span style="letter-spacing:.14em">VELA</span></span>
               <span class="navmini"><span>Shop</span><span>About</span><span>Stockists</span></span>
             </div>
             <div class="site-hero imgwrap">
@@ -1802,7 +1848,7 @@ p{color:var(--gray)}
           <div class="dna-row2" data-step="2">
             <span class="dr-lbl"><i class="ph-fill ph-text-aa"></i>Logo and type</span>
             <span class="dr-val">
-              <span class="wordmark2"><span class="wm-chip2" style="background:linear-gradient(135deg,#1B2540,#374d6e);font-family:'Bricolage Grotesque',sans-serif;font-size:.55rem;font-weight:900;color:#fff;letter-spacing:.04em;display:grid;place-items:center">V</span>VELA<span class="wm-type2">Canela Text · Bold</span></span>
+              <span class="wordmark2"><span class="vela-mark2"><svg viewBox="0 0 28 28" width="26" height="26" aria-hidden="true"><path d="M14 4 L23 24 H5 Z" fill="none" stroke="#1B2540" stroke-width="2.4" stroke-linejoin="round"/><path d="M14 4 V24" stroke="#1B2540" stroke-width="2.4" stroke-linecap="round"/></svg></span><span style="letter-spacing:.12em">VELA</span><span class="wm-type2">Canela Text · Bold</span></span>
             </span>
           </div>
           <div class="dna-row2" data-step="3">
@@ -2134,7 +2180,7 @@ p{color:var(--gray)}
       <button class="fan-tab" data-f="story"><span class="lab">Stories</span></button>
       <span class="fan-underline" id="fanUnderline"></span>
     </div>
-    <div class="langbar"><span class="pls"></span><span class="lb-l">Same studio, instant in</span><span class="lb-lang" id="lbLang">English</span><span class="lb-s" id="lbSample">"Slow mornings, strong coffee."</span></div>
+
   </div>
 </section>
 
@@ -2202,35 +2248,35 @@ p{color:var(--gray)}
         <div class="rcard ins">
           <span class="pill o" style="top:-10px;left:-6px">Winning structure</span>
           <div class="ins-head"><i class="ph-fill ph-megaphone-simple" style="color:var(--tangerine)"></i>Meta Ad Library</div>
-          <div class="ins-ad"><span class="ad-bdg">BOGO</span><span class="ad-h">Summer drop is live</span><span class="ad-cta">Shop now</span></div>
+          <div class="ins-ad2"><span class="ad2-burst">-50%</span><span class="ad2-eyebrow">Limited drop</span><span class="ad2-h">Summer<br>is live.</span><span class="ad2-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span></div>
           <div class="ins-foot">Active <b>47 days</b> · top 1% in your niche</div>
         </div>
         <!-- 2 winning anatomy -->
         <div class="rcard ins">
           <span class="pill g" style="top:-10px;left:-4px">Proven format</span>
           <div class="ins-head"><i class="ph-fill ph-puzzle-piece" style="color:var(--mint-deep)"></i>Why it converts</div>
-          <div class="ins-steps"><span><i class="ph-fill ph-check-circle"></i>Hook · 0-3s</span><span><i class="ph-fill ph-check-circle"></i>Social proof</span><span><i class="ph-fill ph-check-circle"></i>Urgent CTA</span></div>
+          <div class="ins-anat"><span class="an-row"><span class="an-bar" style="--w:88%;--c:var(--mint-deep)"></span><span class="an-l">Hook · 0-3s</span></span><span class="an-row"><span class="an-bar" style="--w:72%;--c:var(--cobalt)"></span><span class="an-l">Social proof</span></span><span class="an-row"><span class="an-bar" style="--w:64%;--c:var(--pink)"></span><span class="an-l">Urgent CTA</span></span></div>
           <div class="ins-foot"><b>+2.3×</b> vs your average</div>
         </div>
         <!-- 3 live metrics -->
         <div class="rcard ins">
           <span class="pill b" style="top:-10px;left:-4px">Up to date</span>
           <div class="ins-head"><i class="ph-fill ph-lightning" style="color:var(--cobalt)"></i>Trending now</div>
-          <div class="ins-spark"><svg viewBox="0 0 100 38" preserveAspectRatio="none"><path d="M0 30 L16 26 L32 28 L48 18 L64 14 L80 8 L100 5" fill="none" stroke="#2E6BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div class="ins-area"><svg viewBox="0 0 120 56" preserveAspectRatio="none"><defs><linearGradient id="iaG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E6BFF" stop-opacity=".42"/><stop offset="1" stop-color="#2E6BFF" stop-opacity="0"/></linearGradient></defs><path class="ia-fill" d="M0 44 L20 40 L40 42 L60 28 L80 22 L100 12 L120 6 L120 56 L0 56Z" fill="url(#iaG)"/><path class="ia-line" d="M0 44 L20 40 L40 42 L60 28 L80 22 L100 12 L120 6" fill="none" stroke="#2E6BFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle class="ia-dot" cx="120" cy="6" r="3.2" fill="#2E6BFF"/></svg></div>
           <div class="ins-foot">Hooks like this <b>+38% saves</b> this week</div>
         </div>
         <!-- 4 your tracking -->
         <div class="rcard ins">
           <span class="pill p" style="top:-10px;left:-4px">Tracked</span>
           <div class="ins-head"><i class="ph-fill ph-target" style="color:var(--pink)"></i>Your account</div>
-          <div class="ins-tiles"><div class="it"><b>+22%</b><span>reach wk/wk</span></div><div class="it"><b>Tue 7pm</b><span>best window</span></div></div>
+          <div class="ins-growth"><span class="ig-num">+22%<small>reach wk/wk</small></span><span class="ig-bars"><i style="--h:38%"></i><i style="--h:52%"></i><i style="--h:46%"></i><i style="--h:70%"></i><i style="--h:88%"></i><i style="--h:100%"></i></span></div>
           <div class="ins-nudge"><i class="ph-fill ph-sparkle"></i>Post 2 reels this week</div>
         </div>
         <!-- 5 audience sentiment -->
         <div class="rcard ins">
           <span class="pill y" style="top:-10px;left:-4px">Audience signal</span>
           <div class="ins-head"><i class="ph-fill ph-heart" style="color:var(--mint-deep)"></i>Audience mood</div>
-          <div class="ins-senti"><span class="sline"><i style="width:92%"></i></span><span class="sval">92% positive</span></div>
+          <div class="ins-meter"><span class="im-track"><span class="im-knob"></span></span><span class="im-row"><span>Negative</span><b>92% positive</b></span></div>
           <div class="ins-topics"><span>#cleanbeauty ↑</span><span>routine ↑</span></div>
         </div>
         <!-- score -->
@@ -2300,9 +2346,7 @@ function initFan(){layout('all');moveU(document.querySelector('.fan-tab.on'));}
 window.addEventListener('load',function(){initFan();startAuto();});setTimeout(initFan,250);
 window.addEventListener('resize',function(){layout(active);var on=document.querySelector('.fan-tab.on');if(on)moveU(on);});
 
-var LANGS=[{l:'English',t:'"Slow mornings, strong coffee."'},{l:'Español',t:'"Mañanas lentas, café fuerte."'},{l:'Français',t:'"Matins lents, café fort."'},{l:'Deutsch',t:'"Langsame Morgen, starker Kaffee."'},{l:'日本語',t:'"ゆっくりした朝、濃いコーヒー。"'},{l:'Português',t:'"Manhãs calmas, café forte."'}];
-var li=0,lL=document.getElementById('lbLang'),lS=document.getElementById('lbSample');
-setInterval(function(){li=(li+1)%LANGS.length;lS.classList.add('swap');setTimeout(function(){lL.textContent=LANGS[li].l;lS.textContent=LANGS[li].t;lS.classList.remove('swap');},350);},2600);
+
 
 var rstage=document.getElementById('rtrStage');
 var rio=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){rstage.classList.add('live');rio.unobserve(rstage);}});},{threshold:.2});
@@ -3469,5 +3513,23 @@ video{background:#ececea}
 })();
 </script>
 <!-- ===== END PERFORMANCE ===== -->
+
+<script>
+/* nav scroll-spy + active link */
+(function(){
+  var links=[].slice.call(document.querySelectorAll('.nav-links a[href^="#"]'));
+  if(!links.length||!('IntersectionObserver' in window))return;
+  var map={};links.forEach(function(a){var id=a.getAttribute('href').slice(1);if(id)map[id]=a;});
+  var spy=new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ links.forEach(function(l){l.classList.remove('active');}); var a=map[e.target.id]; if(a)a.classList.add('active'); } });
+  },{rootMargin:'-45% 0px -50% 0px',threshold:0});
+  Object.keys(map).forEach(function(id){var el=document.getElementById(id); if(el)spy.observe(el);});
+})();
+/* feed videos: make sure they play without a click */
+(function(){
+  function go(){ document.querySelectorAll('.ec video').forEach(function(v){ v.muted=true; v.setAttribute('playsinline',''); var p=v.play(); if(p&&p.catch)p.catch(function(){}); }); }
+  if(document.readyState!=='loading') setTimeout(go,500); else window.addEventListener('load',function(){setTimeout(go,500);});
+})();
+</script>
 </body>
 </html>

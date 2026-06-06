@@ -2118,7 +2118,8 @@ p{color:var(--gray)}
       </div>
       <div class="std-canvas" id="stdCanvas">
         <div class="std-canvas-inner">
-          <!-- PHONE -->
+
+          <!-- PHONE (Post) -->
           <div class="std-phone" data-art="post">
             <div class="scr">
               <div class="ph-bar"><span class="ph-av"></span><span data-i18n="handle">your_brand</span></div>
@@ -2128,7 +2129,8 @@ p{color:var(--gray)}
             </div>
             <span class="std-hot" style="top:38%;left:-12px" data-target="post" title="Post format"><i class="ph-fill ph-sparkle"></i></span>
           </div>
-          <!-- DECK -->
+
+          <!-- DECK (Carousels) -->
           <div class="std-deck" id="stdDeck" data-art="deck">
             <div class="slide s1"><span class="num">01 / 04</span><h5 data-i18n="deck1">The 5 minute morning ritual.</h5></div>
             <div class="slide s2"><span class="num">02 / 04</span><h5 data-i18n="deck2">Grind. Pour. Breathe.</h5></div>
@@ -2136,6 +2138,7 @@ p{color:var(--gray)}
             <div class="slide s4"><span class="num">04 / 04</span><h5 data-i18n="deck4">Save this. Try it tomorrow.</h5></div>
             <span class="std-hot" style="top:-10px;right:-10px" data-target="deck" title="Carousel"><i class="ph-fill ph-arrows-clockwise"></i></span>
           </div>
+
           <!-- REEL -->
           <div class="std-reel" data-art="reel">
             <video autoplay muted loop playsinline><source src="https://pub.hyperagent.com/api/published/pbf01KT9KKZ7Z_EN12DFVM0BZZ05Y0/fdd632d7-ce95-44d8-a96e-d67bc67ff661.mp4" type="video/mp4"></video>
@@ -2144,67 +2147,55 @@ p{color:var(--gray)}
             <span class="bar"></span>
             <span class="std-hot" style="top:-10px;left:-10px" data-target="reel" title="Reel"><i class="ph-fill ph-play"></i></span>
           </div>
-          <!-- AVATAR: stacked reveal -->
-          <div class="std-avatar-stack" data-art="avatar">
-            <div class="av-frame back"><img src="/avatar-2.jpg" alt="Avatar clip B" loading="lazy"></div>
-            <div class="av-frame front"><img src="/avatar-1.jpg" alt="Avatar clip A" loading="lazy"></div>
-            <span class="av-rec2"><span class="dot"></span>REC · <span data-i18n="lang_label">EN</span></span>
-            <span class="std-hot" style="bottom:-10px;right:-10px;z-index:4" data-target="avatar" title="Avatar clip"><i class="ph-fill ph-user-focus"></i></span>
+
+          <!-- AVATAR CLIPS: two photos stacked -->
+          <div class="av-stack-wrap" data-art="avatar">
+            <div class="av-back-frame"><img src="https://activity-mint.vercel.app/avatar-2.jpg" alt="" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1470116945706-e6bf5d5a53ca?q=80&w=800'"></div>
+            <div class="av-front-frame"><img src="https://activity-mint.vercel.app/avatar-1.jpg" alt="" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=800'"></div>
+            <span class="av-rec3"><span class="av-dot3"></span>REC · <span data-i18n="lang_label">EN</span></span>
+            <span class="std-hot" style="bottom:-10px;right:-10px;z-index:5" data-target="avatar" title="Avatar clip"><i class="ph-fill ph-user-focus"></i></span>
           </div>
-          <!-- BANNERS: 3 premium cycling designs -->
-          
+
+          <!-- BANNERS: 3 cycling designs -->
           <div class="ban-stack" id="banStack" data-ratio="16:9" data-art="banner">
-            <!-- A: Fragrance drop -->
             <div class="ban ban-a active">
               <span class="ba-eyebrow">New drop</span>
               <span class="ba-h">The scent of<br><em>late evenings.</em></span>
-              <span class="ba-foot">
-                <span class="ba-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span>
-                <span class="ba-dot"></span>
-              </span>
+              <span class="ba-foot"><span class="ba-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span><span class="ba-dot"></span></span>
             </div>
-            <!-- B: Wellness morning -->
             <div class="ban ban-b">
               <span class="bb-tag"><i class="ph-fill ph-leaf"></i>Slow mornings</span>
               <span class="bb-h">Start the ritual. Just one cup.</span>
               <span class="bb-cta">Explore the range <i class="ph-bold ph-arrow-right"></i></span>
             </div>
-            <!-- C: Fashion editorial -->
             <div class="ban ban-c">
               <span class="bc-num">SS 2026</span>
               <span class="bc-h">Wear it your way.</span>
-              <span class="bc-foot">
-                <span class="bc-cta"><span class="bc-rule"></span>View collection</span>
-              </span>
+              <span class="bc-foot"><span class="bc-cta"><span class="bc-rule"></span>View collection</span></span>
             </div>
             <span class="ban-ratio" id="banRatio">16:9</span>
             <span class="ban-dots"><span class="ban-dot on" data-b="0"></span><span class="ban-dot" data-b="1"></span><span class="ban-dot" data-b="2"></span></span>
             <span class="std-hot" style="top:-10px;left:-10px" data-target="banner" title="Banner ad"><i class="ph-fill ph-rectangle"></i></span>
           </div>
-          <script>
-          (function(){
-            var stack=document.getElementById('banStack');
-            if(!stack) return;
-            var bans=stack.querySelectorAll('.ban');
-            var dots=stack.querySelectorAll('.ban-dot');
-            var ratioBtn=document.getElementById('banRatio');
-            var cur=0;
-            function show(n){
-              bans.forEach(function(b,i){b.classList.toggle('active',i===n);});
-              dots.forEach(function(d,i){d.classList.toggle('on',i===n);});
-              cur=n;
-            }
-            dots.forEach(function(d){d.addEventListener('click',function(){show(parseInt(d.dataset.b));});});
-            var ratios=['16:9','1:1','9:16'];
-            ratioBtn && ratioBtn.addEventListener('click',function(e){
-              e.stopPropagation();
-              var nxt=ratios[(ratios.indexOf(stack.dataset.ratio)+1)%ratios.length];
-              stack.dataset.ratio=nxt; ratioBtn.textContent=nxt;
-            });
-            setInterval(function(){show((cur+1)%3);},2800);
-          })();
-          </script>
-        </div>
+
+        </div><!-- /std-canvas-inner -->
+
+        <!-- Banner + avatar JS — outside the grid -->
+        <script>
+        (function(){
+          var stack=document.getElementById('banStack');
+          if(!stack) return;
+          var bans=stack.querySelectorAll('.ban');
+          var dots=stack.querySelectorAll('.ban-dot');
+          var ratioBtn=document.getElementById('banRatio');
+          var cur=0;
+          function show(n){bans.forEach(function(b,i){b.classList.toggle('active',i===n)});dots.forEach(function(d,i){d.classList.toggle('on',i===n)});cur=n}
+          dots.forEach(function(d){d.addEventListener('click',function(){show(parseInt(d.dataset.b))})});
+          var ratios=['16:9','1:1','9:16'];
+          ratioBtn&&ratioBtn.addEventListener('click',function(e){e.stopPropagation();var nxt=ratios[(ratios.indexOf(stack.dataset.ratio)+1)%ratios.length];stack.dataset.ratio=nxt;ratioBtn.textContent=nxt});
+          setInterval(function(){show((cur+1)%3)},2800);
+        })();
+        </script>
       </div>
     </div>
     <div class="std-langs">

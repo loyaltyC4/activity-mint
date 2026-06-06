@@ -2103,21 +2103,113 @@ p{color:var(--gray)}
             <span class="bar"></span>
             <span class="std-hot" style="top:-10px;left:-10px" data-target="reel" title="Reel"><i class="ph-fill ph-play"></i></span>
           </div>
-          <!-- AVATAR -->
-          <div class="std-avatar" data-art="avatar">
-            <img src="https://plus.unsplash.com/premium_photo-1770494457518-97297d7c45d9?q=80&w=800&auto=format&fit=crop" alt="AI Avatar" loading="lazy">
-            <span class="av-rec"><span class="dot"></span>REC · <span data-i18n="lang_label">EN</span></span>
-            <span class="av-sub" data-i18n="avatar">"Our new oat blend just dropped, and it is so smooth."</span>
-            <span class="std-hot" style="bottom:-10px;right:-10px" data-target="avatar" title="Avatar clip"><i class="ph-fill ph-user-focus"></i></span>
+          <!-- AVATAR: stacked reveal -->
+          <style>
+            .std-avatar-stack{position:relative;justify-self:center;width:200px;height:240px;border-radius:18px;overflow:visible}
+            .av-frame{position:absolute;inset:0;border-radius:18px;overflow:hidden;box-shadow:0 18px 40px rgba(22,22,19,.18)}
+            .av-frame img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+            .av-frame.back{transform:rotate(-5deg) translate(-8px,6px);z-index:1;filter:brightness(.85)}
+            .av-frame.front{z-index:2;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+            .std-avatar-stack:hover .av-frame.front{transform:rotate(3deg) translate(6px,-4px)}
+            .std-avatar-stack:hover .av-frame.back{transform:rotate(-7deg) translate(-12px,10px);transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+            .av-rec2{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:3;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(0,0,0,.62);font-size:10px;font-family:"Space Mono",monospace;color:#fff;white-space:nowrap}
+            .av-rec2 .dot{width:6px;height:6px;border-radius:50%;background:#ff3d3d;animation:blink2 1.2s infinite}
+            .av-sub2{position:absolute;bottom:-28px;left:0;right:0;text-align:center;font-size:10px;color:#5C5C57;font-family:"Space Mono",monospace;white-space:nowrap}
+          </style>
+          <div class="std-avatar-stack" data-art="avatar">
+            <div class="av-frame back"><img src="/avatar-2.jpg" alt="Avatar clip B" loading="lazy"></div>
+            <div class="av-frame front"><img src="/avatar-1.jpg" alt="Avatar clip A" loading="lazy"></div>
+            <span class="av-rec2"><span class="dot"></span>REC · <span data-i18n="lang_label">EN</span></span>
+            <span class="std-hot" style="bottom:-10px;right:-10px;z-index:4" data-target="avatar" title="Avatar clip"><i class="ph-fill ph-user-focus"></i></span>
           </div>
-          <!-- BANNER -->
-          <div class="std-banner" id="stdBanner" data-ratio="16:9" data-art="banner">
-            <span class="b-tag" data-i18n="banner_tag">Limited drop</span>
-            <span class="b-h" data-i18n="banner_h">Weekend cold brew is back.</span>
-            <span class="b-cta" data-i18n="banner_cta">Shop the drop</span>
-            <span class="ratio-flip" id="bRatio" title="Click to flip ratio">16:9</span>
+          <!-- BANNERS: 3 premium cycling designs -->
+          <style>
+            .ban-stack{position:relative;justify-self:center;width:280px;height:158px}
+            .ban{position:absolute;inset:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 40px rgba(22,22,19,.18);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1);opacity:0;pointer-events:none}
+            .ban.active{opacity:1;pointer-events:auto}
+            /* Banner A — Fragrance drop: deep obsidian + amber */
+            .ban-a{background:#0d0b09;color:#fff;display:flex;flex-direction:column;justify-content:space-between;padding:20px 22px 18px}
+            .ban-a .ba-eyebrow{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+            .ban-a .ba-h{font-family:"Bricolage Grotesque","Geist",system-ui;font-size:1.35rem;font-weight:800;line-height:1.0;letter-spacing:-.03em;color:#fff;max-width:12ch}
+            .ban-a .ba-h em{font-style:normal;color:#C8845A}
+            .ban-a .ba-foot{display:flex;align-items:center;justify-content:space-between}
+            .ban-a .ba-cta{font-family:"Space Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#C8845A;display:flex;align-items:center;gap:5px}
+            .ban-a .ba-dot{width:28px;height:28px;border-radius:50%;background:#C8845A;opacity:.18}
+            .ban-a::after{content:"";position:absolute;right:0;top:0;width:100px;height:100%;background:radial-gradient(circle at 80% 40%,rgba(200,132,90,.22),transparent 60%);pointer-events:none}
+            /* Banner B — Wellness morning: warm cream + sage */
+            .ban-b{background:#F5F0E8;color:#1a1a18;display:flex;flex-direction:column;justify-content:space-between;padding:20px 22px 18px}
+            .ban-b .bb-tag{display:inline-flex;align-items:center;gap:5px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#7B9E87;background:rgba(123,158,135,.12);padding:4px 9px;border-radius:999px;align-self:flex-start}
+            .ban-b .bb-h{font-family:"Bricolage Grotesque","Geist",system-ui;font-size:1.25rem;font-weight:800;line-height:1.05;letter-spacing:-.025em;color:#1a1a18;max-width:14ch}
+            .ban-b .bb-cta{display:inline-flex;align-items:center;gap:6px;background:#1a1a18;color:#fff;font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:700;font-size:11px;padding:7px 14px;border-radius:999px;align-self:flex-start}
+            .ban-b::before{content:"";position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:#7B9E87;opacity:.12}
+            /* Banner C — Fashion editorial: stark chalk + ink with red slash */
+            .ban-c{background:#F7F5F1;color:#111;display:flex;flex-direction:column;justify-content:space-between;padding:20px 22px 18px;overflow:hidden}
+            .ban-c .bc-num{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.16em;color:#aaa;text-transform:uppercase}
+            .ban-c .bc-h{font-family:"Bricolage Grotesque","Geist",system-ui;font-size:1.4rem;font-weight:800;line-height:.98;letter-spacing:-.04em;color:#111;max-width:11ch}
+            .ban-c .bc-foot{display:flex;align-items:center;justify-content:space-between}
+            .ban-c .bc-cta{font-family:"Space Mono",monospace;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#E03030;display:flex;align-items:center;gap:4px}
+            .ban-c .bc-rule{height:2px;background:#E03030;width:32px;border-radius:2px}
+            .ban-c::after{content:"";position:absolute;right:-20px;bottom:-20px;width:110px;height:110px;border-radius:50%;border:2px solid #E03030;opacity:.12}
+            /* ratio variants */
+            .ban-stack[data-ratio="1:1"]{width:200px;height:200px}
+            .ban-stack[data-ratio="9:16"]{width:130px;height:230px}
+            .ban-stack[data-ratio="1:1"] .ban,.ban-stack[data-ratio="9:16"] .ban{padding:16px}
+            .ban-dots{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:3}
+            .ban-dot{width:5px;height:5px;border-radius:50%;background:#d1d5db;cursor:pointer;transition:background .2s}
+            .ban-dot.on{background:#161613;width:14px;border-radius:3px}
+            .ban-ratio{position:absolute;top:8px;right:10px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.1em;background:rgba(0,0,0,.22);backdrop-filter:blur(4px);padding:3px 8px;border-radius:999px;cursor:pointer;color:#fff;z-index:4}
+          </style>
+          <div class="ban-stack" id="banStack" data-ratio="16:9" data-art="banner">
+            <!-- A: Fragrance drop -->
+            <div class="ban ban-a active">
+              <span class="ba-eyebrow">New drop</span>
+              <span class="ba-h">The scent of<br><em>late evenings.</em></span>
+              <span class="ba-foot">
+                <span class="ba-cta">Shop now <i class="ph-bold ph-arrow-right"></i></span>
+                <span class="ba-dot"></span>
+              </span>
+            </div>
+            <!-- B: Wellness morning -->
+            <div class="ban ban-b">
+              <span class="bb-tag"><i class="ph-fill ph-leaf"></i>Slow mornings</span>
+              <span class="bb-h">Start the ritual. Just one cup.</span>
+              <span class="bb-cta">Explore the range <i class="ph-bold ph-arrow-right"></i></span>
+            </div>
+            <!-- C: Fashion editorial -->
+            <div class="ban ban-c">
+              <span class="bc-num">SS 2026</span>
+              <span class="bc-h">Wear it your way.</span>
+              <span class="bc-foot">
+                <span class="bc-cta"><span class="bc-rule"></span>View collection</span>
+              </span>
+            </div>
+            <span class="ban-ratio" id="banRatio">16:9</span>
+            <span class="ban-dots"><span class="ban-dot on" data-b="0"></span><span class="ban-dot" data-b="1"></span><span class="ban-dot" data-b="2"></span></span>
             <span class="std-hot" style="top:-10px;left:-10px" data-target="banner" title="Banner ad"><i class="ph-fill ph-rectangle"></i></span>
           </div>
+          <script>
+          (function(){
+            var stack=document.getElementById('banStack');
+            if(!stack) return;
+            var bans=stack.querySelectorAll('.ban');
+            var dots=stack.querySelectorAll('.ban-dot');
+            var ratioBtn=document.getElementById('banRatio');
+            var cur=0;
+            function show(n){
+              bans.forEach(function(b,i){b.classList.toggle('active',i===n);});
+              dots.forEach(function(d,i){d.classList.toggle('on',i===n);});
+              cur=n;
+            }
+            dots.forEach(function(d){d.addEventListener('click',function(){show(parseInt(d.dataset.b));});});
+            var ratios=['16:9','1:1','9:16'];
+            ratioBtn && ratioBtn.addEventListener('click',function(e){
+              e.stopPropagation();
+              var nxt=ratios[(ratios.indexOf(stack.dataset.ratio)+1)%ratios.length];
+              stack.dataset.ratio=nxt; ratioBtn.textContent=nxt;
+            });
+            setInterval(function(){show((cur+1)%3);},2800);
+          })();
+          </script>
         </div>
       </div>
     </div>
@@ -2387,6 +2479,13 @@ p{color:var(--gray)}
           </div>
         </div>
       </div>
+      <!-- Inline stats row -->
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;position:relative;z-index:2">
+        <div style="display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#fff"><i class="ph-fill ph-star" style="color:#FFC53D"></i><span><b>4.9</b> avg from 1,200+ teams</span></div>
+        <div style="display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#fff"><i class="ph-fill ph-stack" style="color:#20E0A0"></i><span><b>14M+</b> posts generated</span></div>
+        <div style="display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#fff"><i class="ph-fill ph-globe" style="color:#2E6BFF"></i><span><b>99+</b> languages</span></div>
+        <div style="display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#fff"><i class="ph-fill ph-clock" style="color:#FF6A3D"></i><span><b>9h/wk</b> saved on average</span></div>
+      </div>
     </div>
   </div>
 </section>
@@ -2405,35 +2504,6 @@ p{color:var(--gray)}
   </div>
 </section>
 
-
-<!-- ============ SOCIAL PROOF / STAT BAND ============ -->
-<section class="sec" style="padding-top:30px">
-  <div class="wrap">
-    <div class="statband">
-      <span class="sb-glow" aria-hidden="true"></span>
-      <div class="stat-row" id="statRow">
-        <div class="stat reveal">
-          <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <div class="s-num"><span class="accent" data-count="4.9" data-decimals="1">0</span></div>
-          <div class="s-lbl">Average rating from 1,200+ teams</div>
-        </div>
-        <div class="stat reveal">
-          <div class="s-num"><span data-count="14" data-suffix="M+">0</span></div>
-          <div class="s-lbl">On-brand posts generated</div>
-        </div>
-        <div class="stat reveal">
-          <div class="s-num"><span class="accent" data-count="99" data-suffix="+">0</span></div>
-          <div class="s-lbl">Languages supported</div>
-        </div>
-        <div class="stat reveal">
-          <div class="s-num"><span data-count="9" data-suffix="h/wk">0</span></div>
-          <div class="s-lbl">Hours saved weekly, on average</div>
-        </div>
-      </div>
-      <div class="stat-divider"></div>
-    </div>
-  </div>
-</section>
 
 <!-- ============ PRICING ============ -->
 <section class="sec" id="pricing">

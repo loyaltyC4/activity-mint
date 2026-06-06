@@ -2342,19 +2342,45 @@ p{color:var(--gray)}
           <div class="insight i3"><span class="ic"><i class="ph-fill ph-tag"></i></span><span>Value-first copy detected</span></div>
           <div class="insight i4"><span class="ic"><i class="ph-fill ph-cursor-click"></i></span><span>CTA contrast optimized<b>+19%</b></span></div>
         </div>
-        <div class="trained-phone reveal">
-          <div class="tp-screen">
-            <div class="tp-top"><b><span class="lf"><i class="ph-fill ph-leaf"></i></span>Mint Score</b><span>your-brand.com</span></div>
-            <div class="tp-ring">
-              <svg viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#eceae6" stroke-width="11"/>
-                <circle cx="60" cy="60" r="50" fill="none" stroke="url(#mg)" stroke-width="11" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="34" transform="rotate(-90 60 60)"/>
-                <defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20E0A0"/><stop offset="0.5" stop-color="#2E6BFF"/><stop offset="1" stop-color="#FF3D8A"/></linearGradient></defs>
-              </svg>
-              <div class="tp-num">92<small>MINT SCORE</small></div>
-            </div>
-            <div class="tp-rows">
-              <div class="tp-rowi"><i class="ph-fill ph-fish-simple"></i>Hook strength<span class="v">High</span></div>
+        <div class="tphone-wrap">
+<style>
+.tphone-wrap{justify-self:center;display:flex;align-items:center;justify-content:center;padding:20px 0 10px}
+.tphone{width:220px;aspect-ratio:9/19.5;background:#0a0a0d;border-radius:34px;padding:9px;position:relative;box-shadow:0 30px 70px rgba(0,0,0,.5),inset 0 0 0 2px rgba(255,255,255,.06);transform:rotate(-4deg)}
+.tphone::before{content:"";position:absolute;top:11px;left:50%;transform:translateX(-50%);width:66px;height:16px;border-radius:16px;background:#000;z-index:3}
+.tphone::after{content:"";position:absolute;inset:-14px;border-radius:50px;background:radial-gradient(circle,rgba(32,224,160,.28),transparent 70%);z-index:-1}
+.tphone .tp-scr{width:100%;height:100%;background:#fbfaf6;border-radius:28px;overflow:hidden;position:relative;padding:28px 13px 13px}
+.tphone .tp-lbl{font-family:"Space Mono",monospace;font-size:9px;color:#5C5C57;letter-spacing:.1em;text-transform:uppercase;margin-bottom:9px}
+.tphone .tp-title{font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:800;font-size:15px;color:#161613;line-height:1.05;letter-spacing:-.02em;margin-bottom:11px}
+.tphone .tp-graph{height:96px;border-radius:11px;background:linear-gradient(180deg,#fff,#f3efe6);position:relative;overflow:hidden;padding:7px}
+.tphone .tp-graph svg{width:100%;height:100%;display:block}
+.tphone .tp-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+.tphone .tp-cell{background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:9px;padding:7px 9px}
+.tphone .tp-cell .cv{font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:800;font-size:15px;color:#161613;line-height:1}
+.tphone .tp-cell .cl{font-family:"Space Mono",monospace;font-size:8px;color:#5C5C57;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.tphone .tp-badge{position:absolute;right:-14px;top:40%;background:#20E0A0;color:#161613;font-family:"Bricolage Grotesque","Geist",system-ui;font-weight:700;font-size:11px;padding:7px 11px;border-radius:999px;box-shadow:0 8px 20px rgba(0,0,0,.3);transform:rotate(4deg);white-space:nowrap}
+</style>
+<div class="tphone">
+  <div class="tp-scr">
+    <div class="tp-lbl">Mint Studio · Insights</div>
+    <div class="tp-title">What is winning,<br>this week.</div>
+    <div class="tp-graph">
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+        <defs><linearGradient id="tpg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#20E0A0" stop-opacity=".55"/><stop offset="1" stop-color="#20E0A0" stop-opacity="0"/></linearGradient></defs>
+        <path d="M0 48 L14 40 L28 44 L42 28 L56 22 L70 26 L84 14 L100 10 L100 60 L0 60Z" fill="url(#tpg3)"/>
+        <path d="M0 48 L14 40 L28 44 L42 28 L56 22 L70 26 L84 14 L100 10" fill="none" stroke="#0FBF85" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="84" cy="14" r="2.8" fill="#0FBF85"/>
+      </svg>
+    </div>
+    <div class="tp-grid">
+      <div class="tp-cell"><div class="cv">+38%</div><div class="cl">Engagement</div></div>
+      <div class="tp-cell"><div class="cv">94</div><div class="cl">Mint Score</div></div>
+      <div class="tp-cell"><div class="cv">12M</div><div class="cl">Posts learned</div></div>
+      <div class="tp-cell"><div class="cv">99+</div><div class="cl">Languages</div></div>
+    </div>
+  </div>
+  <span class="tp-badge"><i class="ph-fill ph-sparkle"></i> On brand</span>
+</div>
+</div>
               <div class="tp-rowi"><i class="ph-fill ph-users-three"></i>Social proof<span class="v">+27%</span></div>
               <div class="tp-rowi"><i class="ph-fill ph-cursor-click"></i>CTA contrast<span class="v">+19%</span></div>
             </div>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mint Studio — Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{
+  --base:#F7F7F5;--paper-2:#FBFBFA;--white:#FFFFFF;--ink:#161613;--gray:#5C5C57;
+  --mint:#20E0A0;--mint-deep:#0FBF85;--tangerine:#FF6A3D;--pink:#FF3D8A;--cobalt:#2E6BFF;--butter:#FFC53D;
+  --line:rgba(22,22,19,.08);--line-strong:rgba(22,22,19,.14);
+  --shadow-sm:0 2px 8px rgba(22,22,19,.06);--shadow-md:0 14px 34px rgba(22,22,19,.10);--shadow-lg:0 30px 70px rgba(22,22,19,.16);
+  --r-sm:14px;--r-md:22px;--r-lg:32px;
+  --display:"Bricolage Grotesque","Geist",system-ui,sans-serif;
+  --body:"Geist",system-ui,-apple-system,sans-serif;
+  --mono:"Space Mono",ui-monospace,monospace;
+  --grad:linear-gradient(90deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine));
+  --spring:cubic-bezier(.34,1.56,.64,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--body);background:var(--base);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100dvh}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+::selection{background:var(--mint);color:var(--ink)}
+
+/* ===== ambient light bloom (glass-cinematic, light) ===== */
+.ambient{position:fixed;inset:0;z-index:-2;background:var(--base);overflow:hidden}
+.ambient span{position:absolute;border-radius:50%;filter:blur(90px);opacity:.45}
+.ambient .b1{width:52vw;height:52vw;left:-12vw;top:-16vw;background:radial-gradient(circle at center,rgba(32,224,160,.40),transparent 68%);animation:drift1 19s ease-in-out infinite alternate}
+.ambient .b2{width:46vw;height:46vw;right:-13vw;bottom:-16vw;background:radial-gradient(circle at center,rgba(46,107,255,.30),transparent 68%);animation:drift2 23s ease-in-out infinite alternate}
+.ambient .b3{width:30vw;height:30vw;right:18vw;top:-10vw;background:radial-gradient(circle at center,rgba(255,61,138,.16),transparent 70%);animation:drift1 27s ease-in-out infinite alternate}
+.ambient .grain{position:absolute;inset:0;opacity:.45;background-image:radial-gradient(rgba(22,22,19,.025) 1px,transparent 1px);background-size:3px 3px}
+@keyframes drift1{to{transform:translate(6vw,4vh) scale(1.08)}}
+@keyframes drift2{to{transform:translate(-5vw,-4vh) scale(1.1)}}
+
+/* ===== top bar ===== */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+  padding:20px clamp(20px,5vw,52px)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.22rem;letter-spacing:-.02em}
+.brand .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#06231a;font-size:.95rem;
+  background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));
+  box-shadow:0 4px 12px rgba(32,224,160,.4)}
+.progress{display:flex;gap:7px;align-items:center}
+.progress i{display:block;width:30px;height:4px;border-radius:99px;background:var(--line-strong);transition:background .5s ease,width .5s var(--spring)}
+.progress i.on{background:var(--ink)}
+.progress i.cur{background:linear-gradient(90deg,var(--mint),var(--cobalt));width:46px}
+.lang{display:inline-flex;align-items:center;gap:8px;font-size:.85rem;font-weight:600;color:var(--ink);
+  background:rgba(255,255,255,.65);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line);border-radius:999px;padding:8px 14px;box-shadow:var(--shadow-sm);transition:transform .25s var(--spring),box-shadow .25s}
+.lang:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.lang i{font-size:1.05rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lang .ct{font-family:var(--mono);font-size:.78rem}
+
+/* ===== step system ===== */
+.stage-wrap{position:relative;min-height:100dvh;width:100%}
+.step{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:96px clamp(20px,5vw,52px) 64px;text-align:center;
+  opacity:0;visibility:hidden;transform:translateY(16px) scale(.992);
+  transition:opacity .55s ease,transform .65s var(--spring),visibility .55s}
+.step.active{opacity:1;visibility:visible;transform:none}
+.step.exit-up{transform:translateY(-22px) scale(.985)}
+
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gray);
+  display:inline-flex;align-items:center;gap:8px;margin-bottom:20px}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(32,224,160,.18)}
+h1.head{font-family:var(--display);font-weight:800;line-height:1.0;letter-spacing:-.03em;font-size:clamp(2.4rem,6vw,4.6rem);max-width:14ch}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:sheen 6s linear infinite}
+@keyframes sheen{to{background-position:200% center}}
+.sub{color:var(--gray);font-size:clamp(1.02rem,1.5vw,1.2rem);max-width:46ch;margin:18px auto 0;line-height:1.55}
+
+/* ===== premium subtle CTA ===== */
+.cta{display:inline-flex;align-items:center;gap:10px;background:var(--ink);color:#fff;font-weight:600;font-size:1.02rem;
+  padding:15px 26px;border-radius:999px;position:relative;overflow:hidden;
+  transition:transform .3s var(--spring),box-shadow .3s}
+.cta::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--grad);opacity:0;transition:opacity .3s}
+.cta:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.cta:hover::after{opacity:1}
+.cta .ar{transition:transform .3s var(--spring);font-size:1.05em}
+.cta:hover .ar{transform:translateX(4px)}
+.cta:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.ghost{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--gray);font-size:.95rem;padding:12px 8px;transition:color .2s}
+.ghost:hover{color:var(--ink)}
+
+/* ===== step 1 — handle ===== */
+.handle-card{margin-top:34px;width:100%;max-width:540px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.handle-field{display:flex;align-items:center;gap:.55rem;width:100%;background:rgba(255,255,255,.78);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1.5px solid var(--line-strong);border-radius:999px;padding:8px 8px 8px 20px;box-shadow:var(--shadow-md);
+  transition:border-color .25s,box-shadow .25s}
+.handle-field:focus-within{border-color:var(--ink);box-shadow:0 0 0 4px rgba(32,224,160,.18),var(--shadow-md)}
+.handle-field .ig{font-size:1.35rem;color:var(--ink);opacity:.55;display:grid;place-items:center}
+.handle-field .at{color:var(--gray);font-weight:600;font-size:1.1rem;margin-left:-2px}
+.handle-field input{flex:1;border:none;outline:none;font-family:var(--body);font-size:1.12rem;font-weight:600;color:var(--ink);background:none;min-width:0}
+.handle-field input::placeholder{color:#b9b9b3;font-weight:500}
+.handle-field .cta{padding:13px 22px;flex-shrink:0}
+.altline{font-size:.9rem;color:var(--gray)}
+.altline b{color:var(--ink);font-weight:600;border-bottom:1.5px solid rgba(15,191,133,.4);cursor:pointer}
+.proof{display:flex;align-items:center;gap:12px;margin-top:30px;color:var(--gray);font-size:.9rem}
+.proof .avs{display:flex}
+.proof .avs span{width:30px;height:30px;border-radius:50%;border:2px solid var(--base);margin-left:-9px;background-size:cover;background-position:center}
+.proof .avs span:first-child{margin-left:0}
+.proof b{color:var(--ink);font-weight:700}
+
+/* ===== step 2 — scan ===== */
+.scan-card{width:100%;max-width:680px;background:rgba(255,255,255,.72);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:clamp(26px,4vw,44px);text-align:left}
+.scan-top{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.scan-handle{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;font-weight:700;border-radius:999px;padding:8px 16px;font-size:.95rem}
+.scan-handle i{color:var(--mint)}
+.scan-title{font-family:var(--display);font-weight:700;font-size:1.05rem;color:var(--gray)}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin:22px 0 26px}
+.bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--mint),var(--cobalt));transition:width .6s ease}
+.stages{display:flex;flex-direction:column;gap:14px;margin-bottom:6px}
+.stg{display:flex;align-items:center;gap:14px;opacity:.4;transition:opacity .45s ease}
+.stg.active{opacity:1}
+.stg .ic{flex-shrink:0;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line-strong);color:var(--gray);font-size:1rem;transition:all .35s var(--spring)}
+.stg.active .ic{border-color:transparent;background:rgba(46,107,255,.1);color:var(--cobalt)}
+.stg.active .ic .spin{animation:spin .8s linear infinite;display:block}
+.stg.done .ic{background:var(--ink);border-color:var(--ink);color:var(--mint)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stg .tx{font-weight:600;font-size:1.02rem}
+.stg .tx small{display:block;color:var(--gray);font-weight:400;font-size:.85rem}
+
+.discovery{margin-top:26px;padding-top:24px;border-top:1px dashed var(--line-strong);display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.disc-h{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin-bottom:12px}
+.sw-row{display:flex;gap:9px}
+.sw{width:46px;height:46px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);transform:scale(0);transition:transform .55s var(--spring)}
+.sw.in{transform:scale(1)}
+.type-spec{display:flex;flex-direction:column;gap:3px;opacity:0;transform:translateY(8px);transition:.5s var(--spring)}
+.type-spec.in{opacity:1;transform:none}
+.type-spec .big{font-family:var(--display);font-weight:800;font-size:1.7rem;letter-spacing:-.02em;line-height:1}
+.type-spec .nm{font-size:.82rem;color:var(--gray)}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:.85rem;font-weight:600;background:#fff;border:1px solid var(--line-strong);border-radius:999px;padding:6px 13px;opacity:0;transform:scale(.8);transition:.45s var(--spring)}
+.tag.in{opacity:1;transform:none}
+
+/* ===== step 3 — DNA reveal ===== */
+.dna-card{width:100%;max-width:920px;background:rgba(255,255,255,.74);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:clamp(24px,3.4vw,40px);text-align:left}
+.dna-head{display:flex;align-items:center;gap:18px;margin-bottom:26px}
+.dna-avatar{width:64px;height:64px;border-radius:20px;flex-shrink:0;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:1.5rem;
+  background:linear-gradient(135deg,#0E1B2A,#1FB6A6);box-shadow:var(--shadow-md);position:relative;overflow:hidden}
+.dna-avatar::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.4),transparent 50%)}
+.dna-head h2{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,3vw,2.1rem);letter-spacing:-.02em;line-height:1.05}
+.dna-head p{color:var(--gray);font-size:.95rem;margin-top:3px}
+.dna-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.dna-cell{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:18px;opacity:0;transform:translateY(14px);transition:.6s var(--spring)}
+.dna-cell.in{opacity:1;transform:none}
+.dna-cell .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--gray);margin-bottom:12px}
+.dna-cell.wide{grid-column:span 2}
+.pal{display:flex;gap:8px}
+.pal span{width:34px;height:34px;border-radius:9px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.voice{display:flex;flex-wrap:wrap;gap:7px}
+.voice b{font-size:.84rem;font-weight:600;background:#fff;border:1px solid var(--line-strong);border-radius:999px;padding:5px 12px}
+.fontspec .big{font-family:var(--display);font-weight:800;font-size:1.5rem;letter-spacing:-.02em;line-height:1}
+.fontspec .nm{font-size:.8rem;color:var(--gray);margin-top:4px}
+.aud{font-weight:600;font-size:1.02rem}
+.aud small{display:block;color:var(--gray);font-weight:400;font-size:.85rem;margin-top:4px}
+.dna-foot{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:26px;flex-wrap:wrap}
+.dna-lang{display:inline-flex;align-items:center;gap:9px;font-size:.92rem;color:var(--gray)}
+.dna-lang i{font-size:1.2rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.dna-lang b{color:var(--ink);font-weight:700}
+
+/* ===== step 4 — quiz ===== */
+.quiz-card{width:100%;max-width:600px;text-align:left}
+.quiz-card h2{font-family:var(--display);font-weight:800;font-size:clamp(1.7rem,3.4vw,2.5rem);letter-spacing:-.025em;line-height:1.05;margin-bottom:6px}
+.quiz-card .qsub{color:var(--gray);font-size:.98rem;margin-bottom:24px}
+.opts{display:flex;flex-direction:column;gap:11px}
+.opt{display:flex;align-items:center;gap:15px;width:100%;text-align:left;background:rgba(255,255,255,.8);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1.5px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-sm);
+  transition:transform .28s var(--spring),border-color .25s,box-shadow .25s}
+.opt:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.opt.sel{border-color:var(--ink)}
+.opt .chip{flex-shrink:0;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font-size:1.15rem}
+.opt .ol{flex:1;font-weight:600;font-size:1.04rem}
+.opt .ck{flex-shrink:0;width:24px;height:24px;border-radius:50%;border:2px solid var(--line-strong);display:grid;place-items:center;color:#fff;font-size:.75rem;transition:all .25s var(--spring)}
+.opt.sel .ck{background:var(--ink);border-color:var(--ink)}
+.opt.sel .ck i{transform:scale(1)}
+.opt .ck i{transform:scale(0);transition:transform .25s var(--spring)}
+.g1{background:linear-gradient(135deg,var(--mint),var(--mint-deep))}
+.g2{background:linear-gradient(135deg,var(--pink),var(--tangerine))}
+.g3{background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}
+.g4{background:linear-gradient(135deg,var(--tangerine),var(--butter))}
+.g5{background:linear-gradient(135deg,var(--cobalt),var(--pink))}
+.g6{background:linear-gradient(135deg,var(--mint),var(--cobalt))}
+.quiz-foot{display:flex;align-items:center;justify-content:space-between;margin-top:24px;gap:14px}
+.nsearch{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid var(--line-strong);border-radius:14px;padding:12px 16px;margin-bottom:13px;box-shadow:var(--shadow-sm)}
+.nsearch i{color:var(--gray);font-size:1.15rem}
+.nsearch input{flex:1;border:none;outline:none;background:none;font-family:var(--body);font-size:1rem;font-weight:500;color:var(--ink)}
+.nsearch input::placeholder{color:#b9b9b3}
+.opts.scroll{max-height:44vh;overflow:auto;padding:2px 4px 2px 2px}
+.opts.scroll::-webkit-scrollbar{width:8px}
+.opts.scroll::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:99px}
+.ntag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mint-deep);background:rgba(32,224,160,.14);border-radius:999px;padding:4px 9px;margin-left:auto}
+
+/* ===== step 5 — build + ready ===== */
+.build-card{width:100%;max-width:600px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.orb{width:120px;height:120px;border-radius:50%;position:relative;margin-bottom:30px;
+  background:conic-gradient(from 0deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));
+  animation:spin 3.2s linear infinite;box-shadow:0 20px 60px rgba(46,107,255,.28)}
+.orb::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--base)}
+.orb .ic{position:absolute;inset:0;display:grid;place-items:center;font-size:2.4rem;color:var(--ink);z-index:2}
+.bstages{display:flex;flex-direction:column;gap:10px;margin-top:6px;min-height:96px}
+.bstg{font-weight:600;color:var(--gray);opacity:.35;transition:opacity .4s,color .4s;display:flex;align-items:center;gap:10px;justify-content:center}
+.bstg.active{opacity:1;color:var(--ink)}
+.bstg.done{opacity:.7}
+.bstg i{color:var(--mint-deep)}
+.ready{opacity:0;transform:translateY(18px) scale(.97);transition:.7s var(--spring);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.ready.in{opacity:1;transform:none;pointer-events:auto}
+.ready .check{width:78px;height:78px;border-radius:50%;background:var(--ink);display:grid;place-items:center;color:var(--mint);font-size:2.2rem;margin-bottom:24px;box-shadow:var(--shadow-lg)}
+.minicards{display:flex;gap:10px;margin:22px 0 28px;flex-wrap:wrap;justify-content:center}
+.minicards span{font-size:.82rem;font-weight:600;background:#fff;border:1px solid var(--line-strong);border-radius:999px;padding:7px 14px;color:var(--gray)}
+.minicards span b{color:var(--ink)}
+
+.replay{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:60;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--gray);display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:999px;padding:8px 15px;transition:transform .25s var(--spring),color .2s}
+.replay:hover{transform:translateX(-50%) translateY(-2px);color:var(--ink)}
+
+@media(max-width:680px){
+  .dna-grid{grid-template-columns:1fr 1fr}
+  .dna-cell.wide{grid-column:span 2}
+  .discovery{grid-template-columns:1fr}
+  .progress i{width:18px}.progress i.cur{width:30px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001s!important;transition-duration:.18s!important}
+  .ambient span{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="ambient"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="grain"></span></div>
+
+<header class="topbar">
+  <div class="brand"><span class="mark">✦</span> Mint Studio</div>
+  <div class="progress" id="prog">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
+  <button class="lang" title="Publish in 99+ languages"><i class="ph-fill ph-globe-hemisphere-west"></i> English <span class="ct">99+</span></button>
+</header>
+
+<div class="stage-wrap">
+
+  <!-- STEP 1 — HANDLE -->
+  <section class="step active" data-step="0">
+    <span class="eyebrow"><span class="dot"></span> Brand DNA scan</span>
+    <h1 class="head">One handle in. A <span class="grad-text">whole studio</span> out.</h1>
+    <p class="sub">Drop your Instagram. Mint Studio reads your brand, then builds a month of on-brand posts, carousels, reels and ads in minutes.</p>
+    <div class="handle-card">
+      <div class="handle-field">
+        <span class="ig"><i class="ph-fill ph-instagram-logo"></i></span>
+        <span class="at">@</span>
+        <input id="handle" type="text" placeholder="yourbrand" autocomplete="off" spellcheck="false">
+        <button class="cta" id="go">Analyse my brand <span class="ar">→</span></button>
+      </div>
+      <p class="altline">No Instagram? <b id="useUrl">Paste a website link instead</b></p>
+    </div>
+    <div class="proof">
+      <div class="avs">
+        <span style="background:linear-gradient(135deg,#FF6A3D,#FF3D8A)"></span>
+        <span style="background:linear-gradient(135deg,#2E6BFF,#20E0A0)"></span>
+        <span style="background:linear-gradient(135deg,#FFC53D,#FF6A3D)"></span>
+        <span style="background:linear-gradient(135deg,#20E0A0,#2E6BFF)"></span>
+      </div>
+      <span>Joining <b>12,400+</b> brands &amp; creators</span>
+    </div>
+  </section>
+
+  <!-- STEP 2 — SCAN -->
+  <section class="step" data-step="1">
+    <div class="scan-card">
+      <div class="scan-top">
+        <span class="scan-handle"><i class="ph-fill ph-instagram-logo"></i> @<span id="scanHandle">yourbrand</span></span>
+        <span class="scan-title">Learning your brand…</span>
+      </div>
+      <div class="bar"><i id="scanBar"></i></div>
+      <div class="stages">
+        <div class="stg" id="s0">
+          <span class="ic"><i class="ph ph-circle-notch spin"></i></span>
+          <span class="tx">Reading your profile &amp; posts <small>Captions, grid, highlights, links</small></span>
+        </div>
+        <div class="stg" id="s1">
+          <span class="ic"><i class="ph ph-circle-notch spin"></i></span>
+          <span class="tx">Extracting your Brand DNA <small>Colours, type, logo, voice, products</small></span>
+        </div>
+        <div class="stg" id="s2">
+          <span class="ic"><i class="ph ph-circle-notch spin"></i></span>
+          <span class="tx">Studying your niche &amp; competitors <small>Trending formats and what's working now</small></span>
+        </div>
+      </div>
+      <div class="discovery">
+        <div>
+          <div class="disc-h">Palette found</div>
+          <div class="sw-row" id="swRow">
+            <span class="sw" style="background:#0E1B2A"></span>
+            <span class="sw" style="background:#1FB6A6"></span>
+            <span class="sw" style="background:#FF5C5C"></span>
+            <span class="sw" style="background:#FFD23F"></span>
+            <span class="sw" style="background:#F4F1EA"></span>
+          </div>
+          <div class="disc-h" style="margin-top:20px">Typeface</div>
+          <div class="type-spec" id="typeSpec"><span class="big">Aa</span><span class="nm">Clash Display · Satoshi</span></div>
+        </div>
+        <div>
+          <div class="disc-h">Voice</div>
+          <div class="tags" id="voiceTags">
+            <span class="tag">Confident</span><span class="tag">Warm</span><span class="tag">Playful</span><span class="tag">Bold</span>
+          </div>
+          <div class="disc-h" style="margin-top:20px">Best formats</div>
+          <div class="tags" id="fmtTags">
+            <span class="tag">Carousels</span><span class="tag">Reels</span><span class="tag">UGC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 — DNA REVEAL -->
+  <section class="step" data-step="2">
+    <div class="dna-card">
+      <div class="dna-head">
+        <div class="dna-avatar">LB</div>
+        <div>
+          <h2>Meet your Brand DNA.</h2>
+          <p>Everything Mint Studio makes for <b>@<span id="dnaHandle">yourbrand</span></b> will match this.</p>
+        </div>
+      </div>
+      <div class="dna-grid">
+        <div class="dna-cell wide"><div class="lbl">Palette</div><div class="pal">
+          <span style="background:#0E1B2A"></span><span style="background:#1FB6A6"></span><span style="background:#FF5C5C"></span><span style="background:#FFD23F"></span><span style="background:#F4F1EA"></span>
+        </div></div>
+        <div class="dna-cell"><div class="lbl">Typeface</div><div class="fontspec"><div class="big">Aa</div><div class="nm">Clash Display · Satoshi</div></div></div>
+        <div class="dna-cell"><div class="lbl">Logo</div><div class="dna-avatar" style="width:46px;height:46px;border-radius:14px;font-size:1.1rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)">LB</div></div>
+        <div class="dna-cell wide"><div class="lbl">Voice</div><div class="voice"><b>Confident</b><b>Warm</b><b>Playful</b><b>Bold</b></div></div>
+        <div class="dna-cell wide"><div class="lbl">Audience</div><div class="aud">Gen-Z &amp; millennial shoppers<small>Skincare · self-care · sustainable beauty</small></div></div>
+      </div>
+      <div class="dna-foot">
+        <span class="dna-lang"><i class="ph-fill ph-globe-hemisphere-west"></i> Publish-ready in <b>99+ languages</b></span>
+        <div style="display:flex;align-items:center;gap:14px">
+          <button class="ghost" id="rescan"><i class="ph ph-arrow-counter-clockwise"></i> Not quite</button>
+          <button class="cta" id="dnaNext">Looks like us <span class="ar">→</span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3b — NICHE -->
+  <section class="step" data-step="3">
+    <div class="quiz-card">
+      <h2>What's your <span class="grad-text">niche?</span></h2>
+      <p class="qsub">We detected <b>Beauty &amp; skincare</b> from your profile. Confirm it or pick the closest fit so your content lands in the right category.</p>
+      <div class="nsearch"><i class="ph ph-magnifying-glass"></i><input id="nicheSearch" type="text" placeholder="Search your industry…" autocomplete="off" spellcheck="false"></div>
+      <div class="opts scroll" data-single="1" id="qn">
+        <button class="opt sel"><span class="chip g2"><i class="ph-fill ph-sparkle"></i></span><span class="ol">Beauty &amp; personal care</span><span class="ntag">Detected</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g2"><i class="ph-fill ph-t-shirt"></i></span><span class="ol">Fashion &amp; apparel</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g1"><i class="ph-fill ph-barbell"></i></span><span class="ol">Health &amp; fitness</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g4"><i class="ph-fill ph-fork-knife"></i></span><span class="ol">Food &amp; beverage</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g6"><i class="ph-fill ph-shopping-bag"></i></span><span class="ol">Ecommerce &amp; retail</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g5"><i class="ph-fill ph-house-line"></i></span><span class="ol">Home &amp; lifestyle</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g3"><i class="ph-fill ph-cloud"></i></span><span class="ol">SaaS &amp; tech</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g4"><i class="ph-fill ph-chalkboard-teacher"></i></span><span class="ol">Coaching &amp; education</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g5"><i class="ph-fill ph-buildings"></i></span><span class="ol">Real estate</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g1"><i class="ph-fill ph-wrench"></i></span><span class="ol">Local services</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g3"><i class="ph-fill ph-airplane-tilt"></i></span><span class="ol">Hospitality &amp; travel</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g2"><i class="ph-fill ph-palette"></i></span><span class="ol">Creative services</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g6"><i class="ph-fill ph-dots-three-outline"></i></span><span class="ol">Other</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+      </div>
+      <div class="quiz-foot">
+        <button class="ghost" data-back><i class="ph ph-arrow-left"></i> Back</button>
+        <button class="cta" id="nicheNext">Continue <span class="ar">→</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4a — QUIZ Q1 -->
+  <section class="step" data-step="4">
+    <div class="quiz-card">
+      <h2>What should Mint Studio <span class="grad-text">do for you?</span></h2>
+      <p class="qsub">Pick all that apply. This shapes your first batch.</p>
+      <div class="opts" data-multi="1" id="q1">
+        <button class="opt"><span class="chip g1"><i class="ph-fill ph-trend-up"></i></span><span class="ol">Get more customers &amp; sales</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g6"><i class="ph-fill ph-rocket-launch"></i></span><span class="ol">Post on autopilot</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g2"><i class="ph-fill ph-sparkle"></i></span><span class="ol">Look more pro &amp; on-brand</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g3"><i class="ph-fill ph-users-three"></i></span><span class="ol">Grow my following</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g4"><i class="ph-fill ph-clock"></i></span><span class="ol">Save time on content</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+      </div>
+      <div class="quiz-foot">
+        <button class="ghost" data-back><i class="ph ph-arrow-left"></i> Back</button>
+        <button class="cta" id="q1next" disabled>Continue <span class="ar">→</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4b — QUIZ Q2 -->
+  <section class="step" data-step="5">
+    <div class="quiz-card">
+      <h2>Who are you <span class="grad-text">creating for?</span></h2>
+      <p class="qsub">So we set up your workspace the right way.</p>
+      <div class="opts" data-single="1" id="q2">
+        <button class="opt"><span class="chip g6"><i class="ph-fill ph-storefront"></i></span><span class="ol">My own business</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g3"><i class="ph-fill ph-briefcase"></i></span><span class="ol">A client I manage</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g2"><i class="ph-fill ph-user-circle"></i></span><span class="ol">My personal brand</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+        <button class="opt"><span class="chip g5"><i class="ph-fill ph-buildings"></i></span><span class="ol">An agency, many brands</span><span class="ck"><i class="ph-bold ph-check"></i></span></button>
+      </div>
+      <div class="quiz-foot">
+        <button class="ghost" data-back><i class="ph ph-arrow-left"></i> Back</button>
+        <span style="font-size:.85rem;color:var(--gray)">Pick one to continue</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 5 — BUILD + READY -->
+  <section class="step" data-step="6">
+    <div class="build-card" id="buildView">
+      <div class="orb"><span class="ic"><i class="ph-fill ph-sparkle"></i></span></div>
+      <div class="bstages">
+        <div class="bstg" id="b0"><i class="ph ph-circle-notch spin"></i> Applying your Brand DNA</div>
+        <div class="bstg" id="b1"><i class="ph ph-circle-notch spin"></i> Writing your first posts &amp; hooks</div>
+        <div class="bstg" id="b2"><i class="ph ph-circle-notch spin"></i> Designing your carousels &amp; calendar</div>
+      </div>
+    </div>
+    <div class="build-card ready" id="readyView">
+      <div class="check"><i class="ph-bold ph-check"></i></div>
+      <h1 class="head" style="font-size:clamp(2rem,4.6vw,3.2rem)">Your studio is <span class="grad-text">ready.</span></h1>
+      <p class="sub">A month of on-brand content is waiting for @<span id="readyHandle">yourbrand</span>.</p>
+      <div class="minicards">
+        <span><b>24</b> posts</span><span><b>6</b> carousels</span><span><b>4</b> reels</span><span><b>99+</b> languages</span>
+      </div>
+      <button class="cta" id="enter" style="padding:17px 32px;font-size:1.08rem">Enter Mint Studio <span class="ar">→</span></button>
+    </div>
+  </section>
+
+</div>
+
+<button class="replay" id="replay"><i class="ph ph-arrow-clockwise"></i> Replay</button>
+
+<script>
+(function(){
+  var steps=[].slice.call(document.querySelectorAll('.step'));
+  var prog=[].slice.call(document.querySelectorAll('#prog i'));
+  var cur=0, timers=[];
+  function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+  function T(fn,ms){var t=setTimeout(fn,ms);timers.push(t);return t;}
+  function setProg(n){prog.forEach(function(p,idx){p.classList.toggle('on',idx<n);p.classList.toggle('cur',idx===n);});}
+  function go(n){
+    if(n===cur)return;
+    var prevEl=steps[cur];
+    prevEl.classList.add('exit-up');
+    prevEl.classList.remove('active');
+    setTimeout(function(){prevEl.classList.remove('exit-up');},650);
+    cur=n;
+    steps[cur].classList.add('active');
+    setProg(cur);
+    onEnter(cur);
+  }
+  function onEnter(n){
+    if(n===1) runScan();
+    if(n===6) runBuild();
+  }
+
+  // ---- step 1: handle ----
+  var handleInput=document.getElementById('handle');
+  function syncHandle(){
+    var v=(handleInput.value||'yourbrand').replace(/^@+/,'').trim()||'yourbrand';
+    document.getElementById('scanHandle').textContent=v;
+    document.getElementById('dnaHandle').textContent=v;
+    document.getElementById('readyHandle').textContent=v;
+  }
+  document.getElementById('go').addEventListener('click',function(){syncHandle();go(1);});
+  handleInput.addEventListener('keydown',function(e){if(e.key==='Enter'){syncHandle();go(1);}});
+  document.getElementById('useUrl').addEventListener('click',function(){
+    handleInput.setAttribute('placeholder','yourbrand.com');handleInput.value='';handleInput.focus();
+    document.querySelector('.handle-field .at').textContent='';
+  });
+
+  // ---- step 2: scan ----
+  function runScan(){
+    var bar=document.getElementById('scanBar');
+    var S=[document.getElementById('s0'),document.getElementById('s1'),document.getElementById('s2')];
+    S.forEach(function(s){s.classList.remove('active','done');});
+    bar.style.width='0';
+    var sws=[].slice.call(document.querySelectorAll('#swRow .sw'));
+    sws.forEach(function(s){s.classList.remove('in');});
+    document.getElementById('typeSpec').classList.remove('in');
+    [].slice.call(document.querySelectorAll('#voiceTags .tag, #fmtTags .tag')).forEach(function(t){t.classList.remove('in');});
+
+    S[0].classList.add('active'); T(function(){bar.style.width='33%';},120);
+    // pop palette during stage 1-2
+    sws.forEach(function(s,idx){T(function(){s.classList.add('in');},500+idx*230);});
+    T(function(){S[0].classList.remove('active');S[0].classList.add('done');S[0].querySelector('.ic').innerHTML='<i class="ph-bold ph-check"></i>';S[1].classList.add('active');bar.style.width='66%';},1700);
+    T(function(){document.getElementById('typeSpec').classList.add('in');},1900);
+    var vt=[].slice.call(document.querySelectorAll('#voiceTags .tag'));
+    vt.forEach(function(t,idx){T(function(){t.classList.add('in');},2100+idx*150);});
+    T(function(){S[1].classList.remove('active');S[1].classList.add('done');S[1].querySelector('.ic').innerHTML='<i class="ph-bold ph-check"></i>';S[2].classList.add('active');bar.style.width='88%';},3200);
+    var ft=[].slice.call(document.querySelectorAll('#fmtTags .tag'));
+    ft.forEach(function(t,idx){T(function(){t.classList.add('in');},3300+idx*150);});
+    T(function(){S[2].classList.remove('active');S[2].classList.add('done');S[2].querySelector('.ic').innerHTML='<i class="ph-bold ph-check"></i>';bar.style.width='100%';},4300);
+    T(function(){revealDNA();go(2);},4950);
+  }
+
+  // ---- step 3: dna reveal ----
+  function revealDNA(){
+    var cells=[].slice.call(document.querySelectorAll('.step[data-step="2"] .dna-cell'));
+    cells.forEach(function(c){c.classList.remove('in');});
+    cells.forEach(function(c,idx){T(function(){c.classList.add('in');},180+idx*120);});
+  }
+  document.getElementById('dnaNext').addEventListener('click',function(){go(3);});
+  document.getElementById('rescan').addEventListener('click',function(){go(0);});
+
+  // ---- niche ----
+  var qn=document.getElementById('qn'), nicheNext=document.getElementById('nicheNext');
+  qn.addEventListener('click',function(e){var b=e.target.closest('.opt');if(!b)return;[].slice.call(qn.children).forEach(function(o){o.classList.remove('sel');});b.classList.add('sel');nicheNext.disabled=false;});
+  nicheNext.addEventListener('click',function(){go(4);});
+  var ns=document.getElementById('nicheSearch');
+  ns.addEventListener('input',function(){var qv=ns.value.toLowerCase();[].slice.call(qn.children).forEach(function(o){var t=o.querySelector('.ol').textContent.toLowerCase();o.style.display=t.indexOf(qv)>-1?'':'none';});});
+
+  // ---- step 4: quiz ----
+  var q1=document.getElementById('q1'), q1next=document.getElementById('q1next');
+  q1.addEventListener('click',function(e){
+    var b=e.target.closest('.opt'); if(!b)return;
+    b.classList.toggle('sel');
+    q1next.disabled=!q1.querySelector('.opt.sel');
+  });
+  q1next.addEventListener('click',function(){go(5);});
+  var q2=document.getElementById('q2');
+  q2.addEventListener('click',function(e){
+    var b=e.target.closest('.opt'); if(!b)return;
+    [].slice.call(q2.children).forEach(function(o){o.classList.remove('sel');});
+    b.classList.add('sel');
+    T(function(){go(6);},480);
+  });
+  [].slice.call(document.querySelectorAll('[data-back]')).forEach(function(btn){
+    btn.addEventListener('click',function(){go(cur-1);});
+  });
+
+  // ---- step 5: build + ready ----
+  function runBuild(){
+    var B=[document.getElementById('b0'),document.getElementById('b1'),document.getElementById('b2')];
+    var ready=document.getElementById('readyView');
+    B.forEach(function(b){b.classList.remove('active','done');b.querySelector('i').className='ph ph-circle-notch spin';});
+    ready.classList.remove('in');
+    B[0].classList.add('active');
+    T(function(){B[0].classList.add('done');B[0].classList.remove('active');B[0].querySelector('i').className='ph-bold ph-check';B[1].classList.add('active');},1100);
+    T(function(){B[1].classList.add('done');B[1].classList.remove('active');B[1].querySelector('i').className='ph-bold ph-check';B[2].classList.add('active');},2200);
+    T(function(){B[2].classList.add('done');B[2].classList.remove('active');B[2].querySelector('i').className='ph-bold ph-check';},3200);
+    T(function(){document.getElementById('buildView').style.display='none';ready.classList.add('in');},3700);
+  }
+  document.getElementById('enter').addEventListener('click',function(){
+    var e=document.getElementById('enter');
+    e.innerHTML='Loading your studio… <span class="ar">→</span>';
+    setTimeout(function(){window.location.href='/dashboard';},600);
+  });
+
+  // ---- replay ----
+  document.getElementById('replay').addEventListener('click',function(){
+    clearTimers();
+    document.getElementById('buildView').style.display='';
+    document.getElementById('readyView').classList.remove('in');
+    [].slice.call(document.querySelectorAll('.opt.sel')).forEach(function(o){o.classList.remove('sel');});
+    q1next.disabled=true;
+    var _qn=document.querySelectorAll('#qn .opt');if(_qn.length){[].slice.call(_qn).forEach(function(o){o.classList.remove('sel');o.style.display='';});_qn[0].classList.add('sel');}
+    var _nx=document.getElementById('nicheSearch');if(_nx)_nx.value='';
+    go(0);
+  });
+
+  setProg(0);
+})();
+</script>
+</body>
+</html>

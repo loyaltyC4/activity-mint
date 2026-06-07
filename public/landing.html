@@ -1337,6 +1337,31 @@ html{scroll-behavior:smooth}
 .flags-center h2{position:relative;font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,3.4vw,2.6rem);letter-spacing:-.02em;line-height:.98}
 @media(max-width:560px){.flags-wall{grid-template-columns:repeat(8,1fr);max-width:440px}.flags-center{grid-column:2 / 8;grid-row:5 / 7}}
 
+
+/* ===== v11: works-for section, Design 2 gradient pill grids ===== */
+.niches-v2{padding:clamp(88px,12vh,148px) 0;background:var(--white);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.nv2-block{max-width:880px;margin:0 auto 42px;text-align:center;opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.22,1,.36,1)}
+.nv2-block.lit{opacity:1;transform:none}
+.nv2-block:last-child{margin-bottom:0}
+.nv2-label{font-family:var(--display);font-weight:800;font-size:clamp(1.7rem,3.8vw,2.7rem);letter-spacing:-.025em;line-height:1.05;margin-bottom:22px}
+.nv2-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.nv2-pill{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:9px 18px 9px 9px;font-weight:600;font-size:1rem;color:var(--ink);box-shadow:var(--shadow-sm);opacity:0;transform:translateY(16px) scale(.92);transition:opacity .5s ease,transform .55s var(--spring),border-color .25s,box-shadow .25s}
+.nv2-block.lit .nv2-pill{opacity:1;transform:none}
+.nv2-pill:hover{transform:translateY(-3px);box-shadow:0 0 0 2px var(--mint),var(--shadow-md)}
+.nv2-ic{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;color:#fff;font-size:.85rem;flex-shrink:0}
+.nv2-g1{background:linear-gradient(135deg,var(--mint),var(--mint-deep))}
+.nv2-g2{background:linear-gradient(135deg,var(--pink),var(--tangerine))}
+.nv2-g3{background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}
+.nv2-g4{background:linear-gradient(135deg,var(--tangerine),var(--butter))}
+.nv2-g5{background:linear-gradient(135deg,var(--cobalt),var(--pink))}
+.nv2-g6{background:linear-gradient(135deg,var(--mint),var(--cobalt))}
+
+
+/* ===== v13: consistent tonal rhythm across the page (alternating warm/white, uniform spacing) ===== */
+:root{--secpad:clamp(80px,10vh,128px)}
+#how,#brand-dna,#works,#create,#intel,#statement,#pricing{padding-top:var(--secpad)!important;padding-bottom:var(--secpad)!important}
+#how,#intel,#pricing{background:var(--white)!important;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+
 </style>
 <style>
 .ha-img-placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;background:#f4f4f5;border:1px dashed #d4d4d8;border-radius:8px;color:#71717a;font-size:12px;font-family:system-ui,sans-serif;min-height:80px;padding:16px;box-sizing:border-box;animation:ha-img-pulse 1.5s ease-in-out infinite}
@@ -2045,35 +2070,15 @@ html{scroll-behavior:smooth}
 </script>
 
 <!-- ============ NICHES ============ -->
-<section class="niches">
+<section class="niches niches-v2" id="works">
   <div class="wrap">
-    <div class="niche-block reveal">
-      <div class="niche-label"><i class="ph-fill ph-storefront"></i>Built for any business</div>
-      <div class="pills">
-        <span class="pill"><i class="ph-fill ph-shopping-bag"></i>Ecommerce</span>
-        <span class="pill"><i class="ph-fill ph-barbell"></i>Fitness</span>
-        <span class="pill"><i class="ph-fill ph-t-shirt"></i>Apparel</span>
-        <span class="pill"><i class="ph-fill ph-sparkle"></i>Beauty</span>
-        <span class="pill"><i class="ph-fill ph-cloud"></i>SaaS</span>
-        <span class="pill"><i class="ph-fill ph-house-line"></i>Real estate</span>
-        <span class="pill"><i class="ph-fill ph-chalkboard-teacher"></i>Coaching</span>
-        <span class="pill"><i class="ph-fill ph-wrench"></i>Local services</span>
-        <span class="pill"><i class="ph-fill ph-briefcase"></i>Agencies</span>
-      </div>
+    <div class="nv2-block" data-nv2>
+      <h3 class="nv2-label">Built for <span class="grad">any business.</span></h3>
+      <div class="nv2-grid"><span class="nv2-pill" style="transition-delay:0.04s"><span class="nv2-ic nv2-g1"><i class="ph-fill ph-shopping-bag"></i></span>Ecommerce</span><span class="nv2-pill" style="transition-delay:0.09s"><span class="nv2-ic nv2-g6"><i class="ph-fill ph-barbell"></i></span>Fitness</span><span class="nv2-pill" style="transition-delay:0.14s"><span class="nv2-ic nv2-g2"><i class="ph-fill ph-t-shirt"></i></span>Apparel</span><span class="nv2-pill" style="transition-delay:0.19s"><span class="nv2-ic nv2-g2"><i class="ph-fill ph-sparkle"></i></span>Beauty</span><span class="nv2-pill" style="transition-delay:0.24s"><span class="nv2-ic nv2-g3"><i class="ph-fill ph-cloud"></i></span>SaaS</span><span class="nv2-pill" style="transition-delay:0.29s"><span class="nv2-ic nv2-g5"><i class="ph-fill ph-house-line"></i></span>Real estate</span><span class="nv2-pill" style="transition-delay:0.34s"><span class="nv2-ic nv2-g4"><i class="ph-fill ph-chalkboard-teacher"></i></span>Coaching</span><span class="nv2-pill" style="transition-delay:0.39s"><span class="nv2-ic nv2-g1"><i class="ph-fill ph-wrench"></i></span>Local services</span><span class="nv2-pill" style="transition-delay:0.44s"><span class="nv2-ic nv2-g3"><i class="ph-fill ph-briefcase"></i></span>Agencies</span></div>
     </div>
-    <div class="niche-block b reveal">
-      <div class="niche-label b"><i class="ph-fill ph-lightbulb"></i>Any angle, on tap</div>
-      <div class="pills">
-        <span class="pill"><i class="ph-fill ph-quotes"></i>Testimonials</span>
-        <span class="pill"><i class="ph-fill ph-arrows-left-right"></i>Before &amp; After</span>
-        <span class="pill"><i class="ph-fill ph-puzzle-piece"></i>Problem-solution</span>
-        <span class="pill"><i class="ph-fill ph-boxing-glove"></i>Us vs Them</span>
-        <span class="pill"><i class="ph-fill ph-fire"></i>Negative hook</span>
-        <span class="pill"><i class="ph-fill ph-trophy"></i>Best-sellers</span>
-        <span class="pill"><i class="ph-fill ph-magnifying-glass"></i>Mythbuster</span>
-        <span class="pill"><i class="ph-fill ph-question"></i>FAQ</span>
-        <span class="pill"><i class="ph-fill ph-chart-bar"></i>Statistics</span>
-      </div>
+    <div class="nv2-block" data-nv2>
+      <h3 class="nv2-label">Any angle, <span class="grad">on tap.</span></h3>
+      <div class="nv2-grid"><span class="nv2-pill" style="transition-delay:0.04s"><span class="nv2-ic nv2-g1"><i class="ph-fill ph-quotes"></i></span>Testimonials</span><span class="nv2-pill" style="transition-delay:0.09s"><span class="nv2-ic nv2-g3"><i class="ph-fill ph-arrows-left-right"></i></span>Before &amp; After</span><span class="nv2-pill" style="transition-delay:0.14s"><span class="nv2-ic nv2-g6"><i class="ph-fill ph-puzzle-piece"></i></span>Problem-solution</span><span class="nv2-pill" style="transition-delay:0.19s"><span class="nv2-ic nv2-g2"><i class="ph-fill ph-boxing-glove"></i></span>Us vs Them</span><span class="nv2-pill" style="transition-delay:0.24s"><span class="nv2-ic nv2-g4"><i class="ph-fill ph-fire"></i></span>Negative hook</span><span class="nv2-pill" style="transition-delay:0.29s"><span class="nv2-ic nv2-g5"><i class="ph-fill ph-trophy"></i></span>Best-sellers</span><span class="nv2-pill" style="transition-delay:0.34s"><span class="nv2-ic nv2-g3"><i class="ph-fill ph-magnifying-glass"></i></span>Mythbuster</span><span class="nv2-pill" style="transition-delay:0.39s"><span class="nv2-ic nv2-g2"><i class="ph-fill ph-question"></i></span>FAQ</span><span class="nv2-pill" style="transition-delay:0.44s"><span class="nv2-ic nv2-g6"><i class="ph-fill ph-chart-bar"></i></span>Statistics</span></div>
     </div>
   </div>
 </section>
@@ -3653,5 +3658,6 @@ video{background:#ececea}
 })();
 </script>
 <script>(function(){var g=document.querySelector(".dna-sec-wrap .dna-grid");if(!g||!("IntersectionObserver" in window))return;var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){g.classList.add("dna-lit");io.unobserve(g);}});},{threshold:.3});io.observe(g);})();</script>
+<script>(function(){if(!("IntersectionObserver" in window)){document.querySelectorAll(".nv2-block").forEach(function(b){b.classList.add("lit");});return;}var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("lit");io.unobserve(e.target);}});},{threshold:.2});document.querySelectorAll(".nv2-block").forEach(function(b){io.observe(b);});})();</script>
 </body>
 </html>

@@ -2574,6 +2574,33 @@ rio.observe(rstage);
   </div>
 </section>
 
+<!-- ============ FAQ ============ -->
+<section class="faq" id="faq">
+<style>
+.faq{padding:var(--secpad,100px) 0}
+.faq .faq-head{text-align:center;max-width:640px;margin:0 auto 32px}
+.faq .faq-head h2{font-family:var(--display);font-weight:800;font-size:clamp(2rem,4.4vw,3.2rem);letter-spacing:-.025em;line-height:1.02}
+.faq .faq-list{max-width:740px;margin:0 auto;display:flex;flex-direction:column;gap:9px}
+.faq .faq-item{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:border-color .25s,box-shadow .25s}
+.faq .faq-item.open{border-color:rgba(32,224,160,.45);box-shadow:var(--shadow-sm)}
+.faq .faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 18px;background:none;border:0;cursor:pointer;text-align:left;font-family:var(--display);font-weight:700;font-size:1.02rem;color:var(--ink);letter-spacing:-.01em}
+.faq .faq-ic{flex-shrink:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff;font-size:.85rem;transition:transform .3s var(--spring),background .25s}
+.faq .faq-item.open .faq-ic{transform:rotate(45deg);background:linear-gradient(135deg,var(--mint),var(--mint-deep));color:#06231a}
+.faq .faq-a{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.faq .faq-item.open .faq-a{max-height:340px}
+.faq .faq-a p{padding:0 18px 16px;margin:0;color:var(--gray);font-size:.95rem;line-height:1.55;max-width:62ch}
+.faq .faq-more{text-align:center;margin-top:26px;color:var(--gray);font-size:.95rem}
+.faq .faq-more a{color:var(--mint-deep);font-weight:700;text-decoration:none;border-bottom:1px solid rgba(15,191,133,.35)}
+.faq .faq-more a:hover{border-bottom-color:var(--mint-deep)}
+</style>
+  <div class="wrap">
+    <div class="faq-head"><h2>Frequently asked <span class="grad">questions.</span></h2></div>
+    <div class="faq-list" id="faqList"><div class="faq-item"><button class="faq-q" type="button"><span>What is Mint Studio?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>Mint Studio is an AI content studio that turns one link into a full feed of on-brand posts, carousels, reels, ads and avatar clips. It learns your brand, then creates and schedules everything for you, in 99+ languages.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>How does it stay on-brand?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>Our Brand DNA scan reads your site's colors, fonts, voice, products and audience in seconds, then builds every asset to match. The more you create, the sharper it gets.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>What can it actually create?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>Posts, carousels, reels, short-form video, AI avatar clips, ad creatives, stories, captions and hooks, all from a single link and ready to ship in any language.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>Do I need design or marketing skills?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>None. You paste a link and Mint Studio handles the strategy, design and copy. Everything stays editable if you want to tweak, but you never start from a blank page.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>How does it know what will perform?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>It reads live signals, the Meta Ad Library, trending formats and your audience's sentiment, so every post is built from what is already working in your niche, not guesswork.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>Can I run more than one brand?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>Yes. Manage multiple brands from one account, each with its own Brand DNA, voice and content calendar.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>Do I need a website?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>A link makes the Brand DNA scan instant, but it is not required. Connect a social profile or add your details and Mint Studio builds your brand profile from there.</p></div></div><div class="faq-item"><button class="faq-q" type="button"><span>Is there a free plan?</span><span class="faq-ic"><i class="ph-bold ph-plus"></i></span></button><div class="faq-a"><p>Yes, start free with no card required. Plans are metered by AI generation, so you only pay for what you make and can scale or cancel anytime.</p></div></div></div>
+    <p class="faq-more">Still have a question? <a href="/app">Talk to our team</a>.</p>
+  </div>
+  <script>(function(){var its=[].slice.call(document.querySelectorAll('#faqList .faq-item'));its.forEach(function(it){var b=it.querySelector('.faq-q');b.addEventListener('click',function(){var was=it.classList.contains('open');its.forEach(function(o){o.classList.remove('open');});if(!was)it.classList.add('open');});});})();</script>
+</section>
+
 <section class="finalcta" id="cta">
   <div class="wrap">
     <div class="finalcta-card" id="finalCard">

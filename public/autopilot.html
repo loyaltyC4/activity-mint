@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mint Studio — Autopilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{--base:#F4F5F7;--paper-2:#FBFBFC;--white:#FFFFFF;--ink:#15161A;--gray:#5C5E68;--mint:#20E0A0;--mint-deep:#0FBF85;--tangerine:#FF6A3D;--pink:#FF3D8A;--cobalt:#2E6BFF;--butter:#FFC53D;--line:rgba(20,22,28,.08);--line-strong:rgba(20,22,28,.13);--shadow-sm:0 1px 2px rgba(20,22,28,.05),0 2px 6px rgba(20,22,28,.05);--shadow-md:0 1px 2px rgba(20,22,28,.05),0 14px 30px -10px rgba(20,22,28,.16);--shadow-lg:0 2px 4px rgba(20,22,28,.06),0 34px 60px -18px rgba(20,22,28,.26);--glass:rgba(255,255,255,.55);--glass-2:rgba(255,255,255,.68);--hi:inset 0 1px 0 rgba(255,255,255,.7);--display:"Bricolage Grotesque","Geist",system-ui,sans-serif;--body:"Geist",system-ui,sans-serif;--mono:"Space Mono",monospace;--grad:linear-gradient(90deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine));--spring:cubic-bezier(.34,1.56,.64,1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;background:linear-gradient(180deg,#FAFAFB,#F1F2F5 60%,#EDEFF2);overflow-x:hidden}
+a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}img{display:block;max-width:100%}::selection{background:var(--mint);color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(20,22,28,.18);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+.ambient{position:fixed;inset:0;z-index:-2;overflow:hidden}.ambient span{position:absolute;border-radius:50%;filter:blur(100px);opacity:.42}
+.ambient .b1{width:46vw;height:46vw;left:8vw;top:-16vw;background:radial-gradient(circle,rgba(32,224,160,.38),transparent 66%);animation:d1 22s ease-in-out infinite alternate}
+.ambient .b2{width:42vw;height:42vw;right:-12vw;top:22vh;background:radial-gradient(circle,rgba(46,107,255,.3),transparent 66%);animation:d2 26s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(5vw,4vh) scale(1.1)}}@keyframes d2{to{transform:translate(-5vw,-3vh) scale(1.1)}}
+.app{display:grid;grid-template-columns:256px 1fr;min-height:100dvh}
+.side{position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;padding:18px 14px;z-index:20;background:var(--glass);backdrop-filter:blur(34px) saturate(180%);-webkit-backdrop-filter:blur(34px) saturate(180%);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.18rem;letter-spacing:-.02em;padding:6px 10px 14px}.brand .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#06231a;font-size:.95rem;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));box-shadow:0 4px 12px rgba(32,224,160,.45)}
+.navg{display:flex;flex-direction:column;gap:2px}.nav-i{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;font-weight:600;font-size:.94rem;color:var(--ink)}.nav-i i{font-size:1.25rem;color:var(--gray)}.nav-i:hover{background:rgba(20,22,28,.045)}.nav-i.on{background:linear-gradient(100deg,rgba(32,224,160,.2),rgba(46,107,255,.08));color:var(--ink);box-shadow:var(--hi)}.nav-i.on i{color:var(--mint-deep)}.nav-i .pillnew{margin-left:auto;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;background:var(--ink);color:#fff;border-radius:999px;padding:3px 7px}
+.spacer{flex:1}.cap{background:var(--glass-2);border:1px solid var(--line);border-radius:14px;padding:13px;display:flex;align-items:center;gap:12px;margin-bottom:8px;box-shadow:var(--hi)}.cap .ring{width:40px;height:40px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--mint) 0 72%,rgba(20,22,28,.1) 72%);display:grid;place-items:center}.cap .ring b{width:30px;height:30px;border-radius:50%;background:var(--paper-2);display:grid;place-items:center;font-size:.7rem;font-weight:700}.cap .t{font-size:.82rem;line-height:1.3}.cap .t b{font-weight:700}.cap .t small{color:var(--gray);display:block;font-size:.74rem}
+.userchip{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px}.userchip .av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.85rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.userchip .t{font-size:.84rem;font-weight:600;line-height:1.25}.userchip .t small{display:block;color:var(--gray);font-weight:400;font-size:.74rem}.userchip .mr{margin-left:auto;color:var(--gray)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px clamp(18px,3vw,40px);background:var(--glass);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border-bottom:1px solid var(--line)}
+.work{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem}.work .av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.72rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.work .cw{color:var(--gray);font-size:.78rem;font-weight:500}
+.lang{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:600;background:var(--glass-2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;box-shadow:var(--shadow-sm)}.lang .gi{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.05rem}.lang .ct{font-family:var(--mono);font-size:.72rem;color:var(--gray)}
+.content{padding:clamp(22px,3vw,40px);max-width:1060px;width:100%;margin:0 auto}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .85s var(--spring)}.reveal.lit{opacity:1;transform:none}
+/* hero autopilot banner */
+.aphero{display:flex;align-items:center;gap:20px;flex-wrap:wrap;background:linear-gradient(120deg,rgba(32,224,160,.18),rgba(46,107,255,.12));border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:var(--hi);margin-bottom:24px}
+.aphero .ai{width:60px;height:60px;border-radius:18px;display:grid;place-items:center;color:#06231a;font-size:1.7rem;background:linear-gradient(120deg,var(--mint),#8fe9c8);box-shadow:var(--shadow-md)}
+.aphero h1{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,3vw,2.1rem);letter-spacing:-.025em}
+.aphero p{color:var(--gray);font-size:.92rem;margin-top:3px}.aphero .sp{flex:1}
+.bigswitch{display:inline-flex;align-items:center;gap:11px;font-weight:700}.switch{width:52px;height:30px;border-radius:999px;background:var(--mint-deep);position:relative;transition:background .25s;cursor:pointer}.switch::after{content:"";position:absolute;top:3px;left:25px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .25s var(--spring);box-shadow:var(--shadow-sm)}
+.switch.off{background:rgba(20,22,28,.18)}.switch.off::after{left:3px}
+.grid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start}@media(max-width:900px){.grid{grid-template-columns:1fr}.app{grid-template-columns:1fr}.side{display:none}}
+.card{background:var(--glass-2);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow-sm),var(--hi);margin-bottom:18px}
+.card h3{font-family:var(--display);font-weight:700;font-size:1.05rem;margin-bottom:4px}.card .sub{color:var(--gray);font-size:.84rem;margin-bottom:16px}
+.chans{display:flex;flex-direction:column;gap:10px}
+.chan{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:13px;padding:12px 14px;background:var(--white)}
+.chan .ci{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-size:1.25rem}
+.chan b{font-weight:700;font-size:.92rem}.chan small{color:var(--gray);font-size:.78rem;display:block}
+.chan .act{margin-left:auto}
+.connected{font-size:.8rem;font-weight:700;color:var(--mint-deep);display:inline-flex;align-items:center;gap:5px}
+.cbtn{font-size:.82rem;font-weight:700;border:1px solid var(--line-strong);border-radius:10px;padding:8px 14px;background:var(--white)}.cbtn:hover{border-color:var(--ink)}
+.optset{display:flex;gap:8px;flex-wrap:wrap}.opt{border:1.5px solid var(--line-strong);border-radius:12px;padding:10px 15px;font-weight:600;font-size:.88rem;background:var(--white);display:inline-flex;align-items:center;gap:8px;transition:transform .2s var(--spring),border-color .2s}.opt:hover{transform:translateY(-1px)}.opt.on{border-color:var(--ink);background:var(--ink);color:#fff}.opt .ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:.8rem;background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}.opt.on .ic{background:rgba(255,255,255,.2)}
+.cfgrow{margin-bottom:18px}.cfgrow label{font-weight:700;font-size:.9rem;display:block;margin-bottom:9px}
+.toggle-line{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}.toggle-line b{font-weight:600;font-size:.9rem}.toggle-line small{color:var(--gray);font-size:.8rem;display:block}.toggle-line .sw2{margin-left:auto}
+.sw2{width:42px;height:24px;border-radius:999px;background:var(--mint-deep);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}.sw2::after{content:"";position:absolute;top:3px;left:21px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s var(--spring)}.sw2.off{background:rgba(20,22,28,.18)}.sw2.off::after{left:3px}
+.pro-tag{font-size:.66rem;font-weight:700;color:#06231a;background:linear-gradient(120deg,var(--butter),var(--tangerine));border-radius:999px;padding:2px 7px;margin-left:6px}
+/* queue */
+.qitem{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--white);margin-bottom:10px}
+.qitem .qph{width:48px;height:60px;border-radius:10px;background-size:cover;background-position:center;flex-shrink:0}
+.qitem .qm{flex:1;min-width:0}.qitem .qm b{font-weight:600;font-size:.9rem;display:block}.qitem .qm small{color:var(--gray);font-size:.78rem;display:inline-flex;align-items:center;gap:5px}
+.qitem .qf{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;background:rgba(46,107,255,.1);color:var(--cobalt);border-radius:999px;padding:3px 7px}
+.qitem .qa{display:flex;gap:6px}.qitem .qa button{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;border:1px solid var(--line);background:var(--white);color:var(--gray)}.qitem .qa button:hover{color:var(--ink);border-color:var(--ink)}
+.qitem .qa .ok{background:var(--ink);color:#fff;border-color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:95;display:inline-flex;align-items:center;gap:10px;background:rgba(21,22,26,.92);color:#fff;font-weight:600;font-size:.9rem;padding:13px 18px;border-radius:14px;box-shadow:var(--shadow-lg);opacity:0;visibility:hidden;transition:.4s var(--spring)}.toast.show{opacity:1;visibility:visible;transform:translateX(-50%)}.toast i{color:var(--mint)}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.16s!important}.ambient span{animation:none}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ambient"><span class="b1"></span><span class="b2"></span></div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark">✦</span> Mint Studio</div>
+    <nav class="navg">
+      <a class="nav-i" href="/dashboard"><i class="ph-fill ph-house"></i> Home</a>
+      <a class="nav-i" href="/create"><i class="ph ph-magic-wand"></i> Create</a>
+      <a class="nav-i" href="/winning-ads"><i class="ph ph-fire"></i> Winning ads <span class="pillnew">NEW</span></a>
+      <a class="nav-i" href="/templates"><i class="ph ph-squares-four"></i> Templates</a>
+      <a class="nav-i" href="/brand-dna"><i class="ph ph-fingerprint"></i> Brand DNA</a>
+      <a class="nav-i" href="/intelligence"><i class="ph ph-chart-line-up"></i> Intelligence</a>
+      <a class="nav-i on"><i class="ph-fill ph-broadcast"></i> Autopilot</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="cap"><div class="ring"><b>27</b></div><div class="t"><b>Studio capacity</b><small>27 posts ready to make</small></div></div>
+    <a class="userchip"><span class="av">LB</span><span class="t">Lunar Bloom<small>Free trial · 7 days left</small></span><i class="ph ph-caret-up-down mr"></i></a>
+  </aside>
+  <div class="main">
+    <header class="top"><div class="work"><span class="av">LB</span> @lunarbloom <span class="cw">Beauty &amp; skincare</span></div><div class="lang"><i class="ph-fill ph-globe-hemisphere-west gi"></i> English <span class="ct">99+</span></div></header>
+    <div class="content reveal">
+      <div class="aphero">
+        <span class="ai"><i class="ph-fill ph-broadcast"></i></span>
+        <div><h1>Autopilot</h1><p>Mint Studio plans your week from your Brand DNA, fills the queue, and posts on your best days. You stay in control.</p></div>
+        <span class="sp"></span>
+        <span class="bigswitch">On <span class="switch" id="master"></span></span>
+      </div>
+
+      <div class="grid">
+        <div>
+          <div class="card"><h3>This week's plan <span style="font-weight:400;color:var(--gray);font-size:.84rem">· 6 posts queued</span></h3><div class="sub">Approve what you love, skip the rest. Edits open in the editor.</div>
+            <div id="queue"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card"><h3>Channels</h3><div class="sub">Where Autopilot publishes</div>
+            <div class="chans">
+              <div class="chan"><span class="ci" style="background:linear-gradient(135deg,#E1306C,#F77737)"><i class="ph-fill ph-instagram-logo"></i></span><div><b>Instagram</b><small>@lunarbloom</small></div><span class="act"><span class="connected"><i class="ph-fill ph-check-circle"></i> Connected</span></span></div>
+              <div class="chan"><span class="ci" style="background:#111"><i class="ph-fill ph-tiktok-logo"></i></span><div><b>TikTok</b><small>Not connected</small></div><span class="act"><button class="cbtn">Connect</button></span></div>
+              <div class="chan"><span class="ci" style="background:#0A66C2"><i class="ph-fill ph-linkedin-logo"></i></span><div><b>LinkedIn</b><small>Not connected</small></div><span class="act"><button class="cbtn">Connect</button></span></div>
+              <div class="chan"><span class="ci" style="background:#1877F2"><i class="ph-fill ph-facebook-logo"></i></span><div><b>Facebook</b><small>Not connected</small></div><span class="act"><button class="cbtn">Connect</button></span></div>
+            </div>
+          </div>
+          <div class="card"><h3>Cadence &amp; goals</h3><div class="sub">How often and what for</div>
+            <div class="cfgrow"><label>Posts per week</label><div class="optset" data-single><button class="opt">3</button><button class="opt on">6</button><button class="opt">10</button><button class="opt">Daily</button></div></div>
+            <div class="cfgrow"><label>Goal</label><div class="optset" data-single><button class="opt on"><span class="ic"><i class="ph-fill ph-trend-up"></i></span> Sales</button><button class="opt"><span class="ic"><i class="ph-fill ph-users-three"></i></span> Followers</button><button class="opt"><span class="ic"><i class="ph-fill ph-megaphone-simple"></i></span> Awareness</button></div></div>
+            <div class="toggle-line"><div><b>Post at best times</b><small>Use Intelligence to pick optimal slots</small></div><span class="sw2" data-sw></span></div>
+            <div class="toggle-line"><div><b>Auto-publish <span class="pro-tag">PRO</span></b><small>Publish without approval, fully hands-off</small></div><span class="sw2 off" id="autopub"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"><i class="ph-fill ph-sparkle"></i> <span id="toastTxt"></span></div>
+<script>
+(function(){
+  var P='https://pub.hyperagent.com/api/published/';
+  var q=[
+    {n:'Honest routine reel',f:'Reel',d:'Tue 6:00pm · Instagram',img:'pbf01KTHXZRTX_QB3V2CCG69WSV2BC/0ec5c198-4e97-4907-a682-1fc8bef850c6.png'},
+    {n:'3 steps to glow',f:'Carousel',d:'Wed 9:00am · Instagram',img:'pbf01KTHXZSSV_W6WW7XB2H4AZ116T/b3f8ca84-562a-4bbe-aa01-132c89509c94.png'},
+    {n:'New serum drop',f:'Post',d:'Thu 12:00pm · Instagram',img:'pbf01KTHXZSBH_2HM2VGEC8HCN10CK/173e4725-704f-4d73-8760-f5cceba66e97.png'},
+    {n:'Texture tease',f:'Story',d:'Fri 8:00am · Instagram',img:'pbf01KTHXZVSG_41EKHZ5RNE08XBAD/d48fe55e-10c5-497a-bb7a-5e09e27ad365.png'},
+    {n:'Founder note',f:'Avatar',d:'Sat 11:00am · LinkedIn',img:'pbf01KTHXZT7N_GJNTRWQ6R80G987T/48ed6ac4-b28d-467d-84c1-03984cdff1de.png'},
+    {n:'Summer offer',f:'Ad',d:'Sun 5:00pm · Instagram',img:'pbf01KTHXZV7K_TB9F9ZRWTE9XGYXT/69355481-45bb-44e5-8778-db71055ccc64.png'}
+  ];
+  var qEl=document.getElementById('queue');
+  q.forEach(function(it){var d=document.createElement('div');d.className='qitem';
+    d.innerHTML='<span class="qph" style="background-image:url('+P+it.img+')"></span><div class="qm"><b>'+it.n+'</b><small><span class="qf">'+it.f+'</span> &nbsp;'+it.d+'</small></div><div class="qa"><button class="ok" title="Approve"><i class="ph-bold ph-check"></i></button><button title="Edit"><i class="ph ph-pencil-simple"></i></button><button title="Skip"><i class="ph ph-x"></i></button></div>';
+    qEl.appendChild(d);});
+  var toast=document.getElementById('toast'),toastTxt=document.getElementById('toastTxt'),tt;function showToast(m){toastTxt.innerHTML=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove('show');},2400);}
+  qEl.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var it=b.closest('.qitem');if(b.classList.contains('ok')){it.style.opacity='.5';showToast('Approved — scheduled');}else if(b.title==='Skip'){it.style.opacity='.3';showToast('Skipped');}else{showToast('Opening in the editor…');setTimeout(function(){window.location.href='/create';},700);}});
+  document.getElementById('master').addEventListener('click',function(){this.classList.toggle('off');showToast(this.classList.contains('off')?'Autopilot paused':'Autopilot on — publishing while you sleep');});
+  [].slice.call(document.querySelectorAll('[data-sw]')).forEach(function(s){s.addEventListener('click',function(){this.classList.toggle('off');});});
+  document.getElementById('autopub').addEventListener('click',function(){showToast('Auto-publish is a Pro feature');setTimeout(function(){window.location.href='/pricing';},900);});
+  [].slice.call(document.querySelectorAll('.optset')).forEach(function(set){set.addEventListener('click',function(e){var b=e.target.closest('.opt');if(!b)return;[].slice.call(set.children).forEach(function(o){o.classList.remove('on');});b.classList.add('on');});});
+  [].slice.call(document.querySelectorAll('.cbtn')).forEach(function(b){b.addEventListener('click',function(){var c=this.closest('.chan');this.outerHTML='<span class="connected"><i class="ph-fill ph-check-circle"></i> Connected</span>';showToast('Channel connected (demo)');});});
+  setTimeout(function(){document.querySelector('.reveal').classList.add('lit');},60);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mint Studio — Pricing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{--base:#F4F5F7;--paper-2:#FBFBFC;--white:#FFFFFF;--ink:#15161A;--gray:#5C5E68;--mint:#20E0A0;--mint-deep:#0FBF85;--tangerine:#FF6A3D;--pink:#FF3D8A;--cobalt:#2E6BFF;--butter:#FFC53D;--line:rgba(20,22,28,.08);--line-strong:rgba(20,22,28,.13);--shadow-sm:0 1px 2px rgba(20,22,28,.05),0 2px 6px rgba(20,22,28,.05);--shadow-md:0 1px 2px rgba(20,22,28,.05),0 14px 30px -10px rgba(20,22,28,.16);--shadow-lg:0 2px 4px rgba(20,22,28,.06),0 34px 60px -18px rgba(20,22,28,.26);--glass:rgba(255,255,255,.55);--glass-2:rgba(255,255,255,.68);--hi:inset 0 1px 0 rgba(255,255,255,.7);--display:"Bricolage Grotesque","Geist",system-ui,sans-serif;--body:"Geist",system-ui,sans-serif;--mono:"Space Mono",monospace;--grad:linear-gradient(90deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine));--spring:cubic-bezier(.34,1.56,.64,1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;background:linear-gradient(180deg,#FAFAFB,#F1F2F5 60%,#EDEFF2);overflow-x:hidden}
+a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}img{display:block;max-width:100%}::selection{background:var(--mint);color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(20,22,28,.18);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+.ambient{position:fixed;inset:0;z-index:-2;overflow:hidden}.ambient span{position:absolute;border-radius:50%;filter:blur(100px);opacity:.46}
+.ambient .b1{width:46vw;height:46vw;left:18vw;top:-18vw;background:radial-gradient(circle,rgba(32,224,160,.4),transparent 66%);animation:d1 22s ease-in-out infinite alternate}
+.ambient .b2{width:42vw;height:42vw;right:-8vw;top:20vh;background:radial-gradient(circle,rgba(46,107,255,.3),transparent 66%);animation:d2 26s ease-in-out infinite alternate}
+.ambient .b3{width:30vw;height:30vw;left:36vw;bottom:-12vw;background:radial-gradient(circle,rgba(255,61,138,.16),transparent 70%);animation:d1 30s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(5vw,4vh) scale(1.1)}}@keyframes d2{to{transform:translate(-5vw,-3vh) scale(1.1)}}
+.app{display:grid;grid-template-columns:256px 1fr;min-height:100dvh}
+.side{position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;padding:18px 14px;z-index:20;background:var(--glass);backdrop-filter:blur(34px) saturate(180%);-webkit-backdrop-filter:blur(34px) saturate(180%);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.18rem;letter-spacing:-.02em;padding:6px 10px 14px}.brand .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#06231a;font-size:.95rem;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));box-shadow:0 4px 12px rgba(32,224,160,.45)}
+.navg{display:flex;flex-direction:column;gap:2px}.nav-i{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;font-weight:600;font-size:.94rem;color:var(--ink)}.nav-i i{font-size:1.25rem;color:var(--gray)}.nav-i:hover{background:rgba(20,22,28,.045)}.nav-i .pillnew{margin-left:auto;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;background:var(--ink);color:#fff;border-radius:999px;padding:3px 7px}
+.spacer{flex:1}.cap{background:var(--glass-2);border:1px solid var(--line);border-radius:14px;padding:13px;display:flex;align-items:center;gap:12px;margin-bottom:8px;box-shadow:var(--hi)}.cap .ring{width:40px;height:40px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--mint) 0 72%,rgba(20,22,28,.1) 72%);display:grid;place-items:center}.cap .ring b{width:30px;height:30px;border-radius:50%;background:var(--paper-2);display:grid;place-items:center;font-size:.7rem;font-weight:700}.cap .t{font-size:.82rem;line-height:1.3}.cap .t b{font-weight:700}.cap .t small{color:var(--gray);display:block;font-size:.74rem}
+.userchip{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px}.userchip .av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.85rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.userchip .t{font-size:.84rem;font-weight:600;line-height:1.25}.userchip .t small{display:block;color:var(--gray);font-weight:400;font-size:.74rem}.userchip .mr{margin-left:auto;color:var(--gray)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px clamp(18px,3vw,40px);background:var(--glass);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border-bottom:1px solid var(--line)}
+.work{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem}.work .av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.72rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.work .cw{color:var(--gray);font-size:.78rem;font-weight:500}
+.content{padding:clamp(28px,4vw,56px) clamp(18px,3vw,40px);max-width:1080px;width:100%;margin:0 auto}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .85s var(--spring)}.reveal.lit{opacity:1;transform:none}
+.ph{text-align:center;margin-bottom:30px}
+.ph .eb{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--gray);display:inline-flex;align-items:center;gap:8px;margin-bottom:14px}.ph .eb .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(32,224,160,.16)}
+.ph h1{font-family:var(--display);font-weight:800;font-size:clamp(2rem,4vw,3rem);letter-spacing:-.03em;line-height:1.04}.ph .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:sheen 6s linear infinite}@keyframes sheen{to{background-position:200% center}}
+.ph p{color:var(--gray);max-width:50ch;margin:14px auto 0}
+.billtoggle{display:inline-flex;align-items:center;gap:4px;background:var(--white);border:1px solid var(--line);border-radius:999px;padding:4px;margin:22px auto 0}.billtoggle button{font-size:.86rem;font-weight:600;color:var(--gray);padding:8px 18px;border-radius:999px}.billtoggle button.on{background:var(--ink);color:#fff}.billtoggle .save{font-size:.7rem;color:var(--mint-deep);font-weight:700;margin-left:4px}
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:30px}@media(max-width:900px){.tiers{grid-template-columns:1fr}.app{grid-template-columns:1fr}.side{display:none}}
+.tier{background:var(--glass-2);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:var(--shadow-sm),var(--hi);display:flex;flex-direction:column;position:relative}
+.tier.best{border:1.5px solid var(--ink);box-shadow:var(--shadow-lg)}
+.tier .pop{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:.72rem;font-weight:800;color:#06231a;background:linear-gradient(120deg,var(--mint),#8fe9c8);border-radius:999px;padding:5px 14px;box-shadow:var(--shadow-md)}
+.tier h3{font-family:var(--display);font-weight:800;font-size:1.3rem;letter-spacing:-.01em}.tier .desc{color:var(--gray);font-size:.86rem;margin:4px 0 18px;min-height:38px}
+.tier .price{font-family:var(--display);font-weight:800;font-size:2.6rem;letter-spacing:-.03em;line-height:1}.tier .price small{font-size:.95rem;color:var(--gray);font-weight:500}
+.tier .credits{font-size:.84rem;color:var(--mint-deep);font-weight:700;margin:8px 0 18px;display:inline-flex;align-items:center;gap:6px}
+.tier .buy{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:.95rem;padding:13px;border-radius:13px;margin-bottom:20px;position:relative;overflow:hidden}
+.tier .buy.ink{background:var(--ink);color:#fff}.tier .buy.ink::after{content:"";position:absolute;inset:0;background:var(--grad);opacity:0;transition:.3s}.tier .buy.ink:hover::after{opacity:.18}
+.tier .buy.ghost{border:1px solid var(--line-strong);background:var(--white)}.tier .buy.ghost:hover{border-color:var(--ink)}
+.feat{list-style:none;display:flex;flex-direction:column;gap:11px;font-size:.88rem}.feat li{display:flex;align-items:flex-start;gap:9px}.feat li i{color:var(--mint-deep);margin-top:2px;flex-shrink:0}.feat li.dim{color:var(--gray)}.feat li.dim i{color:var(--gray)}
+.packs{margin-top:30px;background:var(--glass-2);border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:var(--hi);display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.packs .pi{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;color:#fff;font-size:1.3rem;background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}
+.packs b{font-weight:700}.packs small{color:var(--gray);display:block;font-size:.84rem}.packs .sp{flex:1}
+.packs .pk{border:1px solid var(--line-strong);border-radius:12px;padding:9px 15px;font-weight:700;font-size:.88rem;background:var(--white)}.packs .pk small{color:var(--gray);font-weight:500}
+.trust{text-align:center;color:var(--gray);font-size:.84rem;margin-top:24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}.trust span{display:inline-flex;align-items:center;gap:7px}
+.faq{max-width:680px;margin:40px auto 0}.faq h2{font-family:var(--display);font-weight:800;font-size:1.5rem;text-align:center;margin-bottom:18px;letter-spacing:-.02em}
+.qa{border-top:1px solid var(--line);padding:16px 0}.qa b{font-weight:700;font-size:.96rem}.qa p{color:var(--gray);font-size:.88rem;margin-top:6px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.16s!important}.ambient span{animation:none}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ambient"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark">✦</span> Mint Studio</div>
+    <nav class="navg">
+      <a class="nav-i" href="/dashboard"><i class="ph-fill ph-house"></i> Home</a>
+      <a class="nav-i" href="/create"><i class="ph ph-magic-wand"></i> Create</a>
+      <a class="nav-i" href="/winning-ads"><i class="ph ph-fire"></i> Winning ads <span class="pillnew">NEW</span></a>
+      <a class="nav-i" href="/templates"><i class="ph ph-squares-four"></i> Templates</a>
+      <a class="nav-i" href="/brand-dna"><i class="ph ph-fingerprint"></i> Brand DNA</a>
+      <a class="nav-i" href="/intelligence"><i class="ph ph-chart-line-up"></i> Intelligence</a>
+      <a class="nav-i" href="/autopilot"><i class="ph ph-broadcast"></i> Autopilot</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="cap"><div class="ring"><b>27</b></div><div class="t"><b>Studio capacity</b><small>27 posts ready to make</small></div></div>
+    <a class="userchip" href="/settings"><span class="av">LB</span><span class="t">Lunar Bloom<small>Free trial · 7 days left</small></span><i class="ph ph-caret-up-down mr"></i></a>
+  </aside>
+  <div class="main">
+    <header class="top"><div class="work"><span class="av">LB</span> @lunarbloom <span class="cw">Beauty &amp; skincare</span></div></header>
+    <div class="content reveal">
+      <div class="ph">
+        <span class="eb"><span class="dot"></span> Pricing</span>
+        <h1>Put your content on <span class="grad-text">autopilot.</span></h1>
+        <p>Start free. Upgrade when the magic clicks. You only pay for what you make, and you can cancel anytime.</p>
+        <div class="billtoggle" id="bt"><button class="on" data-b="m">Monthly</button><button data-b="y">Annual <span class="save">save 20%</span></button></div>
+      </div>
+
+      <div class="tiers">
+        <div class="tier">
+          <h3>Free</h3><div class="desc">See the magic. Make on-brand content with a watermark.</div>
+          <div class="price">$0</div><div class="credits"><i class="ph-fill ph-sparkle"></i> 50 starter credits</div>
+          <button class="buy ghost">Current plan</button>
+          <ul class="feat">
+            <li><i class="ph-bold ph-check"></i> Unlimited drafts &amp; previews</li>
+            <li><i class="ph-bold ph-check"></i> Posts, carousels, reels</li>
+            <li><i class="ph-bold ph-check"></i> 1 brand · 1 channel</li>
+            <li class="dim"><i class="ph ph-x"></i> Watermarked · 9:16 only</li>
+            <li class="dim"><i class="ph ph-x"></i> 1 language</li>
+            <li class="dim"><i class="ph ph-x"></i> Hook-only ad breakdowns</li>
+          </ul>
+        </div>
+        <div class="tier best">
+          <span class="pop">Most popular</span>
+          <h3>Pro</h3><div class="desc">Everything you need to run social on autopilot.</div>
+          <div class="price"><span data-m="$39" data-y="$31">$39</span><small>/mo</small></div><div class="credits"><i class="ph-fill ph-sparkle"></i> 1,200 credits / month</div>
+          <button class="buy ink" id="buyPro"><i class="ph-fill ph-crown-simple"></i> Upgrade to Pro</button>
+          <ul class="feat">
+            <li><i class="ph-bold ph-check"></i> HD, no watermark, all formats</li>
+            <li><i class="ph-bold ph-check"></i> 99+ language packs</li>
+            <li><i class="ph-bold ph-check"></i> Autopilot &amp; auto-publish</li>
+            <li><i class="ph-bold ph-check"></i> Full ad deconstructions + 10 variations</li>
+            <li><i class="ph-bold ph-check"></i> Full Intelligence + 3 competitor trackers</li>
+            <li><i class="ph-bold ph-check"></i> Avatar clips &amp; cinematic video</li>
+          </ul>
+        </div>
+        <div class="tier">
+          <h3>Studio</h3><div class="desc">For agencies &amp; teams running many brands.</div>
+          <div class="price"><span data-m="$99" data-y="$79">$99</span><small>/mo</small></div><div class="credits"><i class="ph-fill ph-sparkle"></i> 4,000 credits / month</div>
+          <button class="buy ghost" id="buyStudio">Choose Studio</button>
+          <ul class="feat">
+            <li><i class="ph-bold ph-check"></i> Everything in Pro</li>
+            <li><i class="ph-bold ph-check"></i> Up to 5 brands</li>
+            <li><i class="ph-bold ph-check"></i> Team seats &amp; approvals</li>
+            <li><i class="ph-bold ph-check"></i> 10 competitor trackers + daily alerts</li>
+            <li><i class="ph-bold ph-check"></i> Priority rendering</li>
+            <li><i class="ph-bold ph-check"></i> API access</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="packs">
+        <span class="pi"><i class="ph-fill ph-coins"></i></span>
+        <div><b>Need a top-up?</b><small>Buy credits anytime, on any plan. They never expire.</small></div>
+        <span class="sp"></span>
+        <button class="pk">$9 <small>· 200 credits</small></button>
+        <button class="pk">$29 <small>· 700 credits</small></button>
+      </div>
+
+      <div class="trust"><span><i class="ph-fill ph-lock-simple"></i> Secure checkout</span><span><i class="ph-fill ph-arrow-counter-clockwise"></i> Cancel anytime</span><span><i class="ph-fill ph-credit-card"></i> Apple Pay · cards</span></div>
+
+      <div class="faq">
+        <h2>Questions</h2>
+        <div class="qa"><b>What's a credit?</b><p>Drafts and edits are free. Credits are only spent on premium renders, HD exports, video and avatar clips, so you pay for what you actually ship.</p></div>
+        <div class="qa"><b>Does Pro really beat buying credit packs?</b><p>Yes. Pro's 1,200 monthly credits work out cheaper per credit than packs, plus you get HD exports, autopilot, 99+ languages and the full intelligence layer.</p></div>
+        <div class="qa"><b>Can I cancel?</b><p>Anytime, in one click. You keep everything you've made.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  document.getElementById('bt').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;[].slice.call(this.children).forEach(function(o){o.classList.remove('on');});b.classList.add('on');
+    var key=b.dataset.b;[].slice.call(document.querySelectorAll('.price span[data-m]')).forEach(function(s){s.textContent=s.getAttribute('data-'+key);});});
+  setTimeout(function(){document.querySelector('.reveal').classList.add('lit');},60);
+})();
+</script>
+</body>
+</html>

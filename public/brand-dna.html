@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mint Studio — Brand DNA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{--base:#F4F5F7;--paper-2:#FBFBFC;--white:#FFFFFF;--ink:#15161A;--gray:#5C5E68;--mint:#20E0A0;--mint-deep:#0FBF85;--tangerine:#FF6A3D;--pink:#FF3D8A;--cobalt:#2E6BFF;--butter:#FFC53D;--line:rgba(20,22,28,.08);--line-strong:rgba(20,22,28,.13);--shadow-sm:0 1px 2px rgba(20,22,28,.05),0 2px 6px rgba(20,22,28,.05);--shadow-md:0 1px 2px rgba(20,22,28,.05),0 14px 30px -10px rgba(20,22,28,.16);--shadow-lg:0 2px 4px rgba(20,22,28,.06),0 34px 60px -18px rgba(20,22,28,.26);--glass:rgba(255,255,255,.55);--glass-2:rgba(255,255,255,.68);--hi:inset 0 1px 0 rgba(255,255,255,.7);--r-sm:14px;--r-md:20px;--r-lg:28px;--display:"Bricolage Grotesque","Geist",system-ui,sans-serif;--body:"Geist",system-ui,sans-serif;--mono:"Space Mono",monospace;--grad:linear-gradient(90deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine));--spring:cubic-bezier(.34,1.56,.64,1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;background:linear-gradient(180deg,#FAFAFB,#F1F2F5 60%,#EDEFF2);overflow-x:hidden}
+a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}img{display:block;max-width:100%}::selection{background:var(--mint);color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(20,22,28,.18);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+.ambient{position:fixed;inset:0;z-index:-2;overflow:hidden}.ambient span{position:absolute;border-radius:50%;filter:blur(100px);opacity:.42}
+.ambient .b1{width:46vw;height:46vw;left:8vw;top:-16vw;background:radial-gradient(circle,rgba(32,224,160,.38),transparent 66%);animation:d1 22s ease-in-out infinite alternate}
+.ambient .b2{width:42vw;height:42vw;right:-12vw;top:22vh;background:radial-gradient(circle,rgba(46,107,255,.3),transparent 66%);animation:d2 26s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(5vw,4vh) scale(1.1)}}@keyframes d2{to{transform:translate(-5vw,-3vh) scale(1.1)}}
+.app{display:grid;grid-template-columns:256px 1fr;min-height:100dvh}
+.side{position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;padding:18px 14px;z-index:20;background:var(--glass);backdrop-filter:blur(34px) saturate(180%);-webkit-backdrop-filter:blur(34px) saturate(180%);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.18rem;letter-spacing:-.02em;padding:6px 10px 14px}
+.brand .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#06231a;font-size:.95rem;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));box-shadow:0 4px 12px rgba(32,224,160,.45)}
+.navg{display:flex;flex-direction:column;gap:2px}.nav-i{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;font-weight:600;font-size:.94rem;color:var(--ink);transition:background .2s}.nav-i i{font-size:1.25rem;color:var(--gray)}.nav-i:hover{background:rgba(20,22,28,.045)}.nav-i.on{background:linear-gradient(100deg,rgba(32,224,160,.2),rgba(46,107,255,.08));color:var(--ink);box-shadow:var(--hi)}.nav-i.on i{color:var(--mint-deep)}.nav-i .pillnew{margin-left:auto;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;background:var(--ink);color:#fff;border-radius:999px;padding:3px 7px}
+.spacer{flex:1}.cap{background:var(--glass-2);border:1px solid var(--line);border-radius:14px;padding:13px;display:flex;align-items:center;gap:12px;margin-bottom:8px;box-shadow:var(--hi)}.cap .ring{width:40px;height:40px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--mint) 0 72%,rgba(20,22,28,.1) 72%);display:grid;place-items:center}.cap .ring b{width:30px;height:30px;border-radius:50%;background:var(--paper-2);display:grid;place-items:center;font-size:.7rem;font-weight:700}.cap .t{font-size:.82rem;line-height:1.3}.cap .t b{font-weight:700}.cap .t small{color:var(--gray);display:block;font-size:.74rem}
+.userchip{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px}.userchip .av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.85rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.userchip .t{font-size:.84rem;font-weight:600;line-height:1.25}.userchip .t small{display:block;color:var(--gray);font-weight:400;font-size:.74rem}.userchip .mr{margin-left:auto;color:var(--gray)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px clamp(18px,3vw,40px);background:var(--glass);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border-bottom:1px solid var(--line)}
+.work{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem}.work .av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.72rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.work .cw{color:var(--gray);font-size:.78rem;font-weight:500}
+.lang{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:600;background:var(--glass-2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;box-shadow:var(--shadow-sm)}.lang .gi{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.05rem}.lang .ct{font-family:var(--mono);font-size:.72rem;color:var(--gray)}
+.content{padding:clamp(22px,3vw,40px);max-width:1080px;width:100%;margin:0 auto}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .85s var(--spring)}.reveal.lit{opacity:1;transform:none}
+.pagehd{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:8px}
+.pagehd .bav{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:1.4rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6);box-shadow:var(--shadow-md)}
+.pagehd h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3vw,2.2rem);letter-spacing:-.025em}
+.pagehd p{color:var(--gray);font-size:.9rem;margin-top:2px}
+.pagehd .sp{flex:1}
+.btn-ghost{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:12px;padding:11px 17px;font-weight:600;background:var(--white)}.btn-ghost:hover{border-color:var(--ink)}
+.btn-ink{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;font-weight:600;padding:11px 18px;border-radius:12px;position:relative;overflow:hidden}.btn-ink::after{content:"";position:absolute;inset:0;background:var(--grad);opacity:0;transition:.3s}.btn-ink:hover::after{opacity:.16}
+.meter{margin:20px 0 28px;background:var(--glass-2);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--hi);display:flex;align-items:center;gap:16px}
+.meter .bar{flex:1;height:8px;border-radius:99px;background:rgba(20,22,28,.08);overflow:hidden}.meter .bar i{display:block;height:100%;width:82%;border-radius:99px;background:linear-gradient(90deg,var(--mint),var(--cobalt))}
+.meter b{font-family:var(--display);font-weight:800}.meter small{color:var(--gray);font-size:.84rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--glass-2);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow-sm),var(--hi)}
+.card.wide{grid-column:1 / -1}
+.card .ch{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.card .ch h3{font-family:var(--display);font-weight:700;font-size:1.08rem;letter-spacing:-.01em}
+.card .ch .ci{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:1.1rem;background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}
+.card .ch .ed{margin-left:auto;font-size:.82rem;font-weight:600;color:var(--cobalt)}
+.pal{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pal .sw{width:46px;height:46px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.07);cursor:pointer;position:relative;transition:transform .2s var(--spring)}
+.pal .sw:hover{transform:translateY(-3px)}.pal .sw .hex{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);font-family:var(--mono);font-size:8.5px;color:var(--gray);white-space:nowrap;opacity:0;transition:.2s}.pal .sw:hover .hex{opacity:1}
+.pal .add{width:46px;height:46px;border-radius:12px;border:1.5px dashed var(--line-strong);display:grid;place-items:center;color:var(--gray);font-size:1.1rem}.pal .add:hover{border-color:var(--ink);color:var(--ink)}
+.fontspec .big{font-family:var(--display);font-weight:800;font-size:2.2rem;letter-spacing:-.02em;line-height:1}
+.fontspec .body{font-size:.95rem;color:var(--gray);margin-top:6px}
+.fontrow{display:flex;gap:8px;margin-top:14px}.fontrow button{flex:1;border:1px solid var(--line-strong);border-radius:10px;padding:9px;font-weight:700;font-size:.9rem;background:var(--white)}.fontrow button.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.tags{display:flex;flex-wrap:wrap;gap:8px}.tag{font-size:.85rem;font-weight:600;background:var(--white);border:1px solid var(--line-strong);border-radius:999px;padding:7px 13px;display:inline-flex;align-items:center;gap:7px}.tag .x{color:var(--gray);font-size:.8rem;cursor:pointer}.tag.add{border-style:dashed;color:var(--gray);cursor:pointer}.tag.add:hover{border-color:var(--ink);color:var(--ink)}
+.logo-box{display:flex;align-items:center;gap:16px}.logo-box .lg{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:1.5rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}
+.logo-box .up{font-size:.84rem;color:var(--gray)}.logo-box .up b{color:var(--cobalt);font-weight:600}
+.aud{font-size:.95rem}.aud b{font-weight:600}
+/* products */
+.prodgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:880px){.prodgrid{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:860px){.app{grid-template-columns:1fr}.side{display:none}}
+.prod{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;box-shadow:var(--shadow-sm);transition:transform .25s var(--spring),box-shadow .25s}.prod:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.prod .ph{aspect-ratio:1/1;overflow:hidden}.prod .ph img{width:100%;height:100%;object-fit:cover}
+.prod .pf{padding:10px 12px}.prod .pf b{font-size:.88rem;font-weight:600;display:block}.prod .pf small{color:var(--gray);font-size:.78rem}
+.prod-add{border:1.5px dashed var(--line-strong);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--gray);min-height:160px;cursor:pointer}.prod-add:hover{border-color:var(--ink);color:var(--ink)}.prod-add i{font-size:1.6rem}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:95;display:inline-flex;align-items:center;gap:10px;background:rgba(21,22,26,.92);color:#fff;font-weight:600;font-size:.9rem;padding:13px 18px;border-radius:14px;box-shadow:var(--shadow-lg);opacity:0;visibility:hidden;transition:.4s var(--spring)}.toast.show{opacity:1;visibility:visible;transform:translateX(-50%)}.toast i{color:var(--mint)}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.16s!important}.ambient span{animation:none}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ambient"><span class="b1"></span><span class="b2"></span></div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark">✦</span> Mint Studio</div>
+    <nav class="navg">
+      <a class="nav-i" href="/dashboard"><i class="ph-fill ph-house"></i> Home</a>
+      <a class="nav-i" href="/create"><i class="ph ph-magic-wand"></i> Create</a>
+      <a class="nav-i" href="/winning-ads"><i class="ph ph-fire"></i> Winning ads <span class="pillnew">NEW</span></a>
+      <a class="nav-i" href="/templates"><i class="ph ph-squares-four"></i> Templates</a>
+      <a class="nav-i on"><i class="ph-fill ph-fingerprint"></i> Brand DNA</a>
+      <a class="nav-i"><i class="ph ph-chart-line-up"></i> Intelligence</a>
+      <a class="nav-i"><i class="ph ph-broadcast"></i> Autopilot</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="cap"><div class="ring"><b>27</b></div><div class="t"><b>Studio capacity</b><small>27 posts ready to make</small></div></div>
+    <a class="userchip"><span class="av">LB</span><span class="t">Lunar Bloom<small>Free trial · 7 days left</small></span><i class="ph ph-caret-up-down mr"></i></a>
+  </aside>
+  <div class="main">
+    <header class="top"><div class="work"><span class="av">LB</span> @lunarbloom <span class="cw">Beauty &amp; skincare</span></div><div class="lang"><i class="ph-fill ph-globe-hemisphere-west gi"></i> English <span class="ct">99+</span></div></header>
+    <div class="content reveal">
+      <div class="pagehd">
+        <span class="bav">LB</span>
+        <div><h1>Brand DNA</h1><p>Trained on your Instagram &amp; site · last synced 2 days ago. Everything Mint Studio makes uses this.</p></div>
+        <span class="sp"></span>
+        <button class="btn-ghost" id="rescan"><i class="ph ph-arrow-counter-clockwise"></i> Re-scan</button>
+        <button class="btn-ink"><i class="ph ph-check"></i> Save</button>
+      </div>
+      <div class="meter"><b id="pct">82%</b><div class="bar"><i id="bar"></i></div><small id="msg">Add 2 more products to reach 100% and unlock sharper product ads.</small></div>
+
+      <div class="grid">
+        <div class="card"><div class="ch"><span class="ci"><i class="ph-fill ph-palette"></i></span><h3>Palette</h3><span class="ed">Edit</span></div>
+          <div class="pal" id="pal">
+            <span class="sw" style="background:#0E1B2A"><span class="hex">#0E1B2A</span></span>
+            <span class="sw" style="background:#1FB6A6"><span class="hex">#1FB6A6</span></span>
+            <span class="sw" style="background:#FF5C5C"><span class="hex">#FF5C5C</span></span>
+            <span class="sw" style="background:#FFD23F"><span class="hex">#FFD23F</span></span>
+            <span class="sw" style="background:#F4F1EA"><span class="hex">#F4F1EA</span></span>
+            <span class="add" id="addSw"><i class="ph ph-plus"></i></span>
+          </div>
+        </div>
+        <div class="card"><div class="ch"><span class="ci" style="background:linear-gradient(135deg,var(--pink),var(--tangerine))"><i class="ph-fill ph-text-aa"></i></span><h3>Typography</h3><span class="ed">Edit</span></div>
+          <div class="fontspec"><div class="big">Aa Bb Cc</div><div class="body">The quick brown fox — your body copy reads clean and warm.</div></div>
+          <div class="fontrow"><button class="on">Clash Display</button><button>Satoshi</button><button>+ Browse</button></div>
+        </div>
+        <div class="card"><div class="ch"><span class="ci" style="background:linear-gradient(135deg,var(--mint),var(--mint-deep))"><i class="ph-fill ph-chat-circle-dots"></i></span><h3>Voice &amp; tone</h3><span class="ed">Edit</span></div>
+          <div class="tags" id="voice"><span class="tag">Confident <i class="ph ph-x x"></i></span><span class="tag">Warm <i class="ph ph-x x"></i></span><span class="tag">Playful <i class="ph ph-x x"></i></span><span class="tag">Bold <i class="ph ph-x x"></i></span><span class="tag add" id="addVoice"><i class="ph ph-plus"></i> Add</span></div>
+        </div>
+        <div class="card"><div class="ch"><span class="ci" style="background:linear-gradient(135deg,var(--cobalt),var(--pink))"><i class="ph-fill ph-bookmark-simple"></i></span><h3>Logo</h3><span class="ed">Edit</span></div>
+          <div class="logo-box"><span class="lg">LB</span><div class="up">Drag a file or <b>upload</b><br><small style="color:var(--gray)">PNG/SVG · used on exports &amp; watermarks</small></div></div>
+        </div>
+        <div class="card wide"><div class="ch"><span class="ci" style="background:linear-gradient(135deg,var(--butter),var(--tangerine))"><i class="ph-fill ph-users-three"></i></span><h3>Audience</h3><span class="ed">Edit</span></div>
+          <p class="aud"><b>Gen-Z &amp; millennial shoppers</b> who care about clean, sustainable beauty and self-care rituals. Shop on mobile, discover on TikTok &amp; Instagram, value authenticity over polish.</p>
+          <div class="tags" style="margin-top:14px"><span class="tag">Skincare</span><span class="tag">Self-care</span><span class="tag">Sustainable</span><span class="tag">Gifting</span></div>
+        </div>
+
+        <div class="card wide"><div class="ch"><span class="ci" style="background:linear-gradient(135deg,#0E1B2A,#1FB6A6)"><i class="ph-fill ph-package"></i></span><h3>Products</h3><small style="color:var(--gray);margin-left:auto;font-size:.82rem">Used for product shots, UGC ads &amp; try-on</small></div>
+          <div class="prodgrid" id="prods">
+            <div class="prod"><div class="ph"><img src="https://pub.hyperagent.com/api/published/pbf01KTHXZSBH_2HM2VGEC8HCN10CK/173e4725-704f-4d73-8760-f5cceba66e97.png" alt=""></div><div class="pf"><b>Vitamin-C Glow Serum</b><small>$48</small></div></div>
+            <div class="prod"><div class="ph"><img src="https://pub.hyperagent.com/api/published/pbf01KTHXZVSG_41EKHZ5RNE08XBAD/d48fe55e-10c5-497a-bb7a-5e09e27ad365.png" alt=""></div><div class="pf"><b>Dew Drop Essence</b><small>$36</small></div></div>
+            <div class="prod"><div class="ph"><img src="https://pub.hyperagent.com/api/published/pbf01KTHXZSSV_W6WW7XB2H4AZ116T/b3f8ca84-562a-4bbe-aa01-132c89509c94.png" alt=""></div><div class="pf"><b>Ritual Gift Set</b><small>$92</small></div></div>
+            <div class="prod-add" id="addProd"><i class="ph ph-plus-circle"></i><span style="font-weight:600;font-size:.86rem">Add product</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"><i class="ph-fill ph-sparkle"></i> <span id="toastTxt"></span></div>
+<script>
+(function(){
+  var toast=document.getElementById('toast'),toastTxt=document.getElementById('toastTxt'),tt;
+  function showToast(m){toastTxt.innerHTML=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove('show');},2600);}
+  setTimeout(function(){document.querySelector('.reveal').classList.add('lit');},60);
+  // bar fill
+  setTimeout(function(){document.getElementById('bar').style.width='82%';},300);
+  // font row
+  document.querySelector('.fontrow').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;if(b.textContent.indexOf('Browse')>-1){showToast('Browse 800+ brand fonts');return;}[].slice.call(this.children).forEach(function(o){o.classList.remove('on');});b.classList.add('on');});
+  // voice add / remove
+  var voice=document.getElementById('voice');
+  document.getElementById('addVoice').addEventListener('click',function(){var t=prompt&&false;var words=['Authentic','Bright','Editorial','Cheeky','Calm'];var w=words[Math.floor(Math.random()*words.length)];var s=document.createElement('span');s.className='tag';s.innerHTML=w+' <i class="ph ph-x x"></i>';voice.insertBefore(s,this);});
+  voice.addEventListener('click',function(e){if(e.target.classList.contains('x'))e.target.closest('.tag').remove();});
+  // swatch add
+  document.getElementById('addSw').addEventListener('click',function(){var cols=['#7C5CFF','#FF8A3D','#12B886','#E8E2D6','#222'];var c=cols[Math.floor(Math.random()*cols.length)];var s=document.createElement('span');s.className='sw';s.style.background=c;s.innerHTML='<span class="hex">'+c+'</span>';this.parentNode.insertBefore(s,this);showToast('Colour added to your palette');});
+  // products + rescan
+  document.getElementById('addProd').addEventListener('click',function(){showToast('Upload a product photo — we\'ll cut it out automatically');});
+  document.getElementById('rescan').addEventListener('click',function(){var b=this;b.innerHTML='<i class="ph ph-circle-notch" style="animation:spin 0.8s linear infinite"></i> Scanning…';showToast('Re-scanning @lunarbloom…');setTimeout(function(){b.innerHTML='<i class="ph ph-arrow-counter-clockwise"></i> Re-scan';showToast('Brand DNA refreshed');},2200);});
+  var st=document.createElement('style');st.textContent='@keyframes spin{to{transform:rotate(360deg)}}';document.head.appendChild(st);
+  document.querySelectorAll('.ed').forEach(function(e){e.addEventListener('click',function(){showToast('Inline editing (demo)');});});
+})();
+</script>
+</body>
+</html>

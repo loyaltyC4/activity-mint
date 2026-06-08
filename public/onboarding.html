@@ -568,6 +568,10 @@ h1.head{font-family:var(--display);font-weight:800;line-height:1.0;letter-spacin
   });
 
   setProg(0);
+
+  // funnel: prefill + auto-scan when arriving from the homepage with a handle
+  var _p=new URLSearchParams(location.search);var _h=_p.get('handle')||_p.get('url');
+  if(_h){handleInput.value=_h.replace(/^@+/,'').replace(/^https?:\/\//,'').replace(/\/$/,'');syncHandle();go(1);}
 })();
 </script>
 </body>

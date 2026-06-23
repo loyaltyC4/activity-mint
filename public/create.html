@@ -212,8 +212,8 @@ img{display:block;max-width:100%}::selection{background:var(--mint);color:var(--
   <aside class="side">
     <div class="brand"><span class="mark">✦</span> Mint Studio</div>
     <nav class="navg">
-      <a class="nav-i" href="/dashboard"><i class="ph ph-house"></i> Home</a>
-      <a class="nav-i on" href="/create"><i class="ph-fill ph-magic-wand"></i> Create</a>
+      <a class="nav-i" href="/dashboard"><i class="ph-fill ph-house"></i> Home</a>
+      <a class="nav-i on"><i class="ph ph-magic-wand"></i> Create</a>
       <a class="nav-i" href="/winning-ads"><i class="ph ph-fire"></i> Winning ads <span class="pillnew">NEW</span></a>
       <a class="nav-i" href="/templates"><i class="ph ph-squares-four"></i> Templates</a>
       <a class="nav-i" href="/brand-dna"><i class="ph ph-fingerprint"></i> Brand DNA</a>
@@ -386,6 +386,8 @@ img{display:block;max-width:100%}::selection{background:var(--mint);color:var(--
   ta.addEventListener('focus',function(){ghost.innerHTML='';clearTimeout(tmo);});
   ta.addEventListener('blur',function(){if(!ta.value){ci=0;typing=true;tick();}});
   tick();
+  // prefill from ?q (handed off from the Create hub composer)
+  var _q=new URLSearchParams(location.search).get('q'); if(_q){ta.value=_q;ghost.innerHTML='';clearTimeout(tmo);}
 
   // generate -> generating -> editor
   var gen=document.getElementById('gen'),genT=document.getElementById('genT'),genS=document.getElementById('genS'),genIcon=document.getElementById('genIcon');

@@ -47,6 +47,29 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
 .tool .tb b{font-family:var(--display);font-weight:700;font-size:.98rem;letter-spacing:-.01em;display:block}
 .tool .tb p{color:var(--gray);font-size:.8rem;margin-top:4px;line-height:1.4}
 
+/* composer (quick create) */
+.composer{margin:4px 0 22px;background:var(--glass-2);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow-md),var(--hi);padding:18px}
+.composer:focus-within{border-color:rgba(46,107,255,.4);box-shadow:0 0 0 4px rgba(46,107,255,.12),var(--shadow-md)}
+.composer textarea{width:100%;border:none;outline:none;background:none;resize:none;font-family:var(--body);font-size:1.06rem;color:var(--ink);min-height:52px;line-height:1.45}
+.composer textarea::placeholder{color:#9a9ca6}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
+.lefttools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.minichip{display:inline-flex;align-items:center;gap:7px;font-size:.84rem;font-weight:600;color:var(--ink);background:var(--white);border:1px solid var(--line-strong);border-radius:999px;padding:7px 12px}.minichip i{font-size:1rem;color:var(--gray)}
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.qchip{display:inline-flex;align-items:center;gap:8px;font-size:.9rem;font-weight:600;background:var(--glass-2);border:1px solid var(--line);border-radius:999px;padding:9px 15px;box-shadow:var(--shadow-sm);transition:transform .25s var(--spring),border-color .2s,box-shadow .2s}
+.qchip:hover{transform:translateY(-2px);border-color:var(--line-strong);box-shadow:var(--shadow-md)}.qchip i{font-size:1.05rem}
+.qchip.accent{border:0;color:#06231a;background:linear-gradient(120deg,var(--mint),#7fe6c0)}
+/* quality tags + finalize */
+.qt .qtags{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--cobalt);margin-top:8px}
+.finalize{background:var(--glass-2);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-sm),var(--hi);padding:16px 18px}
+.finalize .fhd{display:flex;align-items:center;gap:11px;cursor:pointer}
+.finalize .fhd .ci{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:rgba(20,22,28,.07);color:var(--gray);font-size:.9rem}
+.finalize .fhd b{font-weight:700;font-size:.95rem}.finalize .fhd .opt{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--gray)}
+.finalize .fhd .cv{color:var(--gray);transition:transform .3s var(--spring);margin-left:8px}
+.finalize.open .fhd .cv{transform:rotate(180deg)}
+.finalize .fbody{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.finalize.open .fbody{max-height:460px;padding-top:14px}
+.advgrp{margin-bottom:14px}.advgrp label{font-size:.8rem;font-weight:600;color:var(--gray);display:block;margin-bottom:7px}
 /* wizard */
 .wzhead{display:flex;align-items:center;gap:14px;margin-bottom:6px}
 .back{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--gray)}.back:hover{color:var(--ink)}
@@ -136,7 +159,27 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
     <div class="content">
       <!-- GRID -->
       <div class="view on reveal" id="vGrid">
-        <div class="hd"><h1>Create</h1><p>Pick a tool. Every output comes back on-brand for @lunarbloom, ready to edit, localise in 99+ languages, and schedule.</p></div>
+        <div class="hd"><h1>What do you want to create?</h1><p>Describe it, or pick a tool. Every output comes back on-brand for @lunarbloom, ready to edit, localise in 99+ languages, and schedule.</p></div>
+        <div class="composer">
+          <textarea id="ccPrompt" rows="2" placeholder="Describe a post, carousel, reel or ad for @lunarbloom…"></textarea>
+          <div class="crow">
+            <div class="lefttools">
+              <button class="minichip"><i class="ph ph-stack"></i> Format</button>
+              <button class="minichip"><i class="ph ph-package"></i> Product</button>
+              <button class="minichip"><i class="ph ph-globe-hemisphere-west"></i> EN</button>
+            </div>
+            <button class="cta" id="ccGen">Generate <span class="ar">→</span></button>
+          </div>
+          <div class="chips">
+            <button class="qchip" data-go="/create/composer"><i class="ph ph-rows"></i> Carousel</button>
+            <button class="qchip" data-tool="ugc-videos"><i class="ph ph-film-slate"></i> Reel</button>
+            <button class="qchip" data-tool="ad-creatives"><i class="ph ph-megaphone-simple"></i> Ad</button>
+            <button class="qchip" data-tool="social-posts"><i class="ph ph-image-square"></i> Post</button>
+            <button class="qchip" data-tool="ugc-videos"><i class="ph ph-user-focus"></i> Avatar clip</button>
+            <button class="qchip accent" data-go="/winning-ads"><i class="ph-fill ph-copy-simple"></i> Clone an ad</button>
+          </div>
+        </div>
+        <div class="grouphd" style="margin:4px 0 14px">Or start from a tool</div>
         <div class="search"><i class="ph ph-magnifying-glass"></i><input placeholder="Search tools…" id="toolSearch"></div>
         <div id="groups"></div>
       </div>
@@ -145,7 +188,7 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
         <div class="wzhead"><button class="back" id="wzBack"><i class="ph ph-arrow-left"></i> Tools</button></div>
         <div class="wzhead" style="margin-top:10px"><span class="ti" id="wzIcon"><i class="ph-fill ph-image"></i></span><div><h1 id="wzTitle">Tool</h1><p id="wzSub">desc</p></div></div>
         <div class="wzbody" id="wzBody"></div>
-        <div class="genbar"><span class="gm" id="genMsg">Complete the steps to generate</span><button class="cta" id="genBtn" disabled>Generate <span class="ar">→</span></button></div>
+        <div class="genbar"><span class="gm" id="genMsg">Complete the steps to generate</span><input id="projName" placeholder="Project name (optional)" style="margin-left:auto;border:1px solid var(--line-strong);border-radius:11px;padding:11px 14px;font-family:var(--body);font-size:.88rem;background:var(--white);outline:none;max-width:230px"><button class="cta" id="genBtn" disabled>Generate <span class="ar">→</span></button></div>
       </div>
       <!-- RESULTS -->
       <div class="view" id="vRes">
@@ -159,9 +202,10 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
 <script>
 (function(){
   // ── Quality tier step (shared) ──
-  const QUALITY={ id:'quality', title:'Select quality tier', sub:'Higher tiers use a stronger model', type:'quality', options:[
-    {label:'Standard', desc:'Fast, great for drafts & volume', cr:'1 credit'},
-    {label:'Pro', desc:'Highest fidelity model', cr:'3 credits', badge:'PRO'},
+  const QUALITY={ id:'quality', title:'Select quality tier', sub:'Higher tiers offer better resolution & smoother motion, but use more credits', type:'quality', options:[
+    {label:'Essential', desc:'Quick drafts in ~90s — perfect for mobile placements.', tags:'720p · ~90s · Mobile-focused', cr:'Free to generate'},
+    {label:'Professional', desc:'Higher detail, ~3 min. Better motion control.', tags:'1080p · ~3 min · Versatile', cr:'4 credits'},
+    {label:'Master', desc:'Cinematic-grade, ~5 min. Premium, pro-level output.', tags:'1080p · ~5 min · Pro-level', cr:'8 credits'},
   ]};
   const SIZES=[{label:'Square',sub:'1:1'},{label:'Portrait',sub:'9:16'},{label:'Landscape',sub:'16:9'},{label:'Vertical',sub:'4:5'},{label:'Pin',sub:'2:3'},{label:'Banner',sub:'21:9'}];
   const ANGLES=[
@@ -453,12 +497,25 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
   document.getElementById('toolSearch').addEventListener('input',function(){renderGrid(this.value.trim().toLowerCase());});
   renderGrid('');
 
+  // ── Composer (quick create) ──
+  function findTool(id){var f=null;GROUPS.forEach(function(g){g.tools.forEach(function(t){if(t.id===id)f=t;});});return f;}
+  document.getElementById('ccGen').addEventListener('click',function(){
+    var q=(document.getElementById('ccPrompt').value||'').trim();
+    window.location.href='/create/composer'+(q?'?q='+encodeURIComponent(q):'');
+  });
+  document.querySelectorAll('.chips .qchip').forEach(function(b){
+    b.addEventListener('click',function(){
+      var go=b.getAttribute('data-go'); if(go){window.location.href=go;return;}
+      var tid=b.getAttribute('data-tool'); var t=tid&&findTool(tid); if(t)openTool(t);
+    });
+  });
+
   // ── Wizard ──
   const vGrid=document.getElementById('vGrid'),vWiz=document.getElementById('vWiz'),vRes=document.getElementById('vRes');
   function show(v){[vGrid,vWiz,vRes].forEach(function(x){x.classList.remove('on');});v.classList.add('on');window.scrollTo({top:0,behavior:'smooth'});}
-  let cur=null,steps=[],active=0,sel={};
+  let cur=null,steps=[],active=0,sel={},finOpen=false,adv={};
   function openTool(tool){
-    cur=tool; steps=(CONFIG[tool.id]||defaultConfig(tool)).steps; active=0; sel={};
+    cur=tool; steps=(CONFIG[tool.id]||defaultConfig(tool)).steps; active=0; sel={}; adv={}; finOpen=false;
     document.getElementById('wzTitle').textContent=tool.t;
     document.getElementById('wzSub').textContent=tool.d;
     document.getElementById('wzIcon').innerHTML='<i class="ph-fill '+tool.ic+'"></i>';
@@ -480,7 +537,35 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
       const bd=document.createElement('div'); bd.className='sb'; bd.appendChild(renderStep(st)); card.appendChild(bd);
       body.appendChild(card);
     });
+    body.appendChild(renderFinalize());
     updateGen();
+  }
+  function renderFinalize(){
+    const isVid=/video|reel|ad-videos|ctv|storytelling|ugc|fashion-videos|blog-videos/.test((cur&&cur.id)||'');
+    const wrap=document.createElement('div'); wrap.className='finalize'+(finOpen?' open':'');
+    const groups=[
+      {key:'res',label:'Resolution',opts:['Auto','720p','1080p','4K']},
+    ];
+    if(isVid){
+      groups.push({key:'dur',label:'Duration',opts:['5s','10s','15s','30s']});
+      groups.push({key:'cam',label:'Camera motion',opts:['None','Subtle','Dynamic','Cinematic']});
+    }
+    const hd=document.createElement('div'); hd.className='fhd';
+    hd.innerHTML='<span class="ci"><i class="ph ph-sliders-horizontal"></i></span><b>Advanced options</b><span class="opt">Optional</span><i class="ph ph-caret-down cv"></i>';
+    hd.addEventListener('click',function(){finOpen=!finOpen;wrap.classList.toggle('open',finOpen);});
+    wrap.appendChild(hd);
+    const fb=document.createElement('div'); fb.className='fbody';
+    groups.forEach(function(gr){
+      const grp=document.createElement('div'); grp.className='advgrp';
+      const lab=document.createElement('label'); lab.textContent=gr.label; grp.appendChild(lab);
+      const row=document.createElement('div'); row.className='sizes';
+      gr.opts.forEach(function(o){const b=document.createElement('button');b.className='sz'+(adv[gr.key]===o?' sel':'');b.style.minWidth='auto';
+        b.innerHTML='<b>'+o+'</b>';
+        b.addEventListener('click',function(){adv[gr.key]=o;finOpen=true;renderWizard();}); row.appendChild(b);});
+      grp.appendChild(row); fb.appendChild(grp);
+    });
+    wrap.appendChild(fb);
+    return wrap;
   }
   function choose(st,val,advance){ sel[st.id]=val; if(advance&&active<steps.length-1)active++; renderWizard(); }
   function renderStep(st){
@@ -527,8 +612,8 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
     } else if(st.type==='quality'){
       const g=document.createElement('div'); g.className='qtiers';
       st.options.forEach(function(o){const b=document.createElement('button');b.className='qt'+(sel[st.id]===o.label?' sel':'');
-        b.innerHTML='<b>'+o.label+(o.badge?' <span class="badge pro" style="position:static">PRO</span>':'')+'</b><small>'+o.desc+'</small><span class="cr">'+o.cr+'</span>';
-        b.addEventListener('click',function(){ if(o.badge){showToast('Pro tier — upgrade to unlock'); } choose(st,o.label,false);}); g.appendChild(b);});
+        b.innerHTML='<b>'+o.label+'</b><small>'+o.desc+'</small>'+(o.tags?'<span class="qtags">'+o.tags+'</span>':'')+'<span class="cr">'+o.cr+'</span>';
+        b.addEventListener('click',function(){ choose(st,o.label,false);}); g.appendChild(b);});
       w.appendChild(g);
     }
     return w;

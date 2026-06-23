@@ -91,7 +91,22 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
 <script>
 (function(){
   var P='https://pub.hyperagent.com/api/published/';
+  function tImg(t){return t.img.indexOf('http')===0?t.img:P+t.img;}
   var tpls=[
+    {n:"Real talk, my honest routine",f:"UGC",cat:"ugc",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0JRV_6S87463M5RM1ZWA1/20ab873f-4917-4dd9-9774-865d50b190b8.png"},
+    {n:"Studio Set",f:"Product",cat:"product",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7T05_VFZDYC5PWD81QN65/23ae65e8-82be-491b-a076-25c7f9dc7807.png"},
+    {n:"Watch this on repeat",f:"Hyper Motion",cat:"reel",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7S9J_371FWDGKRS9ABBAE/ae093e0d-528e-425d-b289-d62f39011f32.png"},
+    {n:"POV: the only one that delivered",f:"UGC",cat:"ugc",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0K93_CF3QXRN72GS3WBNX/8ede1f2c-3167-45bc-8398-79be4cd058cf.png"},
+    {n:"The spot that converts",f:"TV Spot",cat:"reel",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7RDT_K2AFYGEJKR9KF74D/ce5e78f8-903f-465a-ba0c-ce9606446471.png"},
+    {n:"3 steps, start to finish",f:"Tutorial",cat:"reel",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0KMB_E17WKFXXBSHVJ03Q/9ee3ec40-f823-485f-a2c5-a1ca273a8217.png"},
+    {n:"UGC Virtual Try-On",f:"UGC Virtual Try-On",cat:"ugc",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0N66_DEG9WN3Y7CAE7E1X/99b32dd6-c046-4dc7-a69c-216d2ea47b67.png"},
+    {n:"Here is what actually worked",f:"Tutorial",cat:"reel",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0M2T_TVRG8KKK09MBJP8G/f0897be1-bcff-4c9d-a830-74005354652e.png"},
+    {n:"Honest review, no filter",f:"Product Review",cat:"product",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0MHA_EDDR5XKS9AF8SEE2/471ead62-0862-4536-b208-da9691fd71a0.png"},
+    {n:"Unboxing the viral one",f:"Unboxing",cat:"ugc",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7Q7F_2EPHWE4Q9EJZMCST/e8881eb0-8df2-4c6e-afda-599a9b3ec7fc.png"},
+    {n:"My old setup vs this",f:"Product",cat:"product",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7T9P_GWN2K4XEZ48RKPGG/dc4c2672-b98f-4bf7-ac29-b8b25da8e5a4.png"},
+    {n:"The drop you all asked for",f:"Hyper Motion",cat:"reel",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7SP6_VYNVQT65JZPN8PEW/7a55f17b-a055-445c-9352-92c2ec390ad7.png"},
+    {n:"See the fit before you buy",f:"UGC Virtual Try-On",cat:"ugc",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P0NHV_0ZNRDWW3VNA6M1TB/9de04bc9-213d-4eb5-bf55-1bfd7479e6e2.png"},
+    {n:"I tried 30, only this one stayed",f:"Wildcard",cat:"reel",hot:1,img:"https://pub.hyperagent.com/api/published/pbf01KT9P7VJH_C54JWFX418KMYMQX/edfa4a0d-e9ac-4b1a-9d34-3b49b35a1f95.png"},
     {n:'3 steps to glow',f:'Carousel',cat:'carousel',img:'pbf01KTHXZSSV_W6WW7XB2H4AZ116T/b3f8ca84-562a-4bbe-aa01-132c89509c94.png'},
     {n:'Honest routine',f:'Reel',cat:'reel',img:'pbf01KTHXZRTX_QB3V2CCG69WSV2BC/0ec5c198-4e97-4907-a682-1fc8bef850c6.png'},
     {n:'Founder note',f:'Avatar',cat:'avatar',pro:1,img:'pbf01KTHXZT7N_GJNTRWQ6R80G987T/48ed6ac4-b28d-467d-84c1-03984cdff1de.png'},
@@ -108,12 +123,12 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
   var grid=document.getElementById('tgrid');
   function render(cat){grid.innerHTML='';tpls.filter(function(t){return cat==='all'||t.cat===cat;}).forEach(function(t){
     var d=document.createElement('div');d.className='tpl';
-    d.innerHTML='<span class="fmt">'+t.f+'</span>'+(t.pro?'<span class="pro"><i class="ph-fill ph-crown-simple"></i> Pro</span>':'')+'<img src="'+P+t.img+'" alt=""><div class="ft"><b>'+t.n+'</b><span class="use">Use <i class="ph ph-arrow-right"></i></span></div>';
+    d.innerHTML='<span class="fmt">'+t.f+'</span>'+(t.pro?'<span class="pro"><i class="ph-fill ph-crown-simple"></i> Pro</span>':(t.hot?'<span class="pro" style="background:linear-gradient(120deg,var(--butter),var(--tangerine))">\ud83d\udd25 Trending</span>':''))+'<img src="'+tImg(t)+'" alt=""><div class="ft"><b>'+t.n+'</b><span class="use">Use <i class="ph ph-arrow-right"></i></span></div>';
     d.addEventListener('click',function(){openT(t);});grid.appendChild(d);});}
   document.getElementById('tabs').addEventListener('click',function(e){var t=e.target.closest('.tab');if(!t)return;[].slice.call(this.children).forEach(function(o){o.classList.remove('on');});t.classList.add('on');render(t.dataset.cat);});
   render('all');
   var modal=document.getElementById('modal');
-  function openT(t){document.getElementById('mImg').src=P+t.img;document.getElementById('mFmt').textContent=t.f;document.getElementById('mName').textContent=t.n;modal.classList.add('show');}
+  function openT(t){document.getElementById('mImg').src=tImg(t);document.getElementById('mFmt').textContent=t.f;document.getElementById('mName').textContent=t.n;modal.classList.add('show');}
   document.getElementById('mX').addEventListener('click',function(){modal.classList.remove('show');});
   modal.addEventListener('click',function(e){if(e.target===modal)modal.classList.remove('show');});
   document.getElementById('mUse').addEventListener('click',function(){showToast('Opening in the editor…');setTimeout(function(){window.location.href='/create';},700);});

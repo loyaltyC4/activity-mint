@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mint Studio — Create</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1"></script>
+<style>
+:root{--base:#F4F5F7;--paper-2:#FBFBFC;--white:#FFFFFF;--ink:#15161A;--gray:#5C5E68;--mint:#20E0A0;--mint-deep:#0FBF85;--tangerine:#FF6A3D;--pink:#FF3D8A;--cobalt:#2E6BFF;--butter:#FFC53D;--line:rgba(20,22,28,.08);--line-strong:rgba(20,22,28,.13);--shadow-sm:0 1px 2px rgba(20,22,28,.05),0 2px 6px rgba(20,22,28,.05);--shadow-md:0 1px 2px rgba(20,22,28,.05),0 14px 30px -10px rgba(20,22,28,.16);--shadow-lg:0 2px 4px rgba(20,22,28,.06),0 34px 60px -18px rgba(20,22,28,.26);--glass:rgba(255,255,255,.55);--glass-2:rgba(255,255,255,.68);--hi:inset 0 1px 0 rgba(255,255,255,.7);--display:"Bricolage Grotesque","Geist",system-ui,sans-serif;--body:"Geist",system-ui,sans-serif;--mono:"Space Mono",monospace;--grad:linear-gradient(90deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine));--spring:cubic-bezier(.34,1.56,.64,1)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;background:linear-gradient(180deg,#FAFAFB,#F1F2F5 60%,#EDEFF2);overflow-x:hidden}
+a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}img{display:block;max-width:100%}::selection{background:var(--mint);color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(20,22,28,.18);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+.ambient{position:fixed;inset:0;z-index:-2;overflow:hidden}.ambient span{position:absolute;border-radius:50%;filter:blur(100px);opacity:.4}
+.ambient .b1{width:46vw;height:46vw;left:8vw;top:-16vw;background:radial-gradient(circle,rgba(32,224,160,.36),transparent 66%);animation:d1 22s ease-in-out infinite alternate}
+.ambient .b2{width:42vw;height:42vw;right:-12vw;top:22vh;background:radial-gradient(circle,rgba(46,107,255,.28),transparent 66%);animation:d2 26s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(5vw,4vh) scale(1.1)}}@keyframes d2{to{transform:translate(-5vw,-3vh) scale(1.1)}}
+.app{display:grid;grid-template-columns:256px 1fr;min-height:100dvh}
+.side{position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;padding:18px 14px;z-index:20;background:var(--glass);backdrop-filter:blur(34px) saturate(180%);-webkit-backdrop-filter:blur(34px) saturate(180%);border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.18rem;letter-spacing:-.02em;padding:6px 10px 14px}.brand .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#06231a;font-size:.95rem;background:conic-gradient(from 200deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));box-shadow:0 4px 12px rgba(32,224,160,.45)}
+.navg{display:flex;flex-direction:column;gap:2px}.nav-i{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;font-weight:600;font-size:.94rem;color:var(--ink)}.nav-i i{font-size:1.25rem;color:var(--gray)}.nav-i:hover{background:rgba(20,22,28,.045)}.nav-i.on{background:linear-gradient(100deg,rgba(32,224,160,.2),rgba(46,107,255,.08));color:var(--ink);box-shadow:var(--hi)}.nav-i.on i{color:var(--mint-deep)}.nav-i .pillnew{margin-left:auto;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;background:var(--ink);color:#fff;border-radius:999px;padding:3px 7px}
+.spacer{flex:1}.cap{background:var(--glass-2);border:1px solid var(--line);border-radius:14px;padding:13px;display:flex;align-items:center;gap:12px;margin-bottom:8px;box-shadow:var(--hi)}.cap .ring{width:40px;height:40px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--mint) 0 72%,rgba(20,22,28,.1) 72%);display:grid;place-items:center}.cap .ring b{width:30px;height:30px;border-radius:50%;background:var(--paper-2);display:grid;place-items:center;font-size:.7rem;font-weight:700}.cap .t{font-size:.82rem;line-height:1.3}.cap .t b{font-weight:700}.cap .t small{color:var(--gray);display:block;font-size:.74rem}
+.userchip{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px}.userchip .av{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.85rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.userchip .t{font-size:.84rem;font-weight:600;line-height:1.25}.userchip .t small{display:block;color:var(--gray);font-weight:400;font-size:.74rem}.userchip .mr{margin-left:auto;color:var(--gray)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px clamp(18px,3vw,40px);background:var(--glass);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);border-bottom:1px solid var(--line)}
+.work{display:flex;align-items:center;gap:10px;font-weight:700;font-size:.95rem}.work .av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:800;font-size:.72rem;background:linear-gradient(135deg,#0E1B2A,#1FB6A6)}.work .cw{color:var(--gray);font-size:.78rem;font-weight:500}
+.lang{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:600;background:var(--glass-2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;box-shadow:var(--shadow-sm)}.lang .gi{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.05rem}.lang .ct{font-family:var(--mono);font-size:.72rem;color:var(--gray)}
+.content{padding:clamp(22px,3vw,40px);max-width:1180px;width:100%;margin:0 auto}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .85s var(--spring)}.reveal.lit{opacity:1;transform:none}
+.view{display:none}.view.on{display:block}
+.hd h1{font-family:var(--display);font-weight:800;font-size:clamp(1.7rem,3.2vw,2.4rem);letter-spacing:-.025em}.hd p{color:var(--gray);font-size:.95rem;margin-top:4px;max-width:60ch}
+.search{display:flex;align-items:center;gap:9px;background:var(--white);border:1px solid var(--line-strong);border-radius:999px;padding:9px 16px;margin:20px 0;max-width:420px}.search input{border:none;outline:none;background:none;font-family:var(--body);font-size:.92rem;flex:1}.search i{color:var(--gray)}
+.grouphd{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gray);margin:26px 0 14px}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:1080px){.tools{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.tools{grid-template-columns:repeat(2,1fr)}.app{grid-template-columns:1fr}.side{display:none}}
+.tool{position:relative;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--white);box-shadow:var(--shadow-sm);cursor:pointer;transition:transform .28s var(--spring),box-shadow .28s;display:flex;flex-direction:column}
+.tool:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg)}
+.tool .ph{aspect-ratio:16/10;position:relative;background:linear-gradient(135deg,#eceef1,#e3e6ea);display:grid;place-items:center;overflow:hidden}
+.tool .ph .ic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;color:#fff;font-size:1.4rem;background:linear-gradient(135deg,var(--cobalt),#1b3fa8);box-shadow:var(--shadow-md);opacity:.92}
+.tool .ph .dots{position:absolute;inset:0;background-image:radial-gradient(rgba(20,22,28,.05) 1px,transparent 1px);background-size:9px 9px}
+.tool .badge{position:absolute;top:10px;right:10px;font-size:.64rem;font-weight:800;letter-spacing:.04em;border-radius:999px;padding:3px 8px}
+.badge.pro{color:#06231a;background:linear-gradient(120deg,var(--butter),var(--tangerine))}
+.badge.new{color:#fff;background:var(--ink)}
+.tool .tb{padding:13px 14px}
+.tool .tb b{font-family:var(--display);font-weight:700;font-size:.98rem;letter-spacing:-.01em;display:block}
+.tool .tb p{color:var(--gray);font-size:.8rem;margin-top:4px;line-height:1.4}
+
+/* wizard */
+.wzhead{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.back{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--gray)}.back:hover{color:var(--ink)}
+.wzhead .ti{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;color:#fff;font-size:1.3rem;background:linear-gradient(135deg,var(--cobalt),#1b3fa8)}
+.wzhead h1{font-family:var(--display);font-weight:800;font-size:clamp(1.4rem,2.6vw,1.9rem);letter-spacing:-.02em}
+.wzhead p{color:var(--gray);font-size:.88rem}
+.wzbody{display:grid;grid-template-columns:1fr;gap:13px;margin-top:18px;padding-bottom:90px}
+.wstep{background:var(--glass-2);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-sm),var(--hi);overflow:hidden;transition:border-color .25s}
+.wstep.active{border-color:var(--line-strong)}
+.wstep .sh{display:flex;align-items:center;gap:13px;padding:16px 18px;cursor:pointer}
+.wstep .sn{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:.8rem;font-weight:700;background:rgba(20,22,28,.07);color:var(--gray)}
+.wstep.active .sn{background:var(--ink);color:#fff}
+.wstep.done .sn{background:var(--mint-deep);color:#fff}
+.wstep .st{flex:1}.wstep .st b{font-weight:700;font-size:1rem;letter-spacing:-.01em}.wstep .st small{display:block;color:var(--gray);font-size:.8rem;margin-top:1px}
+.wstep .sv{font-size:.82rem;font-weight:600;color:var(--mint-deep);background:rgba(32,224,160,.1);border-radius:999px;padding:5px 11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wstep .cv{color:var(--gray);font-size:1.1rem;transition:transform .3s var(--spring)}
+.wstep.active .cv{transform:rotate(180deg)}
+.wstep .sb{max-height:0;overflow:hidden;transition:max-height .4s ease;padding:0 18px}
+.wstep.active .sb{max-height:1200px;padding-bottom:18px}
+.optcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:11px}
+.oc{border:1.5px solid var(--line-strong);border-radius:14px;padding:15px;background:var(--white);cursor:pointer;text-align:left;transition:transform .2s var(--spring),border-color .2s;position:relative}
+.oc:hover{transform:translateY(-2px);border-color:var(--ink)}
+.oc.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.oc .oi{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:1.05rem;margin-bottom:10px;background:linear-gradient(135deg,var(--mint),var(--mint-deep))}
+.oc b{font-weight:700;font-size:.92rem;display:block}
+.oc p{color:var(--gray);font-size:.78rem;margin-top:4px;line-height:1.4}
+.oc .tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--cobalt);margin-top:8px;display:inline-block}
+.sizes{display:flex;flex-wrap:wrap;gap:9px}
+.sz{border:1.5px solid var(--line-strong);border-radius:12px;padding:10px 14px;background:var(--white);cursor:pointer;text-align:center;transition:transform .2s var(--spring),border-color .2s;min-width:82px}
+.sz:hover{transform:translateY(-2px);border-color:var(--ink)}.sz.sel{border-color:var(--ink);background:var(--ink);color:#fff}
+.sz b{font-weight:700;font-size:.86rem;display:block}.sz small{font-size:.72rem;opacity:.7}
+.upbox{border:1.5px dashed var(--line-strong);border-radius:14px;padding:30px;text-align:center;color:var(--gray);cursor:pointer}.upbox:hover{border-color:var(--ink);color:var(--ink)}.upbox i{font-size:1.8rem;display:block;margin-bottom:8px;color:var(--mint-deep)}
+.upbox b{color:var(--ink);font-weight:600}
+.gridsel{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:11px}
+.gc{aspect-ratio:3/4;border-radius:13px;border:1.5px solid var(--line-strong);background:linear-gradient(135deg,#eceef1,#e3e6ea);cursor:pointer;position:relative;display:grid;place-items:center;color:var(--gray);transition:transform .2s var(--spring),border-color .2s;overflow:hidden}
+.gc .dots{position:absolute;inset:0;background-image:radial-gradient(rgba(20,22,28,.06) 1px,transparent 1px);background-size:9px 9px}
+.gc:hover{transform:translateY(-2px);border-color:var(--ink)}.gc.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.gc.action{background:var(--white);flex-direction:column;font-size:.78rem;font-weight:600;color:var(--ink);gap:6px}.gc.action i{font-size:1.4rem;color:var(--mint-deep)}
+.prompt textarea{width:100%;border:1px solid var(--line-strong);border-radius:13px;padding:13px 15px;font-family:var(--body);font-size:.95rem;background:var(--white);outline:none;resize:none;min-height:90px}
+.prompt textarea:focus{border-color:var(--cobalt);box-shadow:0 0 0 3px rgba(46,107,255,.12)}
+.prompt .ex{font-size:.8rem;color:var(--gray);margin-top:8px;font-style:italic}
+.field{display:flex;flex-direction:column;gap:7px;margin-top:4px}.field label{font-size:.82rem;font-weight:600;color:var(--gray)}
+.field input{border:1px solid var(--line-strong);border-radius:11px;padding:11px 13px;font-family:var(--body);font-size:.92rem;background:var(--white);outline:none}
+.qtiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.qt{border:1.5px solid var(--line-strong);border-radius:14px;padding:15px;background:var(--white);cursor:pointer;transition:transform .2s var(--spring),border-color .2s}
+.qt:hover{transform:translateY(-2px);border-color:var(--ink)}.qt.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.qt b{font-weight:800;font-family:var(--display);font-size:1rem;display:flex;align-items:center;gap:8px}.qt small{color:var(--gray);font-size:.78rem;display:block;margin-top:4px}
+.qt .cr{font-family:var(--mono);font-size:.72rem;color:var(--mint-deep);font-weight:700;margin-top:8px;display:block}
+.genbar{position:fixed;bottom:0;left:256px;right:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px clamp(18px,3vw,40px);background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-top:1px solid var(--line)}
+@media(max-width:760px){.genbar{left:0}}
+.genbar .gm{font-size:.84rem;color:var(--gray)}.genbar .gm b{color:var(--ink)}
+.cta{display:inline-flex;align-items:center;gap:9px;background:var(--ink);color:#fff;font-weight:600;font-size:1rem;padding:13px 26px;border-radius:13px;position:relative;overflow:hidden;transition:transform .3s var(--spring),box-shadow .3s}
+.cta::after{content:"";position:absolute;inset:0;background:var(--grad);opacity:0;transition:.3s}.cta:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}.cta:hover::after{opacity:.16}
+.cta:disabled{opacity:.4;cursor:not-allowed;transform:none}
+/* results */
+.resgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:18px}
+.rc{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow-sm)}
+.rc .rph{aspect-ratio:4/5;background:linear-gradient(135deg,#eceef1,#e3e6ea);position:relative;display:grid;place-items:center;color:var(--gray)}
+.rc .rph .dots{position:absolute;inset:0;background-image:radial-gradient(rgba(20,22,28,.06) 1px,transparent 1px);background-size:9px 9px}
+.rc .rf{padding:10px 12px;display:flex;gap:8px}.rc .rf button{flex:1;font-size:.78rem;font-weight:700;border-radius:9px;padding:8px;background:var(--ink);color:#fff}.rc .rf button.alt{background:#fff;border:1px solid var(--line-strong);color:var(--ink)}
+.gen-anim{display:flex;flex-direction:column;align-items:center;padding:60px 0}.gen-anim .orb{width:96px;height:96px;border-radius:50%;background:conic-gradient(from 0deg,var(--mint),var(--cobalt),var(--pink),var(--tangerine),var(--mint));animation:spin 3s linear infinite;position:relative;margin-bottom:22px}.gen-anim .orb::after{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--base)}.gen-anim .orb i{position:absolute;inset:0;display:grid;place-items:center;font-size:1.9rem;z-index:2}@keyframes spin{to{transform:rotate(360deg)}}
+.gen-anim b{font-family:var(--display);font-weight:800;font-size:1.3rem}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);z-index:95;display:inline-flex;align-items:center;gap:10px;background:rgba(21,22,26,.92);color:#fff;font-weight:600;font-size:.9rem;padding:13px 18px;border-radius:14px;box-shadow:var(--shadow-lg);opacity:0;visibility:hidden;transition:.4s var(--spring)}.toast.show{opacity:1;visibility:visible;transform:translateX(-50%)}.toast i{color:var(--mint)}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.16s!important}.ambient span{animation:none}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="ambient"><span class="b1"></span><span class="b2"></span></div>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="mark">✦</span> Mint Studio</div>
+    <nav class="navg">
+      <a class="nav-i" href="/dashboard"><i class="ph-fill ph-house"></i> Home</a>
+      <a class="nav-i on"><i class="ph-fill ph-magic-wand"></i> Create</a>
+      <a class="nav-i" href="/winning-ads"><i class="ph ph-fire"></i> Winning ads <span class="pillnew">NEW</span></a>
+      <a class="nav-i" href="/templates"><i class="ph ph-squares-four"></i> Templates</a>
+      <a class="nav-i" href="/brand-dna"><i class="ph ph-fingerprint"></i> Brand DNA</a>
+      <a class="nav-i" href="/intelligence"><i class="ph ph-chart-line-up"></i> Intelligence</a>
+      <a class="nav-i" href="/autopilot"><i class="ph ph-broadcast"></i> Autopilot</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="cap"><div class="ring"><b>27</b></div><div class="t"><b>Studio capacity</b><small>27 posts ready to make</small></div></div>
+    <a class="userchip" href="/settings"><span class="av">LB</span><span class="t">Lunar Bloom<small>Free trial · 7 days left</small></span><i class="ph ph-caret-up-down mr"></i></a>
+  </aside>
+  <div class="main">
+    <header class="top"><div class="work"><span class="av">LB</span> @lunarbloom <span class="cw">Beauty &amp; skincare</span></div><div class="lang"><i class="ph-fill ph-globe-hemisphere-west gi"></i> English <span class="ct">99+</span></div></header>
+    <div class="content">
+      <!-- GRID -->
+      <div class="view on reveal" id="vGrid">
+        <div class="hd"><h1>Create</h1><p>Pick a tool. Every output comes back on-brand for @lunarbloom, ready to edit, localise in 99+ languages, and schedule.</p></div>
+        <div class="search"><i class="ph ph-magnifying-glass"></i><input placeholder="Search tools…" id="toolSearch"></div>
+        <div id="groups"></div>
+      </div>
+      <!-- WIZARD -->
+      <div class="view" id="vWiz">
+        <div class="wzhead"><button class="back" id="wzBack"><i class="ph ph-arrow-left"></i> Tools</button></div>
+        <div class="wzhead" style="margin-top:10px"><span class="ti" id="wzIcon"><i class="ph-fill ph-image"></i></span><div><h1 id="wzTitle">Tool</h1><p id="wzSub">desc</p></div></div>
+        <div class="wzbody" id="wzBody"></div>
+        <div class="genbar"><span class="gm" id="genMsg">Complete the steps to generate</span><button class="cta" id="genBtn" disabled>Generate <span class="ar">→</span></button></div>
+      </div>
+      <!-- RESULTS -->
+      <div class="view" id="vRes">
+        <div class="wzhead"><button class="back" id="resBack"><i class="ph ph-arrow-left"></i> Back to tool</button></div>
+        <div id="resInner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"><i class="ph-fill ph-sparkle"></i> <span id="toastTxt"></span></div>
+<script>
+(function(){
+  // ── Quality tier step (shared) ──
+  const QUALITY={ id:'quality', title:'Select quality tier', sub:'Higher tiers use a stronger model', type:'quality', options:[
+    {label:'Standard', desc:'Fast, great for drafts & volume', cr:'1 credit'},
+    {label:'Pro', desc:'Highest fidelity model', cr:'3 credits', badge:'PRO'},
+  ]};
+  const SIZES=[{label:'Square',sub:'1:1'},{label:'Portrait',sub:'9:16'},{label:'Landscape',sub:'16:9'},{label:'Vertical',sub:'4:5'},{label:'Pin',sub:'2:3'},{label:'Banner',sub:'21:9'}];
+  const ANGLES=[
+    {label:'Headline-led',desc:'Big claim up top, feature + emotional support.',ic:'ph-text-h-one',tag:'Headline · Feature · Emotional'},
+    {label:'Offer-led',desc:'Lead with the deal, then headline + feature.',ic:'ph-tag',tag:'Offer · Headline · Feature'},
+    {label:'Testimonial',desc:'Social proof first, then feature + headline.',ic:'ph-quotes',tag:'Testimonial · Feature'},
+    {label:'Negative hook',desc:'Pattern-interrupt hook, then headline + feature.',ic:'ph-fire',tag:'NegHook · Headline'},
+    {label:'Hero product',desc:'Product hero with strong branding.',ic:'ph-star',tag:'Hero · Branding'},
+    {label:'Bold statement',desc:'One bold line with feature support.',ic:'ph-lightning',tag:'Bold · Feature'},
+  ];
+
+  // ── Tool catalogue (21) ──
+  const GROUPS=[
+    {name:'Images', tools:[
+      {id:'stock-images', t:'Stock Images', d:'Generate unique, commercially-safe, ultra-realistic stock images from a prompt.', ic:'ph-image', badge:'pro'},
+      {id:'product-photo', t:'Product Photo Ads', d:'Transform product photos into professional shoots from a single image.', ic:'ph-camera'},
+      {id:'fashion-photo', t:'Fashion Photoshoots', d:'Convert a product image to realistic shoots fitted on AI models.', ic:'ph-coat-hanger'},
+      {id:'ad-creatives', t:'Ad Creatives', d:'Generate high-converting ads by uploading a product image.', ic:'ph-megaphone-simple', badge:'pro'},
+      {id:'social-posts', t:'Social Posts', d:'Engagement-optimised posts from an image and headlines.', ic:'ph-chat-centered-text', badge:'pro'},
+      {id:'social-creatives', t:'Social Creatives', d:'Native social-first ad creatives that feel authentic.', ic:'ph-stack'},
+      {id:'batch-creatives', t:'Batch Creatives', d:'Generate batches from multiple product or background images.', ic:'ph-squares-four', badge:'pro'},
+      {id:'custom-templates', t:'Custom Templates', d:'Automate production with templates aligned to your brand.', ic:'ph-layout', badge:'pro'},
+    ]},
+    {name:'Video', tools:[
+      {id:'stock-videos', t:'Stock Videos', d:'Generate commercially-safe stock videos from a prompt or image.', ic:'ph-film-slate', badge:'new'},
+      {id:'ugc-videos', t:'UGC Style Videos', d:'Create authentic, user-generated style ads with AI.', ic:'ph-user-circle-gear'},
+      {id:'product-videos', t:'Product Videos', d:'Turn product photos into dynamic AI video ads.', ic:'ph-video', badge:'pro'},
+      {id:'ad-videos', t:'Ad Videos', d:'High-converting short-form video ads from one image.', ic:'ph-monitor-play'},
+      {id:'fashion-videos', t:'Fashion Videoshoots', d:'Turn a fashion photoshoot into a stunning video shoot.', ic:'ph-sparkle', badge:'pro'},
+      {id:'storytelling-ads', t:'Storytelling Ads', d:'Ad videos with a story, custom scenes and voice-over.', ic:'ph-book-open', badge:'pro'},
+      {id:'ctv-ads', t:'Connected TV Ads', d:'AI-powered connected-TV ads for max engagement.', ic:'ph-television-simple'},
+      {id:'blog-videos', t:'Blog Videos', d:'Transform blog posts into engaging videos from a URL.', ic:'ph-article', badge:'pro'},
+    ]},
+    {name:'Copy & strategy', tools:[
+      {id:'ad-texts', t:'Ad Texts', d:'Sales-driven ad copy using proven frameworks from a URL.', ic:'ph-text-aa', badge:'pro'},
+      {id:'ad-package', t:'Ad Package', d:'A full ad package — strategy, creatives, text & audiences — from a URL.', ic:'ph-package'},
+      {id:'instant-ads', t:'Instant Ads', d:'Instantly generate launch-ready ad creatives and text.', ic:'ph-lightning', badge:'pro'},
+      {id:'buyer-personas', t:'Buyer Personas', d:'AI-crafted buyer personas to refine targeting & messaging.', ic:'ph-users-three'},
+      {id:'text-reader', t:'Text Reader AI', d:'Turn text into natural, high-quality AI voice-overs.', ic:'ph-speaker-high'},
+    ]},
+  ];
+
+  // ── Fully-configured wizards (4) + default ──
+  const CONFIG={
+    'stock-images':{steps:[
+      {id:'method',title:'Select your image creation method',sub:'Choose how to create',type:'cards',options:[
+        {label:'Text to Image',desc:'Turn any idea into a high-quality image in seconds.',ic:'ph-text-t'},
+        {label:'Image to Image',desc:'Apply style transfer, precise edits, or compose references.',ic:'ph-images'},
+        {label:'Get Inspiration',desc:'Not sure where to start? Browse curated best practices.',ic:'ph-sparkle'},
+      ]},
+      {id:'size',title:'Choose your image size',sub:'Recommended format for your platform',type:'sizes'},
+      {id:'input',title:'Customize your input',sub:'Describe what you want to see',type:'prompt',ex:'e.g. A frosted serum bottle on a sunlit stone ledge, soft morning haze, dewy droplets, editorial beauty.',optional:false},
+      QUALITY,
+    ]},
+    'product-photo':{steps:[
+      {id:'gentype',title:'Select generation type',sub:'Pick the creative type to continue',type:'cards',options:[
+        {label:'Single Product',desc:'Perfect for products with text — every word stays crisp.',ic:'ph-cube',tag:'Best for products with text'},
+        {label:'Multiple Products & Objects',desc:'Arrange multiple products with presets, styles & layouts.',ic:'ph-squares-four',tag:'Built for creative flexibility'},
+      ]},
+      {id:'upload',title:'Upload product images',sub:'Drop your product shots',type:'upload'},
+      {id:'style',title:'Choose your photoshoot style',sub:'Pick a backdrop & mood',type:'grid',count:6},
+      QUALITY,
+    ]},
+    'fashion-photo':{steps:[
+      {id:'path',title:'Choose your creation path',sub:'How to generate your fashion photoshoot',type:'cards',options:[
+        {label:'Campaign Photoshoot',desc:'Garments on AI models in themes tailored for marketing.',ic:'ph-flag-banner'},
+        {label:'E-commerce Photoshoot',desc:'Garments on AI models against plain backgrounds.',ic:'ph-shopping-bag'},
+      ]},
+      {id:'size',title:'Choose your image size',sub:'Pick the size for your platform',type:'sizes'},
+      {id:'phototype',title:'Select fashion photography type',sub:'Pick a template style',type:'cards',options:[
+        {label:'Streetwear',desc:'Urban, candid, on-location energy.',ic:'ph-sneaker'},
+        {label:'Studio',desc:'Clean seamless backdrop, controlled light.',ic:'ph-lightbulb'},
+        {label:'Editorial',desc:'High-fashion, magazine-grade styling.',ic:'ph-magazine'},
+      ]},
+      {id:'model',title:'Select fashion model',sub:'Filter by gender, body shape, age, ethnicity',type:'grid',count:8,actions:['Upload your model','Generate your own model']},
+      {id:'input',title:'Customize your input',sub:'Upload the garment image(s)',type:'upload'},
+      QUALITY,
+    ]},
+    'ugc-videos':{steps:[
+      {id:'style',title:'Choose your UGC video style',sub:'How the AI avatar showcases your product',type:'cards',options:[
+        {label:'Talking Head',desc:'Avatar speaks directly to camera — intros, testimonials.',ic:'ph-user-focus',tag:'For any company'},
+        {label:'Show & Tell',desc:'Avatar holds/points to your product, showing key features.',ic:'ph-hand-pointing',tag:'For physical products'},
+        {label:'Try on Fashion',desc:'Avatar models apparel — fit, style and movement.',ic:'ph-coat-hanger',tag:'For fashion products'},
+      ]},
+      {id:'avatar',title:'Select AI-generated avatars',sub:'Pick a presenter (or upload your own)',type:'grid',count:8,actions:['Upload a face']},
+      {id:'product',title:'Upload your product',sub:'Adjust how it appears on the avatar preview',type:'upload'},
+      {id:'script',title:'Choose or write your video script',sub:'We can draft it from your brand',type:'prompt',ex:'e.g. Honest 15-second routine: hook, problem, the serum, the glow, CTA.'},
+      {id:'audience',title:'Audience & landing page',sub:'Optional — sharpens the script',type:'fields',fields:[
+        {label:'Your landing page or website',ph:'https://activity-mint.vercel.app/'},
+        {label:'Your target audience',ph:'e.g. Gen-Z & millennial skincare shoppers'},
+      ]},
+      QUALITY,
+    ]},
+    'ad-creatives':{steps:[
+      {id:'size',title:'Select creative size',sub:'Pick the size for your platform',type:'sizes'},
+      {id:'angle',title:'Choose your ad angle',sub:'Proven creative frameworks',type:'cards',options:ANGLES},
+      {id:'upload',title:'Upload product image',sub:'We rebuild it on-brand',type:'upload'},
+      {id:'input',title:'Customize your input',sub:'Headline, offer & notes',type:'prompt',ex:'e.g. 20% off launch — hero the serum, clean background, bold headline.',optional:true},
+      QUALITY,
+    ]},
+    'social-posts':{steps:[
+      {id:'method',title:'Select creative method',sub:'How to generate your post',type:'cards',options:[
+        {label:'Trending Templates',desc:'Fresh, up-to-date templates from the latest trends.',ic:'ph-trend-up',tag:'Fast & easy'},
+        {label:'Custom Post',desc:'Write your own concept or style prompts for full control.',ic:'ph-pencil-simple',tag:'Full control'},
+      ]},
+      {id:'size',title:'Choose your image size',sub:'Recommended format for your platform',type:'sizes'},
+      {id:'angle',title:'Choose a post type',sub:'Pick a proven angle',type:'cards',options:ANGLES},
+      {id:'input',title:'Customize your post',sub:'Headlines & notes',type:'prompt',ex:"e.g. Promote our Valentine's collection, add a '20% OFF' badge, include our logo.",optional:true},
+      QUALITY,
+    ]},
+    'social-creatives':{steps:[
+      {id:'upload',title:'Upload a reference',sub:'A competitor ad or your own design',type:'upload'},
+      {id:'angle',title:'Choose your angle',sub:'How to reframe it on-brand',type:'cards',options:ANGLES},
+      {id:'size',title:'Choose your size',sub:'Target platform',type:'sizes'},
+      {id:'input',title:'Customize',sub:'Your products, logos & colours auto-apply',type:'prompt',ex:'Notes, e.g. swap to our hero product and summer palette.',optional:true},
+      QUALITY,
+    ]},
+    'batch-creatives':{steps:[
+      {id:'upload',title:'Upload product or background images',sub:'Add several to batch',type:'upload'},
+      {id:'style',title:'Choose a style / template',sub:'Applied across the batch',type:'grid',count:6},
+      {id:'size',title:'Choose your size',sub:'Target platform',type:'sizes'},
+      QUALITY,
+    ]},
+    'custom-templates':{steps:[
+      {id:'base',title:'Start your template',sub:'Pick a base layout',type:'grid',count:6,actions:['Blank template','Upload a design']},
+      {id:'assets',title:'Add brand assets',sub:'Logo, colours & fonts pull from Brand DNA',type:'upload'},
+      {id:'name',title:'Name & save',sub:'Reusable across your projects',type:'fields',fields:[{label:'Template name',ph:'e.g. Lunar Bloom — product hero'}]},
+    ]},
+    'stock-videos':{steps:[
+      {id:'method',title:'Choose your video type & format',sub:'How to generate your video',type:'cards',options:[
+        {label:'Text to Video',desc:'Provide a prompt to generate a unique video.',ic:'ph-text-t'},
+        {label:'Image to Video',desc:'Upload an image and let AI animate it.',ic:'ph-image'},
+        {label:'Create with Veo 3',desc:'Text or image with full cinematic control.',ic:'ph-film-reel'},
+        {label:'Create with Sora 2',desc:'Turn text or image into a creative video.',ic:'ph-sparkle'},
+      ]},
+      {id:'size',title:'Pick your aspect ratio',sub:'Best for your platform',type:'sizes'},
+      {id:'input',title:'Customize your input',sub:'Describe the video',type:'prompt',ex:'e.g. A barista pours a V60 over coffee, steam rising, soft morning light, camera pulls back to a cozy café.'},
+      QUALITY,
+    ]},
+    'product-videos':{steps:[
+      {id:'upload',title:'Upload product images',sub:'Your hero shots',type:'upload'},
+      {id:'style',title:'Choose a motion style',sub:'How your product moves',type:'cards',options:[
+        {label:'Hyper Motion',desc:'Fast, punchy product motion.',ic:'ph-fast-forward'},
+        {label:'Cinematic',desc:'Smooth, premium camera moves.',ic:'ph-film-reel'},
+        {label:'Showcase',desc:'Clean 360-style product reveal.',ic:'ph-cube'},
+      ]},
+      {id:'size',title:'Pick your aspect ratio',sub:'Target platform',type:'sizes'},
+      QUALITY,
+    ]},
+    'ad-videos':{steps:[
+      {id:'upload',title:'Upload a product image',sub:'One image is enough',type:'upload'},
+      {id:'angle',title:'Choose your hook',sub:'How the ad opens',type:'cards',options:ANGLES},
+      {id:'script',title:'Choose or write your script',sub:'We can draft it on-brand',type:'prompt',ex:'e.g. Hook: "I wasted $400 on serums…" then problem, product, proof, CTA.'},
+      {id:'size',title:'Pick your aspect ratio',sub:'Target platform',type:'sizes'},
+      QUALITY,
+    ]},
+    'fashion-videos':{steps:[
+      {id:'upload',title:'Upload your fashion photoshoot',sub:'We turn it into a video shoot',type:'upload'},
+      {id:'style',title:'Choose a motion style',sub:'Runway, editorial or social',type:'cards',options:[
+        {label:'Runway',desc:'Walking, dynamic motion.',ic:'ph-person-simple-walk'},
+        {label:'Editorial',desc:'Slow, high-fashion movement.',ic:'ph-magazine'},
+        {label:'Social',desc:'Trendy, fast-cut energy.',ic:'ph-device-mobile'},
+      ]},
+      {id:'size',title:'Pick your aspect ratio',sub:'Target platform',type:'sizes'},
+      QUALITY,
+    ]},
+    'storytelling-ads':{steps:[
+      {id:'framework',title:'Choose a story framework',sub:'The arc of your ad',type:'cards',options:[
+        {label:'Problem → Solution',desc:'Agitate a pain, then resolve it.',ic:'ph-puzzle-piece'},
+        {label:'Before → After',desc:'Show the transformation.',ic:'ph-arrows-left-right'},
+        {label:"Founder's Story",desc:'Authentic origin narrative.',ic:'ph-user'},
+        {label:'Day in the Life',desc:'POV lifestyle storytelling.',ic:'ph-sun'},
+      ]},
+      {id:'scenes',title:'Build your scenes',sub:'We storyboard from your brand',type:'prompt',ex:'e.g. Scene 1 hook, 2 problem, 3 product, 4 proof, 5 CTA.'},
+      {id:'voice',title:'Voice-over',sub:'Pick a voice or clone yours',type:'cards',options:[
+        {label:'Warm female',desc:'Friendly brand voice.',ic:'ph-speaker-high'},
+        {label:'Confident male',desc:'Bold and assured.',ic:'ph-speaker-high'},
+        {label:'Clone my voice',desc:'Upload a short sample.',ic:'ph-waveform'},
+      ]},
+      {id:'audience',title:'Landing page & audience',sub:'Optional — sharpens the script',type:'fields',fields:[{label:'Your landing page or website',ph:'https://activity-mint.vercel.app/'},{label:'Your target audience',ph:'e.g. skincare shoppers 18-34'}],optional:true},
+      QUALITY,
+    ]},
+    'ctv-ads':{steps:[
+      {id:'format',title:'Choose your CTV format',sub:'Length of the spot',type:'cards',options:[
+        {label:'15-second spot',desc:'Punchy, single message.',ic:'ph-timer'},
+        {label:'30-second spot',desc:'Story + product + CTA.',ic:'ph-television-simple'},
+      ]},
+      {id:'upload',title:'Upload product / brand assets',sub:'Logo & product shots',type:'upload'},
+      {id:'script',title:'Choose or write your script',sub:'We can draft it on-brand',type:'prompt',ex:'e.g. Big-screen hero moment for the serum, warm voice-over, bold CTA.'},
+      QUALITY,
+    ]},
+    'blog-videos':{steps:[
+      {id:'url',title:'Paste your blog URL',sub:"We'll turn the post into a video",type:'fields',fields:[{label:'Blog post URL',ph:'https://yourbrand.com/blog/...'}]},
+      {id:'style',title:'Choose a style',sub:'Look & pacing',type:'cards',options:[
+        {label:'Explainer',desc:'Clean, informative, captions.',ic:'ph-chalkboard'},
+        {label:'Listicle',desc:'Snappy, numbered highlights.',ic:'ph-list-numbers'},
+        {label:'Narrated',desc:'Voice-over over B-roll.',ic:'ph-microphone'},
+      ]},
+      {id:'size',title:'Pick your aspect ratio',sub:'Target platform',type:'sizes'},
+      QUALITY,
+    ]},
+    'ad-texts':{steps:[
+      {id:'url',title:'Provide your URL',sub:'We read your page for context',type:'fields',fields:[{label:'Your landing page or website',ph:'https://activity-mint.vercel.app/'}]},
+      {id:'framework',title:'Choose a copywriting framework',sub:'Proven structures',type:'cards',options:[
+        {label:'PAS',desc:'Problem · Agitate · Solve.',ic:'ph-puzzle-piece'},
+        {label:'AIDA',desc:'Attention · Interest · Desire · Action.',ic:'ph-megaphone-simple'},
+        {label:'FAB',desc:'Features · Advantages · Benefits.',ic:'ph-list-checks'},
+        {label:'4 Us',desc:'Useful · Urgent · Unique · Ultra-specific.',ic:'ph-star'},
+      ]},
+      {id:'tone',title:'Tone & count',sub:'How it should sound',type:'fields',fields:[{label:'Tone (optional)',ph:'e.g. confident, warm, playful'},{label:'How many variations',ph:'e.g. 5'}],optional:true},
+      QUALITY,
+    ]},
+    'ad-package':{steps:[
+      {id:'url',title:'Provide your URL',sub:'We build a full package from your page',type:'fields',fields:[{label:'Your landing page or website',ph:'https://activity-mint.vercel.app/'}]},
+      {id:'platforms',title:'Choose your platforms',sub:'Where you advertise',type:'cards',options:[
+        {label:'Meta',desc:'Facebook & Instagram.',ic:'ph-meta-logo'},
+        {label:'TikTok',desc:'Short-form video.',ic:'ph-tiktok-logo'},
+        {label:'Google',desc:'Search & display.',ic:'ph-google-logo'},
+        {label:'All channels',desc:'A full cross-channel pack.',ic:'ph-broadcast'},
+      ]},
+      {id:'audience',title:'Target audience',sub:'Optional — sharpens strategy',type:'fields',fields:[{label:'Your target audience',ph:'e.g. Gen-Z skincare shoppers'}],optional:true},
+      QUALITY,
+    ]},
+    'instant-ads':{steps:[
+      {id:'url',title:'Provide your URL',sub:'We generate launch-ready ads',type:'fields',fields:[{label:'Your landing page or website',ph:'https://activity-mint.vercel.app/'}]},
+      {id:'platforms',title:'Choose your platforms',sub:'Auto-sized for each',type:'cards',options:[
+        {label:'Meta',desc:'Facebook & Instagram.',ic:'ph-meta-logo'},
+        {label:'TikTok',desc:'Short-form video.',ic:'ph-tiktok-logo'},
+        {label:'Google',desc:'Search & display.',ic:'ph-google-logo'},
+      ]},
+      QUALITY,
+    ]},
+    'buyer-personas':{steps:[
+      {id:'source',title:'Where should we learn from?',sub:'Your brand context',type:'cards',options:[
+        {label:'From my Brand DNA',desc:'Use what we already know about you.',ic:'ph-fingerprint'},
+        {label:'From a URL',desc:"We'll read your site.",ic:'ph-link'},
+        {label:'Describe it',desc:'Tell us about your customer.',ic:'ph-pencil-simple'},
+      ]},
+      {id:'count',title:'How many personas?',sub:'And how detailed',type:'fields',fields:[{label:'Number of personas',ph:'e.g. 3'},{label:'Notes (optional)',ph:'e.g. focus on first-time buyers'}]},
+      QUALITY,
+    ]},
+    'text-reader':{steps:[
+      {id:'text',title:'Add your text',sub:'Paste or type the script',type:'prompt',ex:'Paste the text you want read aloud…'},
+      {id:'voice',title:'Choose a voice',sub:'Natural AI voices',type:'cards',options:[
+        {label:'Warm female',desc:'Friendly, brand-safe.',ic:'ph-speaker-high'},
+        {label:'Confident male',desc:'Bold and clear.',ic:'ph-speaker-high'},
+        {label:'Calm narrator',desc:'Soothing, even pace.',ic:'ph-waveform'},
+        {label:'Clone my voice',desc:'Upload a short sample.',ic:'ph-microphone'},
+      ]},
+      {id:'lang',title:'Language',sub:'99+ supported',type:'cards',options:[
+        {label:'English',desc:'Default.',ic:'ph-globe-hemisphere-west'},
+        {label:'Pick another',desc:'Choose from 99+ languages.',ic:'ph-translate'},
+      ]},
+      QUALITY,
+    ]},
+  };
+  function defaultConfig(tool){
+    return {steps:[
+      {id:'method',title:'Choose how to create',sub:'Pick a starting point',type:'cards',options:[
+        {label:'From a prompt',desc:'Describe what you want and let AI build it.',ic:'ph-text-t'},
+        {label:'From an image',desc:'Upload an image to transform or extend.',ic:'ph-image'},
+        {label:'From a URL',desc:'Point us at a page and we do the rest.',ic:'ph-link'},
+      ]},
+      {id:'input',title:'Customize your input',sub:'Add your details',type:'prompt',ex:'Describe what you want '+tool.t.toLowerCase()+' to produce…'},
+      QUALITY,
+    ]};
+  }
+
+  // ── Render grid ──
+  const groupsEl=document.getElementById('groups');
+  function ph(ic){return '<div class="ph"><div class="dots"></div><div class="ic"><i class="ph-fill '+ic+'"></i></div></div>';}
+  function renderGrid(filter){
+    groupsEl.innerHTML='';
+    GROUPS.forEach(function(g){
+      const tools=g.tools.filter(function(t){return !filter||((t.t+' '+t.d).toLowerCase().includes(filter));});
+      if(!tools.length)return;
+      const sec=document.createElement('div');
+      sec.innerHTML='<div class="grouphd">'+g.name+'</div><div class="tools"></div>';
+      const grid=sec.querySelector('.tools');
+      tools.forEach(function(t){
+        const c=document.createElement('div');c.className='tool';
+        c.innerHTML=ph(t.ic)+(t.badge?'<span class="badge '+t.badge+'">'+(t.badge==='pro'?'PRO':'NEW')+'</span>':'')+'<div class="tb"><b>'+t.t+'</b><p>'+t.d+'</p></div>';
+        c.addEventListener('click',function(){openTool(t);});
+        grid.appendChild(c);
+      });
+      groupsEl.appendChild(sec);
+    });
+  }
+  document.getElementById('toolSearch').addEventListener('input',function(){renderGrid(this.value.trim().toLowerCase());});
+  renderGrid('');
+
+  // ── Wizard ──
+  const vGrid=document.getElementById('vGrid'),vWiz=document.getElementById('vWiz'),vRes=document.getElementById('vRes');
+  function show(v){[vGrid,vWiz,vRes].forEach(function(x){x.classList.remove('on');});v.classList.add('on');window.scrollTo({top:0,behavior:'smooth'});}
+  let cur=null,steps=[],active=0,sel={};
+  function openTool(tool){
+    cur=tool; steps=(CONFIG[tool.id]||defaultConfig(tool)).steps; active=0; sel={};
+    document.getElementById('wzTitle').textContent=tool.t;
+    document.getElementById('wzSub').textContent=tool.d;
+    document.getElementById('wzIcon').innerHTML='<i class="ph-fill '+tool.ic+'"></i>';
+    renderWizard(); show(vWiz);
+  }
+  document.getElementById('wzBack').addEventListener('click',function(){show(vGrid);});
+  document.getElementById('resBack').addEventListener('click',function(){show(vWiz);});
+
+  function valueLabel(st){const v=sel[st.id]; if(v==null)return ''; if(st.type==='upload')return 'Uploaded'; if(st.type==='prompt')return 'Added'; if(st.type==='fields')return 'Added'; return v;}
+  function renderWizard(){
+    const body=document.getElementById('wzBody'); body.innerHTML='';
+    steps.forEach(function(st,i){
+      const done=sel[st.id]!=null; const isAct=i===active;
+      const card=document.createElement('div'); card.className='wstep'+(isAct?' active':'')+(done&&!isAct?' done':'');
+      const head=document.createElement('div'); head.className='sh';
+      head.innerHTML='<span class="sn">'+(done&&!isAct?'<i class="ph-bold ph-check"></i>':(i+1))+'</span><span class="st"><b>'+st.title+'</b><small>Step '+(i+1)+' of '+steps.length+(st.optional?' · optional':'')+'</small></span>'+(done&&!isAct?'<span class="sv">'+valueLabel(st)+'</span>':'')+'<i class="ph ph-caret-down cv"></i>';
+      head.addEventListener('click',function(){active=i;renderWizard();});
+      card.appendChild(head);
+      const bd=document.createElement('div'); bd.className='sb'; bd.appendChild(renderStep(st)); card.appendChild(bd);
+      body.appendChild(card);
+    });
+    updateGen();
+  }
+  function choose(st,val,advance){ sel[st.id]=val; if(advance&&active<steps.length-1)active++; renderWizard(); }
+  function renderStep(st){
+    const w=document.createElement('div');
+    if(st.type==='cards'){
+      const g=document.createElement('div'); g.className='optcards';
+      st.options.forEach(function(o){const b=document.createElement('button');b.className='oc'+(sel[st.id]===o.label?' sel':'');
+        b.innerHTML='<span class="oi"><i class="ph-fill '+(o.ic||'ph-sparkle')+'"></i></span><b>'+o.label+'</b><p>'+o.desc+'</p>'+(o.tag?'<span class="tag">'+o.tag+'</span>':'');
+        b.addEventListener('click',function(){choose(st,o.label,true);}); g.appendChild(b);});
+      w.appendChild(g);
+    } else if(st.type==='sizes'){
+      const g=document.createElement('div'); g.className='sizes';
+      SIZES.forEach(function(s){const b=document.createElement('button');b.className='sz'+(sel[st.id]===s.label?' sel':'');
+        b.innerHTML='<b>'+s.label+'</b><small>'+s.sub+'</small>';
+        b.addEventListener('click',function(){choose(st,s.label+' ('+s.sub+')',true);}); g.appendChild(b);});
+      w.appendChild(g);
+    } else if(st.type==='upload'){
+      const u=document.createElement('div'); u.className='upbox';
+      u.innerHTML='<i class="ph ph-upload-simple"></i><b>Upload</b> or drag &amp; drop here<div style="font-size:.78rem;margin-top:4px">PNG, JPG, WEBP · '+(sel[st.id]?'1 selected':'0 selected')+'</div>';
+      u.addEventListener('click',function(){choose(st,'uploaded',true);showToast('Upload is a demo here');}); w.appendChild(u);
+    } else if(st.type==='grid'){
+      const g=document.createElement('div'); g.className='gridsel';
+      (st.actions||[]).forEach(function(a){const b=document.createElement('button');b.className='gc action';
+        b.innerHTML='<i class="ph '+(a.toLowerCase().includes('upload')?'ph-upload-simple':'ph-magic-wand')+'"></i>'+a;
+        b.addEventListener('click',function(){choose(st,a,true);showToast(a+' (demo)');}); g.appendChild(b);});
+      for(let k=0;k<(st.count||6);k++){const b=document.createElement('button');b.className='gc'+(sel[st.id]==='opt'+k?' sel':'');
+        b.innerHTML='<div class="dots"></div><i class="ph ph-image" style="position:relative;z-index:1;font-size:1.3rem"></i>';
+        b.addEventListener('click',function(){choose(st,'Option '+(k+1),true);}); g.appendChild(b);}
+      w.appendChild(g);
+    } else if(st.type==='prompt'){
+      const p=document.createElement('div'); p.className='prompt';
+      const ta=document.createElement('textarea'); ta.placeholder='Describe your idea…';
+      ta.addEventListener('input',function(){ if(ta.value.trim()){sel[st.id]=ta.value.trim();} else {delete sel[st.id];} updateGen(); });
+      p.appendChild(ta); if(st.ex){const e=document.createElement('div');e.className='ex';e.textContent=st.ex;p.appendChild(e);}
+      const nx=document.createElement('button');nx.className='cta';nx.style.marginTop='12px';nx.style.padding='10px 18px';nx.style.fontSize='.9rem';nx.innerHTML='Continue';
+      nx.addEventListener('click',function(){ if(!sel[st.id])sel[st.id]=ta.value.trim()||'(skipped)'; if(active<steps.length-1)active++; renderWizard(); });
+      p.appendChild(nx); w.appendChild(p);
+    } else if(st.type==='fields'){
+      const f=document.createElement('div');
+      (st.fields||[]).forEach(function(fl){const d=document.createElement('div');d.className='field';d.innerHTML='<label>'+fl.label+'</label>';const inp=document.createElement('input');inp.placeholder=fl.ph||'';d.appendChild(inp);f.appendChild(d);});
+      const nx=document.createElement('button');nx.className='cta';nx.style.marginTop='14px';nx.style.padding='10px 18px';nx.style.fontSize='.9rem';nx.innerHTML='Continue';
+      nx.addEventListener('click',function(){sel[st.id]='added'; if(active<steps.length-1)active++; renderWizard();});
+      f.appendChild(nx); w.appendChild(f);
+    } else if(st.type==='quality'){
+      const g=document.createElement('div'); g.className='qtiers';
+      st.options.forEach(function(o){const b=document.createElement('button');b.className='qt'+(sel[st.id]===o.label?' sel':'');
+        b.innerHTML='<b>'+o.label+(o.badge?' <span class="badge pro" style="position:static">PRO</span>':'')+'</b><small>'+o.desc+'</small><span class="cr">'+o.cr+'</span>';
+        b.addEventListener('click',function(){ if(o.badge){showToast('Pro tier — upgrade to unlock'); } choose(st,o.label,false);}); g.appendChild(b);});
+      w.appendChild(g);
+    }
+    return w;
+  }
+  function updateGen(){
+    const required=steps.filter(function(s){return !s.optional;});
+    const doneN=required.filter(function(s){return sel[s.id]!=null;}).length;
+    const ok=doneN===required.length;
+    const btn=document.getElementById('genBtn'); btn.disabled=!ok;
+    document.getElementById('genMsg').innerHTML=ok?'<b>Ready</b> · all steps complete':('Complete the steps to generate · <b>'+doneN+'/'+required.length+'</b>');
+  }
+  document.getElementById('genBtn').addEventListener('click',function(){ if(this.disabled)return; runGenerate(); });
+
+  function runGenerate(){
+    show(vRes);
+    const inner=document.getElementById('resInner');
+    inner.innerHTML='<div class="gen-anim"><div class="orb"><i>✦</i></div><b>Generating your '+cur.t.toLowerCase()+'…</b><p style="color:var(--gray);margin-top:6px">Applying your Brand DNA</p></div>';
+    setTimeout(function(){
+      let cards='';for(let i=0;i<4;i++){cards+='<div class="rc"><div class="rph"><div class="dots"></div><i class="ph '+cur.ic+'" style="position:relative;z-index:1;font-size:1.6rem"></i></div><div class="rf"><button>Edit</button><button class="alt"><i class="ph ph-export"></i></button></div></div>';}
+      inner.innerHTML='<div class="wzhead" style="margin-top:6px"><span class="ti"><i class="ph-fill '+cur.ic+'"></i></span><div><h1 style="font-family:var(--display);font-weight:800;font-size:1.6rem;letter-spacing:-.02em">Your '+cur.t.toLowerCase()+'</h1><p style="color:var(--gray);font-size:.88rem">On-brand for @lunarbloom · 4 variations</p></div></div><div class="resgrid">'+cards+'</div>';
+    },2200);
+  }
+
+  var toast=document.getElementById('toast'),toastTxt=document.getElementById('toastTxt'),tt;
+  function showToast(m){toastTxt.innerHTML=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove('show');},2400);}
+  window.showToast=showToast;
+  setTimeout(function(){document.querySelector('.reveal').classList.add('lit');},60);
+})();
+</script>
+</body>
+</html>

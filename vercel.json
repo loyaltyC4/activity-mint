@@ -46,6 +46,10 @@
     },
     {
       "src": "^/create/?$",
+      "dest": "/create-tools.html"
+    },
+    {
+      "src": "^/create/composer/?$",
       "dest": "/create.html"
     },
     {

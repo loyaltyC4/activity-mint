@@ -99,15 +99,18 @@ function extractHour(isoString) {
  * @returns {Promise<BrandDNA>}
  */
 async function extractBrandDNA(input) {
-  const { handle, niche, goal, customerDesc } = input
-  const cleanHandle = handle.replace(/^@/, '').trim()
+  const { niche, goal, customerDesc } = input
+  const cleanHandle = (input.handle || '').replace(/^@/, '').trim()
 
-  // ── Layer 1: Parallel data fetch ─────────────────────────────────────────
-  const [profileItems, postItems, audienceItems] = await Promise.all([
-    clusterFetch('profile', { username: cleanHandle }),
-    clusterFetch('posts',   { username: cleanHandle, limit: 30 }),
-    clusterFetch('audience_enrichment', { username: cleanHandle, sample: 20 }).catch(() => []),
-  ])
+  // ── Layer 1: Parallel data fetch (skipped gracefully when no handle) ──────
+  let profileItems = [], postItems = [], audienceItems = []
+  if (cleanHandle) {
+    ;[profileItems, postItems, audienceItems] = await Promise.all([
+      clusterFetch('profile', { username: cleanHandle }).catch(() => []),
+      clusterFetch('posts',   { username: cleanHandle, limit: 30 }).catch(() => []),
+      clusterFetch('audience_enrichment', { username: cleanHandle, sample: 20 }).catch(() => []),
+    ])
+  }
 
   const profile  = profileItems?.[0] || {}
   const posts    = postItems || []
@@ -135,6 +138,7 @@ async function extractBrandDNA(input) {
   let bodyFont       = 'Inter'
   let logoUrl        = profile.profilePicUrlHD || profile.profilePicUrl || null
   const styleKeywords = []
+  let brandNameFromSite = null
 
   if (input.websiteUrl) {
     try {
@@ -146,6 +150,7 @@ async function extractBrandDNA(input) {
       if (brand.fonts?.[0])  headingFont    = brand.fonts[0]
       if (brand.fonts?.[1])  bodyFont       = brand.fonts[1]
       if (brand.logo)        logoUrl        = brand.logo
+      if (brand.name)        brandNameFromSite = brand.name
     } catch {
       // OpenBrand failed — defaults remain
     }
@@ -244,7 +249,7 @@ async function extractBrandDNA(input) {
     niche,
     goal,
     customerDesc:     customerDesc || null,
-    brandName:        profile.fullName || cleanHandle,
+    brandName:        profile.fullName || brandNameFromSite || cleanHandle || 'Your brand',
 
     // Visual (maps to open-carrusel BrandConfig)
     primaryColor,

@@ -66,6 +66,16 @@ const STAGE_MESSAGES = [
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+function classifyInput(raw) {
+  const q = (raw || '').trim(); if (!q) return { type: 'empty' }
+  const s = q.replace(/^https?:\/\//i, '').replace(/^www\./i, ''); const host = s.split('/')[0].toLowerCase()
+  const SOC = { 'instagram.com':'instagram','tiktok.com':'tiktok','facebook.com':'facebook','fb.com':'facebook','youtube.com':'youtube','x.com':'x','twitter.com':'x','linkedin.com':'linkedin','pinterest.com':'pinterest','threads.net':'threads' }
+  for (const d in SOC) { if (host === d || host.endsWith('.' + d)) { const handle = d === 'linkedin.com' ? ((s.match(/linkedin\.com\/(?:company|in|school)\/([^/?#]+)/i) || [])[1] || '') : s.split('/').slice(1).join('/').replace(/^@/, '').split(/[/?#]/)[0]; return { type:'social', platform:SOC[d], handle } } }
+  if (q[0] === '@') return { type:'social', platform:'instagram', handle:q.slice(1).split(/[/?#\s]/)[0] }
+  if (!/\s/.test(s) && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)+(?:\/.*)?$/i.test(s)) return { type:'website', url:'https://' + s, domain:host }
+  return { type:'name', query:q }
+}
+
 export default function BrandDNASetup({ onComplete }) {
   const { accounts, addAccount } = useTrackedAccount()
 
@@ -115,7 +125,7 @@ export default function BrandDNASetup({ onComplete }) {
   function prev() { if (step > 1) setStep(s => s - 1) }
 
   function next() {
-    if (step === 1 && !resolvedHandle()) return
+    if (step === 1 && !resolvedHandle() && !resolvedWebsite()) return
     if (step === 2 && !niche) return
     if (step === 3 && !goal) return
     if (step < 5) setStep(s => s + 1)
@@ -123,7 +133,16 @@ export default function BrandDNASetup({ onComplete }) {
   }
 
   function resolvedHandle() {
-    return handle === '__custom__' ? customHandle.replace('@', '').trim() : handle.trim()
+    if (handle !== '__custom__') return handle.trim()
+    const k = classifyInput(customHandle)
+    if (k.type === 'social') return k.handle
+    if (k.type === 'website') return ''
+    return customHandle.replace('@', '').trim()
+  }
+  function resolvedWebsite() {
+    if (handle !== '__custom__') return ''
+    const k = classifyInput(customHandle)
+    return k.type === 'website' ? k.url : ''
   }
 
   // ── API call ───────────────────────────────────────────────────────────────
@@ -134,10 +153,11 @@ export default function BrandDNASetup({ onComplete }) {
     setProgress(3)
 
     const cleanHandle = resolvedHandle()
-    if (!cleanHandle) { setError('No handle selected'); setStep(4); return }
+    const website = resolvedWebsite()
+    if (!cleanHandle && !website) { setError('Enter a handle or website'); setStep(4); return }
 
     // Ensure the handle is in the tracked accounts
-    await addAccount(cleanHandle)
+    if (cleanHandle) await addAccount(cleanHandle)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -148,7 +168,8 @@ export default function BrandDNASetup({ onComplete }) {
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          handle:      cleanHandle,
+          handle:      cleanHandle || undefined,
+          websiteUrl:  website || undefined,
           niche,
           goal,
           customerDesc: customerDesc.trim() || undefined,
@@ -253,10 +274,10 @@ export default function BrandDNASetup({ onComplete }) {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
                   <Input
                     className="pl-7"
-                    placeholder="handle"
+                    placeholder="handle or website"
                     value={customHandle}
                     onChange={e => {
-                      const v = e.target.value.replace('@', '')
+                      const v = e.target.value
                       setCustomHandle(v)
                       if (v) setHandle('__custom__')
                       else if (accounts.length) setHandle(accounts[0].username)
@@ -264,10 +285,16 @@ export default function BrandDNASetup({ onComplete }) {
                   />
                 </div>
               </div>
+              {handle === '__custom__' && customHandle.trim() && (() => {
+                const k = classifyInput(customHandle)
+                if (k.type === 'website') return <p className="text-xs text-primary font-medium mt-1">🌐 Website detected — we'll pull your colours, fonts &amp; logo via Brandfetch.</p>
+                if (k.type === 'social') return <p className="text-xs text-muted-foreground mt-1">@ Social handle — we'll analyse the last 30 posts.</p>
+                return null
+              })()}
             </div>
           </CardContent>
           <CardFooter className="justify-end">
-            <Button onClick={next} disabled={!resolvedHandle()}>
+            <Button onClick={next} disabled={!resolvedHandle() && !resolvedWebsite()}>
               Continue <ArrowRight className="size-4 ml-1.5" />
             </Button>
           </CardFooter>

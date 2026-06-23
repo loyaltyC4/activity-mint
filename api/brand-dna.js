@@ -29,8 +29,8 @@ export default async function handler(req, res) {
   // ── Validate body ─────────────────────────────────────────────────────────
   const { handle, niche, goal, customerDesc, websiteUrl } = req.body || {}
 
-  if (!handle || typeof handle !== 'string') {
-    return res.status(400).json({ error: 'handle is required' })
+  if ((!handle || typeof handle !== 'string') && (!websiteUrl || typeof websiteUrl !== 'string')) {
+    return res.status(400).json({ error: 'handle or websiteUrl is required' })
   }
   if (!niche || typeof niche !== 'string') {
     return res.status(400).json({ error: 'niche is required' })
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'goal is required' })
   }
 
-  const cleanHandle = handle.replace(/^@/, '').trim().toLowerCase()
+  const cleanHandle = (handle || '').replace(/^@/, '').trim().toLowerCase()
 
   try {
     // ── Extract brand DNA ─────────────────────────────────────────────────

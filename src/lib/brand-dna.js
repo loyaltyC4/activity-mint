@@ -138,7 +138,7 @@ async function extractBrandDNA(input) {
 
   if (input.websiteUrl) {
     try {
-      const { extractBrandFromUrl } = require('./openbrand')
+      const { extractBrandFromUrl } = await import('./openbrand.js')
       const brand = await extractBrandFromUrl(input.websiteUrl)
       if (brand.colors?.[0]) primaryColor   = brand.colors[0]
       if (brand.colors?.[1]) secondaryColor = brand.colors[1]
